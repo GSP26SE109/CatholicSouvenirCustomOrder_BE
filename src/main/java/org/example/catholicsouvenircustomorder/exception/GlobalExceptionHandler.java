@@ -1,0 +1,69 @@
+package org.example.catholicsouvenircustomorder.exception;
+
+import org.example.catholicsouvenircustomorder.dto.BaseResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<BaseResponse> handleValidationException(MethodArgumentNotValidException ex) {
+        String errorMessage = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+
+        return ResponseEntity.badRequest()
+                .body(BaseResponse.error(400, "Dữ liệu không hợp lệ: " + errorMessage));
+    }
+
+    @ExceptionHandler(InsertException.class)
+    public ResponseEntity<BaseResponse> handleInsertException(InsertException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(BaseResponse.error(400, ex.getMessage()));
+    }
+
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<BaseResponse> handleUserAlreadyExists(UserAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(BaseResponse.error(409, ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<BaseResponse> handleInvalidCredentials(InvalidCredentialsException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(BaseResponse.error(401, ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<BaseResponse> handleInvalidToken(InvalidTokenException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(BaseResponse.error(401, ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<BaseResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest()
+                .body(BaseResponse.error(400, ex.getMessage()));
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<BaseResponse> handleRuntimeException(RuntimeException ex) {
+        return ResponseEntity.badRequest()
+                .body(BaseResponse.error(400, ex.getMessage()));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<BaseResponse> handleGenericException(Exception ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(BaseResponse.error(500, "Lỗi hệ thống: " + ex.getMessage()));
+    }
+}
