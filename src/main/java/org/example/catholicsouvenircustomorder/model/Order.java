@@ -9,6 +9,7 @@ import java.util.UUID;
 
 @Entity
 @Data
+@Table(name = "orders")
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -24,8 +25,8 @@ public class Order {
     @JoinColumn(name = "customer_id")
     private Account customer;
 
-    @OneToMany(mappedBy = "order")
+    @OneToMany(mappedBy = "order",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true)
     private List<OrderDetail> orderDetails;
-
-
 }

@@ -13,7 +13,7 @@ public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int productId;
-    private UUID productUuid;
+    private UUID artisanId;
     private String productName;
     private double productPrice;
     private String productDescription;
@@ -26,5 +26,6 @@ public class Product {
 
     @OneToMany(mappedBy = "product")
     private List<OrderDetail> orderDetails;
-
+    @Version
+    private int version;
 }
