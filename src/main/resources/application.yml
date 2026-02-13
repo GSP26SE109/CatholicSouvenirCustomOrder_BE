@@ -18,3 +18,6 @@ spring:
 jwt:
   key: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
   expiration: 86400000
+payos:
+  return-url: https://your-frontend.com/payment-success
+  cancel-url: https://your-frontend.com/payment-cancel

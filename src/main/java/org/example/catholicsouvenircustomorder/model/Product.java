@@ -3,6 +3,7 @@ package org.example.catholicsouvenircustomorder.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -15,7 +16,7 @@ public class Product {
     private int productId;
     private UUID artisanId;
     private String productName;
-    private double productPrice;
+    private BigDecimal productPrice;
     private String productDescription;
     private int quantity;
     private boolean status;

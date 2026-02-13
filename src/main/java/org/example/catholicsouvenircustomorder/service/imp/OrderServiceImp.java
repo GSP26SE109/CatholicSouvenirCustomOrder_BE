@@ -17,6 +17,7 @@ import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,9 +31,10 @@ public class OrderServiceImp implements OrderService {
     private final AccountService accountService;
     private final LocalDateTime currentTime = LocalDateTime.now();
     private ProductService productService;
+
     @Override
     public List<OrderResponseDTO> findAll() {
-        List<Order> list= orderRepository.findAll();
+        List<Order> list = orderRepository.findAll();
         List<OrderResponseDTO> orderResponseDTOS = new ArrayList<>();
         for (Order order : list) {
             orderResponseDTOS.add(mapping(order));
@@ -42,7 +44,7 @@ public class OrderServiceImp implements OrderService {
 
     @Override
     public List<OrderResponseDTO> findAllByAccountId(UUID accountId) {
-        List<Order> list= orderRepository.findByCustomerAccountId(accountId);
+        List<Order> list = orderRepository.findByCustomerAccountId(accountId);
         List<OrderResponseDTO> orderResponseDTOS = new ArrayList<>();
         for (Order order : list) {
             orderResponseDTOS.add(mapping(order));
@@ -52,34 +54,34 @@ public class OrderServiceImp implements OrderService {
 
     @Override
     public OrderResponseDTO findById(UUID id) {
-        Order order=orderRepository.findById(id).orElse(null);
+        Order order = orderRepository.findById(id).orElse(null);
         return mapping(order);
     }
 
     @Override
     @Transactional
     public OrderResponseDTO create(CreateOrderRequest request) {
-        Map<Integer, Product> products=productService.loadAndValidateQuantity(request.getItems());
-        double total=0;
-        List<OrderDetail> orderDetails=new ArrayList<>();
-        for(OrderItemRequest item:request.getItems()) {
-            Product product=products.get(item.getProductId());
+        Map<Integer, Product> products = productService.loadAndValidateQuantity(request.getItems());
+        BigDecimal total=BigDecimal.ZERO;
+        List<OrderDetail> orderDetails = new ArrayList<>();
+        for (OrderItemRequest item : request.getItems()) {
+            Product product = products.get(item.getProductId());
 
-            OrderDetail orderDetail=new OrderDetail();
+            OrderDetail orderDetail = new OrderDetail();
 
-            total+=product.getProductPrice()*item.getQuantity();
-            product.setQuantity(product.getQuantity()-item.getQuantity());
+            total =total.add(product.getProductPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+            product.setQuantity(product.getQuantity() - item.getQuantity());
 
             orderDetail.setProduct(product);
             orderDetail.setQuantity(item.getQuantity());
             orderDetail.setUnitPrice(product.getProductPrice());
-            orderDetail.setSubTotal(product.getProductPrice()*item.getQuantity());
+            orderDetail.setSubTotal(product.getProductPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
             orderDetails.add(orderDetail);
         }
-        Order order=new Order();
+        Order order = new Order();
         order.setOrderDate(request.getOrderDate());
         order.setTotal(total);
-        order.setStatus("CREATED");
+        order.setStatus("PENDING");
         order.setPaymentMethod(request.getPaymentMethod());
         order.setCreateAt(currentTime);
         order.setCustomer(accountService.findAccountById(request.getAccountId()));
@@ -90,11 +92,12 @@ public class OrderServiceImp implements OrderService {
 
     @Override
     public OrderResponseDTO update(UUID orderId, String status) {
-        Order order=orderRepository.findById(orderId).orElse(null);
+        Order order = orderRepository.findById(orderId).orElse(null);
         order.setStatus(status);
         orderRepository.save(order);
         return mapping(order);
     }
+
     @Override
     public OrderResponseDTO createOrderWithRetry(CreateOrderRequest request) {
         int attempts = 0;
@@ -115,26 +118,28 @@ public class OrderServiceImp implements OrderService {
         Order order = orderRepository.findById(orderId).orElse(null);
         orderRepository.delete(order);
     }
+
     private OrderResponseDTO mapping(Order order) {
         return OrderResponseDTO.builder()
-            .orderId(order.getOrderId())
-            .orderDate(order.getOrderDate())
-            .total(order.getTotal())
-            .status(order.getStatus())
-            .paymentMethod(order.getPaymentMethod())
-            .createAt(order.getCreateAt())
-            .customerId(order.getCustomer().getAccountId())
-            .orderDetails(order.getOrderDetails()
-                    .stream()
-                    .map(od -> {
-                        OrderDetailResponseDTO d = new OrderDetailResponseDTO();
-                        d.setId(od.getId());
-                        d.setQuantity(od.getQuantity());
-                        d.setUnitPrice(od.getUnitPrice());
-                        d.setSubTotal(od.getSubTotal());
-                        d.setDiscount(od.getDiscount());
-                        d.setProductId(od.getProduct().getProductId());
-                        return d;
-                    }).toList())
-            .build();}
+                .orderId(order.getOrderId())
+                .orderDate(order.getOrderDate())
+                .total(order.getTotal())
+                .status(order.getStatus())
+                .paymentMethod(order.getPaymentMethod())
+                .createAt(order.getCreateAt())
+                .customerId(order.getCustomer().getAccountId())
+                .orderDetails(order.getOrderDetails()
+                        .stream()
+                        .map(od -> {
+                            OrderDetailResponseDTO d = new OrderDetailResponseDTO();
+                            d.setId(od.getId());
+                            d.setQuantity(od.getQuantity());
+                            d.setUnitPrice(od.getUnitPrice());
+                            d.setSubTotal(od.getSubTotal());
+                            d.setDiscount(od.getDiscount());
+                            d.setProductId(od.getProduct().getProductId());
+                            return d;
+                        }).toList())
+                .build();
+    }
 }

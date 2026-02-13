@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -16,7 +17,7 @@ import java.util.UUID;
 public class OrderResponseDTO {
     private UUID orderId;
     private LocalDateTime orderDate;
-    private double total;
+    private BigDecimal total;
     private String status;
     private String paymentMethod;
     private LocalDateTime createAt;

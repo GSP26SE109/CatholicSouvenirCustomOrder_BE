@@ -3,6 +3,7 @@ package org.example.catholicsouvenircustomorder.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -15,7 +16,7 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID orderId;
     private LocalDateTime orderDate;
-    private double total;
+    private BigDecimal total;
     private String status;
     private String paymentMethod;
     private LocalDateTime createAt;

@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
@@ -14,9 +15,9 @@ import java.util.UUID;
 public class OrderDetailResponseDTO {
     private UUID id;
     private int quantity;
-    private double unitPrice;
-    private double subTotal;
-    private double discount;
+    private BigDecimal unitPrice;
+    private BigDecimal subTotal;
+    private int discount;
 
     private int productId;
 }
