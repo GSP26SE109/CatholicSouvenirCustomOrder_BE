@@ -39,7 +39,7 @@ public class AuthenServiceImp implements AuthenService {
         
 
         Role userRole = roleRepository.findByName("CUSTOMER")
-                .orElseThrow(() -> new RuntimeException("Role USER không tồn tại"));
+                .orElseThrow(() -> new RuntimeException("Role CUSTOMER không tồn tại"));
 
         Account account = new Account();
         account.setFullName(request.getFirstName() + " " + request.getLastName());

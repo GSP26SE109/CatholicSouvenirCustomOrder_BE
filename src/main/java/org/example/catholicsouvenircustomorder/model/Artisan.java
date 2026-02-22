@@ -14,7 +14,6 @@ import java.util.UUID;
 public class Artisan {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int artisanId;
     private UUID artisanUuid;
     private String artisanName;
     private String bio;
