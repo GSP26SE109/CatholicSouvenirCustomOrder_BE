@@ -3,6 +3,7 @@ package org.example.catholicsouvenircustomorder.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -12,9 +13,10 @@ import java.util.UUID;
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private UUID productUuid;
+    private int productId;
+    private UUID artisanId;
     private String productName;
-    private double productPrice;
+    private BigDecimal productPrice;
     private String productDescription;
     private int quantity;
     private boolean status;
@@ -25,5 +27,6 @@ public class Product {
 
     @OneToMany(mappedBy = "product")
     private List<OrderDetail> orderDetails;
-
+    @Version
+    private int version;
 }

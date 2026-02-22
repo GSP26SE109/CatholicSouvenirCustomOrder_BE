@@ -3,6 +3,7 @@ package org.example.catholicsouvenircustomorder.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
@@ -12,8 +13,8 @@ public class OrderDetail {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     private int quantity;
-    private double unitPrice;
-    private double subTotal;
+    private BigDecimal unitPrice;
+    private BigDecimal subTotal;
     private int discount;
 
     @ManyToOne
