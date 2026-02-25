@@ -15,8 +15,9 @@ public class ProductCreateDTO {
     private String productName;
     private BigDecimal productPrice;
     private String productDescription;
+    private String material;
+    private String size;
     private int quantity;
     private boolean status;
     private List<ProductImage> productImages;
-    private List<OrderDetail> orderDetails;
 }

@@ -1,6 +1,9 @@
 package org.example.catholicsouvenircustomorder.dto.request.OrderDTO;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -9,10 +12,11 @@ import java.util.UUID;
 
 @Data
 public class CreateOrderRequest {
-    @NotBlank(message = "Người dùng không được để trống")
+    @NotNull(message = "Người dùng không được để trống")
     private UUID accountId;
     private String paymentMethod;
     private LocalDateTime orderDate;
-    @NotBlank(message = "Cần thêm hàng hoá")
+    @NotEmpty(message = "Cần thêm hàng hoá")
+    @Valid
     private List<OrderItemRequest> items;
 }

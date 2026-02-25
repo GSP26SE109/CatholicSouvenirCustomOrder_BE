@@ -4,17 +4,19 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.CreateOrderRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
-import org.example.catholicsouvenircustomorder.dto.response.Order.OrderDetailResponseDTO;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
+import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.model.Order;
 import org.example.catholicsouvenircustomorder.model.OrderDetail;
 import org.example.catholicsouvenircustomorder.model.Product;
 import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.service.AccountService;
 import org.example.catholicsouvenircustomorder.service.OrderService;
-
 import org.example.catholicsouvenircustomorder.service.ProductService;
+import org.example.catholicsouvenircustomorder.service.Helper.OrderMapper;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -29,117 +31,84 @@ import java.util.UUID;
 public class OrderServiceImp implements OrderService {
     private final OrderRepository orderRepository;
     private final AccountService accountService;
-    private final LocalDateTime currentTime = LocalDateTime.now();
-    private ProductService productService;
+    private final ProductService productService;
+    private final OrderMapper orderMapper;
 
     @Override
     public List<OrderResponseDTO> findAll() {
-        List<Order> list = orderRepository.findAll();
-        List<OrderResponseDTO> orderResponseDTOS = new ArrayList<>();
-        for (Order order : list) {
-            orderResponseDTOS.add(mapping(order));
-        }
-        return orderResponseDTOS;
+        return orderMapper.toResponseList(orderRepository.findAll());
     }
 
     @Override
     public List<OrderResponseDTO> findAllByAccountId(UUID accountId) {
-        List<Order> list = orderRepository.findByCustomerAccountId(accountId);
-        List<OrderResponseDTO> orderResponseDTOS = new ArrayList<>();
-        for (Order order : list) {
-            orderResponseDTOS.add(mapping(order));
-        }
-        return orderResponseDTOS;
+        return orderMapper.toResponseList(orderRepository.findByCustomerAccountId(accountId));
     }
 
     @Override
     public OrderResponseDTO findById(UUID id) {
-        Order order = orderRepository.findById(id).orElse(null);
-        return mapping(order);
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        return orderMapper.toResponse(order);
     }
 
     @Override
+    @Retryable(
+            value = ObjectOptimisticLockingFailureException.class,
+            maxAttempts = 3,
+            backoff = @Backoff(
+                    delay = 100,
+                    multiplier = 2
+            )
+    )
     @Transactional
     public OrderResponseDTO create(CreateOrderRequest request) {
-        Map<Integer, Product> products = productService.loadAndValidateQuantity(request.getItems());
-        BigDecimal total=BigDecimal.ZERO;
+        Map<UUID, Product> products = productService.loadAndValidateQuantity(request.getItems());
+
+        BigDecimal total = BigDecimal.ZERO;
         List<OrderDetail> orderDetails = new ArrayList<>();
+
         for (OrderItemRequest item : request.getItems()) {
             Product product = products.get(item.getProductId());
 
-            OrderDetail orderDetail = new OrderDetail();
-
-            total =total.add(product.getProductPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
-            product.setQuantity(product.getQuantity() - item.getQuantity());
-
+            OrderDetail orderDetail = orderMapper.toOrderDetail(item);
             orderDetail.setProduct(product);
-            orderDetail.setQuantity(item.getQuantity());
             orderDetail.setUnitPrice(product.getProductPrice());
             orderDetail.setSubTotal(product.getProductPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+
+            total = total.add(orderDetail.getSubTotal());
+            product.setQuantity(product.getQuantity() - item.getQuantity());
+
             orderDetails.add(orderDetail);
         }
-        Order order = new Order();
-        order.setOrderDate(request.getOrderDate());
+
+        Order order = orderMapper.toEntity(request);
         order.setTotal(total);
         order.setStatus("PENDING");
-        order.setPaymentMethod(request.getPaymentMethod());
-        order.setCreateAt(currentTime);
+        order.setCreateAt(LocalDateTime.now());
         order.setCustomer(accountService.findAccountById(request.getAccountId()));
+        for (OrderDetail detail : orderDetails) {
+            detail.setOrder(order);
+        }
         order.setOrderDetails(orderDetails);
+
         orderRepository.save(order);
-        return mapping(order);
+        return orderMapper.toResponse(order);
     }
 
     @Override
     public OrderResponseDTO update(UUID orderId, String status) {
-        Order order = orderRepository.findById(orderId).orElse(null);
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
         order.setStatus(status);
         orderRepository.save(order);
-        return mapping(order);
-    }
-
-    @Override
-    public OrderResponseDTO createOrderWithRetry(CreateOrderRequest request) {
-        int attempts = 0;
-        while (true) {
-            try {
-                return create(request);
-            } catch (ObjectOptimisticLockingFailureException e) {
-                attempts++;
-                if (attempts >= 3) {
-                    throw e;
-                }
-            }
-        }
+        return orderMapper.toResponse(order);
     }
 
     @Override
     public void delete(UUID orderId) {
-        Order order = orderRepository.findById(orderId).orElse(null);
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
         orderRepository.delete(order);
     }
 
-    private OrderResponseDTO mapping(Order order) {
-        return OrderResponseDTO.builder()
-                .orderId(order.getOrderId())
-                .orderDate(order.getOrderDate())
-                .total(order.getTotal())
-                .status(order.getStatus())
-                .paymentMethod(order.getPaymentMethod())
-                .createAt(order.getCreateAt())
-                .customerId(order.getCustomer().getAccountId())
-                .orderDetails(order.getOrderDetails()
-                        .stream()
-                        .map(od -> {
-                            OrderDetailResponseDTO d = new OrderDetailResponseDTO();
-                            d.setId(od.getId());
-                            d.setQuantity(od.getQuantity());
-                            d.setUnitPrice(od.getUnitPrice());
-                            d.setSubTotal(od.getSubTotal());
-                            d.setDiscount(od.getDiscount());
-                            d.setProductId(od.getProduct().getProductId());
-                            return d;
-                        }).toList())
-                .build();
-    }
 }

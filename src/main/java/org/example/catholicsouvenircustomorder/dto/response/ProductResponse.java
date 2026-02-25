@@ -1,18 +1,22 @@
-package org.example.catholicsouvenircustomorder.model;
+package org.example.catholicsouvenircustomorder.dto.response;
 
-import jakarta.persistence.*;
+import jakarta.persistence.OneToMany;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.example.catholicsouvenircustomorder.model.ProductImage;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-@Entity
 @Data
-public class Product {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProductResponse {
     private UUID productId;
     private UUID artisanId;
     private String productName;
@@ -23,12 +27,5 @@ public class Product {
     private int quantity;
     private boolean status;
     private LocalDateTime createdAt;
-
-    @OneToMany(mappedBy = "product")
     private List<ProductImage> productImages;
-
-    @OneToMany(mappedBy = "product")
-    private List<OrderDetail> orderDetails;
-    @Version
-    private int version;
 }

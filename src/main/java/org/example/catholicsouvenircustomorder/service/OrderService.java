@@ -11,6 +11,5 @@ public interface OrderService {
     OrderResponseDTO findById(UUID id);
     OrderResponseDTO create(CreateOrderRequest request);
     OrderResponseDTO update(UUID orderId, String status);
-    OrderResponseDTO createOrderWithRetry(CreateOrderRequest request);
     void delete(UUID orderId);
 }
