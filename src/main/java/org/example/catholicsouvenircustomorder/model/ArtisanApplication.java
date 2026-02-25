@@ -1,6 +1,5 @@
 package org.example.catholicsouvenircustomorder.model;
 
-
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -9,29 +8,42 @@ import java.util.UUID;
 
 @Entity
 @Data
-public class Artisan {
+@Table(name = "artisan_application")
+public class ArtisanApplication {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID artisanUuid;
-    
-    @OneToOne
-    @MapsId
-    @JoinColumn(name = "artisan_id")
+    private UUID applicationId;
+
+    @ManyToOne
+    @JoinColumn(name = "account_id", nullable = false)
     private Account account;
-    
+
+    @Column(nullable = false)
     private String artisanName;
+    
+    @Column(length = 1000, nullable = false)
     private String bio;
-    private int experience_year;
+    
+    @Column(nullable = false)
+    private int experienceYear;
+    
     private String portfolioUrl;
+    
+    @Column(nullable = false)
     private String specialization;
-    
+
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private ApplicationStatus status = ApplicationStatus.PENDING;
-    
+
+    @Column(length = 500)
     private String rejectionReason;
-    private LocalDateTime submittedDate;
-    private LocalDateTime reviewedDate;
     
+    @Column(nullable = false)
+    private LocalDateTime submittedDate;
+    
+    private LocalDateTime reviewedDate;
+
     @ManyToOne
     @JoinColumn(name = "reviewed_by")
     private Account reviewedBy;

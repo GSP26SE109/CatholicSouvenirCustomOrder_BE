@@ -27,6 +27,7 @@ public class Account {
     private boolean isVerified = false;
 
     private LocalDateTime created_date;
+    private LocalDateTime updated_date;
 
     @ManyToOne
     @JoinColumn(name = "role_id")
@@ -38,5 +39,8 @@ public class Account {
 
     @OneToMany(mappedBy = "customer")
     private List<Order> orders;
+
+    @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
+    private Artisan artisanProfile;
 
 }

@@ -12,12 +12,14 @@ import java.util.UUID;
 @Data
 public class Product {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int productId;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID productUuid;
     private UUID artisanId;
     private String productName;
     private BigDecimal productPrice;
     private String productDescription;
+    private String size;
+    private String material;
     private int quantity;
     private boolean status;
     private LocalDateTime createdAt;

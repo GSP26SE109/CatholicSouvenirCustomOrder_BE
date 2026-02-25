@@ -11,9 +11,9 @@ import java.util.UUID;
 public interface ProductService {
     List<Product> findAll();
     List<Product> findAllByArtisanId(UUID artisanId);
-    Product findById(int id);
+    Product findById(UUID id);
     Product create(ProductCreateDTO product);
-    Product update(int productId,ProductCreateDTO product);
-    void delete(int productId);
-    public Map<Integer, Product> loadAndValidateQuantity(List<OrderItemRequest> items);
+    Product update(UUID productId,ProductCreateDTO product);
+    void delete(UUID productId);
+    public Map<UUID, Product> loadAndValidateQuantity(List<OrderItemRequest> items);
 }

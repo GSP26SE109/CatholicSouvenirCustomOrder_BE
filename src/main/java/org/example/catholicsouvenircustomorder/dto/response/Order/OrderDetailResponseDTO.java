@@ -19,5 +19,5 @@ public class OrderDetailResponseDTO {
     private BigDecimal subTotal;
     private int discount;
 
-    private int productId;
+    private UUID productId;
 }

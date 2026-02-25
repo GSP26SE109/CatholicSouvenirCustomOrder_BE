@@ -33,7 +33,7 @@ public class ProductServiceImp implements ProductService {
     }
 
     @Override
-    public Product findById(int id) {
+    public Product findById(UUID id) {
         return productRepository.findById(id).orElse(null);
     }
 
@@ -52,7 +52,7 @@ public class ProductServiceImp implements ProductService {
     }
 
     @Override
-    public Product update(int productId, ProductCreateDTO product) {
+    public Product update(UUID productId, ProductCreateDTO product) {
         Product updatedProduct = productRepository.findById(productId)
                 .orElseThrow(() -> new EntityNotFoundException("Product not found"));
         updatedProduct.setArtisanId(product.getArtisanId());
@@ -66,22 +66,22 @@ public class ProductServiceImp implements ProductService {
     }
 
     @Override
-    public void delete(int productId) {
+    public void delete(UUID productId) {
         Product product = productRepository.findById(productId).
                 orElseThrow(() -> new EntityNotFoundException("Product not found"));
         productRepository.delete(product);
     }
     @Override
-    public Map<Integer, Product> loadAndValidateQuantity(List<OrderItemRequest> items) {
+    public Map<UUID, Product> loadAndValidateQuantity(List<OrderItemRequest> items) {
 
-        Map<Integer, Product> products = productRepository
+        Map<UUID, Product> products = productRepository
                 .findAllById(
                         items.stream()
                                 .map(OrderItemRequest::getProductId)
                                 .toList()
                 )
                 .stream()
-                .collect(Collectors.toMap(Product::getProductId, p -> p));
+                .collect(Collectors.toMap(Product::getProductUuid, p -> p));
 
         for (OrderItemRequest item : items) {
             Product product = products.get(item.getProductId());

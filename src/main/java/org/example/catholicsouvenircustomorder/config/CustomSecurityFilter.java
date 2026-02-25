@@ -4,26 +4,31 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.example.catholicsouvenircustomorder.service.AccountService;
+import lombok.RequiredArgsConstructor;
+import org.example.catholicsouvenircustomorder.dto.common.TokenClaims;
+import org.example.catholicsouvenircustomorder.model.Account;
+import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.service.JwtService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
-@Configuration
+@Component
+@RequiredArgsConstructor
 public class CustomSecurityFilter extends OncePerRequestFilter {
 
-    @Autowired
-    private JwtService jwtService;
-
+    private final JwtService jwtService;
+    private final AccountRepository accountRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
@@ -40,8 +45,7 @@ public class CustomSecurityFilter extends OncePerRequestFilter {
             boolean isSuccess = jwtService.decryptToken(token);
             if (isSuccess) {
                 String role = jwtService.getDataToken(token);
-                Integer accountId = jwtService.getAccountIdFromToken(token);
-
+                UUID accountId = jwtService.getAccountIdFromToken(token);
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
                 SimpleGrantedAuthority authority = new SimpleGrantedAuthority(role);
                 authorities.add(authority);

@@ -61,7 +61,7 @@ public class OrderServiceImp implements OrderService {
     @Override
     @Transactional
     public OrderResponseDTO create(CreateOrderRequest request) {
-        Map<Integer, Product> products = productService.loadAndValidateQuantity(request.getItems());
+        Map<UUID, Product> products = productService.loadAndValidateQuantity(request.getItems());
         BigDecimal total=BigDecimal.ZERO;
         List<OrderDetail> orderDetails = new ArrayList<>();
         for (OrderItemRequest item : request.getItems()) {
@@ -137,7 +137,7 @@ public class OrderServiceImp implements OrderService {
                             d.setUnitPrice(od.getUnitPrice());
                             d.setSubTotal(od.getSubTotal());
                             d.setDiscount(od.getDiscount());
-                            d.setProductId(od.getProduct().getProductId());
+                            d.setProductId(od.getProduct().getProductUuid());
                             return d;
                         }).toList())
                 .build();

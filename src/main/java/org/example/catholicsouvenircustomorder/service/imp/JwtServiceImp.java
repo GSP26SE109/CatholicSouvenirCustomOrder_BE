@@ -12,16 +12,17 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class JwtServiceImp implements JwtService {
 
     @Value("${jwt.key}")
     private String keyJWT;
-    
+
     @Value("${jwt.expiration:86400000}") // 24 hours default
     private long jwtExpiration;
-    
+
     // Store invalidated tokens (in production, use Redis)
     private final Set<String> blacklistedTokens = new HashSet<>();
 
@@ -30,7 +31,7 @@ public class JwtServiceImp implements JwtService {
         if (blacklistedTokens.contains(token)) {
             return false;
         }
-        
+
         boolean result = false;
         SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(keyJWT));
         try {
@@ -45,22 +46,27 @@ public class JwtServiceImp implements JwtService {
     @Override
     public String getDataToken(String token) {
         SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(keyJWT));
-        String email = "";
         try {
-            email = Jwts.parser().verifyWith(key).build()
-                    .parseClaimsJws(token).getPayload().getSubject();
-        } catch (Exception e) {
+            return Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload()
+                    .get("role", String.class);
+
+        }catch (Exception e) {
             System.out.println("Decrypt token error : " + e.getMessage());
+            return null;
         }
-        return email;
+
     }
-    
+
     @Override
     public String generateToken(Account account) {
         SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(keyJWT));
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpiration);
-        
+
         return Jwts.builder()
                 .subject(account.getEmail())
                 .claim("accountId", account.getAccountId().toString())
@@ -70,7 +76,7 @@ public class JwtServiceImp implements JwtService {
                 .signWith(key)
                 .compact();
     }
-    
+
     @Override
     public void invalidateToken(String token) {
         blacklistedTokens.add(token);
@@ -78,7 +84,7 @@ public class JwtServiceImp implements JwtService {
 
     @Override
     public boolean isTokenValid(String token) {
-        if(token == null || token.trim().isEmpty()) {
+        if (token == null || token.trim().isEmpty()) {
             return false;
         }
 
@@ -86,15 +92,17 @@ public class JwtServiceImp implements JwtService {
     }
 
     @Override
-    public Integer getAccountIdFromToken(String token) {
+    public UUID getAccountIdFromToken(String token) {
         SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(keyJWT));
         try {
-            return Jwts.parser()
-                    .verifyWith(key)
-                    .build()
-                    .parseClaimsJws(token)
-                    .getPayload()
-                    .get("accountId", Integer.class);
+            return UUID.fromString(
+                    Jwts.parser()
+                            .verifyWith(key)
+                            .build()
+                            .parseSignedClaims(token)
+                            .getPayload()
+                            .get("accountId", String.class)
+            );
         } catch (Exception e) {
             System.out.println("Get accountId from token error: " + e.getMessage());
             return null;

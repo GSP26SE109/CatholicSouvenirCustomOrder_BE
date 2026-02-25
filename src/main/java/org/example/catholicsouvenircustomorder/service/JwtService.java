@@ -1,6 +1,9 @@
 package org.example.catholicsouvenircustomorder.service;
 
+import org.example.catholicsouvenircustomorder.dto.common.TokenClaims;
 import org.example.catholicsouvenircustomorder.model.Account;
+
+import java.util.UUID;
 
 public interface JwtService {
     boolean decryptToken(String token);
@@ -8,5 +11,6 @@ public interface JwtService {
     String generateToken(Account account);
     void invalidateToken(String token);
     boolean isTokenValid(String token);
-    Integer getAccountIdFromToken(String token);
+    UUID getAccountIdFromToken(String token);
+//    TokenClaims getAccountFromToken(String token);
 }
