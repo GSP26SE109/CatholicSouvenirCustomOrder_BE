@@ -25,7 +25,7 @@ public class ProductResponse {
     private String material;
     private String size;
     private int quantity;
-    private boolean status;
+    private String status;
     private LocalDateTime createdAt;
     private List<ProductImage> productImages;
 }

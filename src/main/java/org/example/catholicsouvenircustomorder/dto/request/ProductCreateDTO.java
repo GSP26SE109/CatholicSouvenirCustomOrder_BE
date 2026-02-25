@@ -18,6 +18,5 @@ public class ProductCreateDTO {
     private String material;
     private String size;
     private int quantity;
-    private boolean status;
     private List<ProductImage> productImages;
 }

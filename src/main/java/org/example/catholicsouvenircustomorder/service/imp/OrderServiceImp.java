@@ -47,7 +47,7 @@ public class OrderServiceImp implements OrderService {
     @Override
     public OrderResponseDTO findById(UUID id) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order không tồn tại"));
         return orderMapper.toResponse(order);
     }
 
@@ -98,7 +98,7 @@ public class OrderServiceImp implements OrderService {
     @Override
     public OrderResponseDTO update(UUID orderId, String status) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order không tồn tại"));
         order.setStatus(status);
         orderRepository.save(order);
         return orderMapper.toResponse(order);
@@ -107,7 +107,7 @@ public class OrderServiceImp implements OrderService {
     @Override
     public void delete(UUID orderId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order không tồn tại"));
         orderRepository.delete(order);
     }
 
