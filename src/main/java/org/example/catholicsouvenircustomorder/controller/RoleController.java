@@ -22,7 +22,7 @@ public class RoleController {
     private final RoleService roleService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+//    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse> getAllRoles() {
         try {
             List<RoleResponse> roles = roleService.getAllRole();
@@ -34,7 +34,7 @@ public class RoleController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+//    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse> addRole(@Valid @RequestBody RoleRequest roleRequest) {
         try {
             RoleResponse response = roleService.addRole(roleRequest);
@@ -47,7 +47,7 @@ public class RoleController {
     }
 
     @PutMapping("/{roleId}")
-    @PreAuthorize("hasRole('ADMIN')")
+//    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse> updateRole(
             @PathVariable int roleId,
             @Valid @RequestBody RoleRequest roleRequest) {
@@ -62,7 +62,7 @@ public class RoleController {
     }
 
     @DeleteMapping("/{roleId}")
-    @PreAuthorize("hasRole('ADMIN')")
+//    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse> deleteRole(@PathVariable int roleId) {
         try {
             roleService.deleteRole(roleId);
