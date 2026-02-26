@@ -54,7 +54,7 @@ public class AccountServiceImp implements AccountService {
         account.setAvt_url(request.getAvtUrl());
         account.setRole(role);
         account.setVerified(request.getIsVerified());
-        account.setCreated_date(LocalDateTime.now());
+        account.setCreatedDate(LocalDateTime.now());
 
         if (request.getSaintId() != null) {
             Saint saint = saintRepository.findById(request.getSaintId())
@@ -115,7 +115,7 @@ public class AccountServiceImp implements AccountService {
             account.setVerified(request.getIsVerified());
         }
 
-        account.setUpdated_date(LocalDateTime.now());
+        account.setUpdatedDate(LocalDateTime.now());
 
         Account updatedAccount = accountRepository.save(account);
         return mapToResponse(updatedAccount);
@@ -166,8 +166,8 @@ public class AccountServiceImp implements AccountService {
                 .dateOfBirth(account.getDateOfBirth())
                 .avtUrl(account.getAvt_url())
                 .isVerified(account.isVerified())
-                .createdDate(account.getCreated_date())
-                .updatedDate(account.getUpdated_date())
+                .createdDate(account.getCreatedDate())
+                .updatedDate(account.getUpdatedDate())
                 .roleName(account.getRole() != null ? account.getRole().getName() : null)
                 .roleId(account.getRole() != null ? account.getRole().getRoleId() : null)
                 .saintName(account.getSaint() != null ? account.getSaint().getSaintName() : null)
