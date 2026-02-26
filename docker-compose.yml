@@ -1,23 +1,27 @@
+version: '3.8'
+
+
+
 services:
-  postgres:
-    image: postgres:latest
-    container_name: catholic-souvenir-db
-    environment:
-      POSTGRES_DB: catholic_souvenir
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: 123456
-    ports:
-      - "54321:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql
-      - ./init-data:/docker-entrypoint-initdb.d
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d catholic_souvenir"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  #  postgres:
+  #    image: postgres:latest
+  #    container_name: catholic-souvenir-db
+  #    environment:
+  #      POSTGRES_DB: catholic_souvenir
+  #      POSTGRES_USER: root
+  #      POSTGRES_PASSWORD: 123456
+  #    ports:
+  #      - "54321:5432"
+  #    volumes:
+  #      - postgres_data:/var/lib/postgresql
+  #      - ./init-data:/docker-entrypoint-initdb.d
+  #    networks:
+  #      - app-network
+  #    healthcheck:
+  #      test: ["CMD-SHELL", "pg_isready -U root -d catholic_souvenir"]
+  #      interval: 10s
+  #      timeout: 5s
+  #      retries: 5
 
   app:
     build:
@@ -27,24 +31,24 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/catholic_souvenir
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: 123456
+      SPRING_DATASOURCE_URL: jdbc:postgresql://turntable.proxy.rlwy.net:20593/railway
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: ZGtcbjxPIVqloFKaPddglcgWyeBRLLFb
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: "true"
       JWT_KEY: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
       JWT_EXPIRATION: 86400000
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - app-network
+    #    depends_on:
+    #      postgres:
+    #        condition: service_healthy
+    #    networks:
+    #      - app-network
     restart: unless-stopped
 
-volumes:
-  postgres_data:
-    driver: local
-
-networks:
-  app-network:
-    driver: bridge
+#volumes:
+#  postgres_data:
+#    driver: local
+#
+#networks:
+#  app-network:
+#    driver: bridge
