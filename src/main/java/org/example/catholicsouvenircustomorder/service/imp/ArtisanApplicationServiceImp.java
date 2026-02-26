@@ -54,7 +54,7 @@ public class ArtisanApplicationServiceImp implements ArtisanApplicationService {
         account.setGender(request.getGender());
         account.setDateOfBirth(request.getDateOfBirth());
         account.setRole(customerRole);
-        account.setUpdatedDate(LocalDateTime.now());
+        account.setCreated_date(LocalDateTime.now());
         account.setVerified(false);
 
         Account savedAccount = accountRepository.save(account);
@@ -108,7 +108,7 @@ public class ArtisanApplicationServiceImp implements ArtisanApplicationService {
             
             application.getAccount().setRole(artisanRole);
             application.getAccount().setVerified(true);
-            application.getAccount().setUpdatedDate(LocalDateTime.now());
+            application.getAccount().setUpdated_date(LocalDateTime.now());
 
             // Tạo artisan profile
             Artisan artisan = new Artisan();

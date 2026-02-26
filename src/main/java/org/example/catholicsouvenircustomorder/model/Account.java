@@ -26,10 +26,8 @@ public class Account {
     private String verificationToken;
     private boolean isVerified = false;
 
-    @Column(name = "created_date")
-    private LocalDateTime createdDate;
-    @Column(name = "updated_date")
-    private LocalDateTime updatedDate;
+    private LocalDateTime created_date;
+    private LocalDateTime updated_date;
 
     @ManyToOne
     @JoinColumn(name = "role_id")

@@ -50,7 +50,7 @@ public class AuthenServiceImp implements AuthenService {
         account.setGender(request.getGender());
         account.setDateOfBirth(request.getDateOfBirth());
         account.setRole(userRole);
-        account.setCreatedDate(LocalDateTime.now());
+        account.setCreated_date(LocalDateTime.now());
         account.setVerified(true);
         
         Account savedAccount = accountRepository.save(account);
