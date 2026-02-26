@@ -1,12 +1,10 @@
 package org.example.catholicsouvenircustomorder.controller;
 
-import com.cloudinary.utils.ObjectUtils;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.ProductCreateDTO;
-import org.example.catholicsouvenircustomorder.dto.response.ProductResponse;
+import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
@@ -59,9 +57,9 @@ public class ProductController {
     public ResponseEntity<BaseResponse> create(
             @ModelAttribute CreateProductRequest request) {
 
-        productService.create(request);
+        ProductResponse product=productService.create(request);
 
-        return ResponseEntity.ok(BaseResponse.success("Product created"));
+        return ResponseEntity.ok(BaseResponse.success("Product created",product));
     }
     @PutMapping("/{productId}")
     public ResponseEntity<BaseResponse> update(@PathVariable String productId, @RequestBody ProductCreateDTO dto) {
@@ -71,7 +69,6 @@ public class ProductController {
     @DeleteMapping("/{productId}")
     public ResponseEntity<Void> deleteOrder(@PathVariable String productId) {
         productService.delete(UUID.fromString(productId));
-        cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
         return ResponseEntity.noContent().build();
     }
     @PutMapping("/admin/{productId}")

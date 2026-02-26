@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ProductRepository extends JpaRepository<Product,UUID> {
@@ -22,4 +23,10 @@ public interface ProductRepository extends JpaRepository<Product,UUID> {
             @Param("status") String status,
             Pageable pageable
     );
+    @Query("""
+       SELECT p FROM Product p
+       LEFT JOIN FETCH p.images
+       WHERE p.productId = :id
+       """)
+    Optional<Product> findByIdWithImages(UUID id);
 }

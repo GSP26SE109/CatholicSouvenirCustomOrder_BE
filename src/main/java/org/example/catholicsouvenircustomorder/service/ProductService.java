@@ -3,7 +3,7 @@ package org.example.catholicsouvenircustomorder.service;
 import org.example.catholicsouvenircustomorder.dto.request.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
 import org.example.catholicsouvenircustomorder.dto.request.ProductCreateDTO;
-import org.example.catholicsouvenircustomorder.dto.response.ProductResponse;
+import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.model.Product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,7 +23,7 @@ public interface ProductService {
 
     ProductResponse findById(UUID id);
 
-    Product create(CreateProductRequest request);
+    ProductResponse create(CreateProductRequest request);
 
     ProductResponse update(UUID productId, ProductCreateDTO product);
 

@@ -1,6 +1,5 @@
-package org.example.catholicsouvenircustomorder.dto.response;
+package org.example.catholicsouvenircustomorder.dto.response.Product;
 
-import jakarta.persistence.OneToMany;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,5 +26,5 @@ public class ProductResponse {
     private int quantity;
     private String status;
     private LocalDateTime createdAt;
-    private List<ProductImage> productImages;
+    private List<ProductImageResponse> images;
 }

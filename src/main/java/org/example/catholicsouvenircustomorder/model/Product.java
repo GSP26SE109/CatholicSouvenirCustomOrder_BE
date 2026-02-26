@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,8 +25,8 @@ public class Product {
     private String status;
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "product")
-    private List<ProductImage> productImages;
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductImage> images = new ArrayList<>();
 
     @OneToMany(mappedBy = "product")
     private List<OrderDetail> orderDetails;

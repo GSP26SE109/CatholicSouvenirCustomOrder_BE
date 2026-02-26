@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.request.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
 import org.example.catholicsouvenircustomorder.dto.request.ProductCreateDTO;
-import org.example.catholicsouvenircustomorder.dto.response.ProductResponse;
+import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.model.Product;
 import org.example.catholicsouvenircustomorder.model.ProductImage;
@@ -58,9 +58,10 @@ public class ProductServiceImp implements ProductService {
 
     @Override
     @Transactional
-    public Product create(CreateProductRequest request) {
+    public ProductResponse create(CreateProductRequest request) {
 
         Product product = new Product();
+        product.setArtisanId(request.getArtisanId());
         product.setProductName(request.getProductName());
         product.setProductDescription(request.getProductDescription());
         product.setProductPrice(request.getProductPrice());
@@ -71,7 +72,6 @@ public class ProductServiceImp implements ProductService {
         product.setCreatedAt(LocalDateTime.now());
         productRepository.save(product);
 
-        // Upload image to Cloudinary
         if (request.getImage() != null && !request.getImage().isEmpty()) {
             try {
 
@@ -95,7 +95,7 @@ public class ProductServiceImp implements ProductService {
             }
         }
 
-        return product;
+        return productMapper.toResponse(product);
     }
 
     @Override
@@ -112,9 +112,22 @@ public class ProductServiceImp implements ProductService {
     }
 
     @Override
+    @Transactional
     public void delete(UUID productId) {
-        Product product = productRepository.findById(productId).
-                orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
+
+        for (ProductImage image : product.getImages()) {
+            try {
+                cloudinary.uploader().destroy(
+                        image.getPublicId(),
+                        ObjectUtils.emptyMap()
+                );
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to delete image from Cloudinary");
+            }
+        }
         productRepository.delete(product);
     }
 
