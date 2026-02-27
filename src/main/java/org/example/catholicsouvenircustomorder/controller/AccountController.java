@@ -51,10 +51,10 @@ public class AccountController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdDate") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDirection) {
-
+        
         Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-
+        
         Page<AccountResponse> accounts = accountService.getAllAccounts(pageable);
         return ResponseEntity.ok(BaseResponse.success("Lấy danh sách tài khoản thành công", accounts));
     }

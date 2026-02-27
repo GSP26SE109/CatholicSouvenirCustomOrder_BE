@@ -1,25 +1,27 @@
 version: '3.8'
 
+
+
 services:
-#  postgres:
-#    image: postgres:latest
-#    container_name: catholic-souvenir-db
-#    environment:
-#      POSTGRES_DB: catholic_souvenir
-#      POSTGRES_USER: root
-#      POSTGRES_PASSWORD: 123456
-#    ports:
-#      - "54321:5432"
-#    volumes:
-#      - postgres_data:/var/lib/postgresql
-#      - ./init-data:/docker-entrypoint-initdb.d
-#    networks:
-#      - app-network
-#    healthcheck:
-#      test: ["CMD-SHELL", "pg_isready -U root -d catholic_souvenir"]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 5
+  #  postgres:
+  #    image: postgres:latest
+  #    container_name: catholic-souvenir-db
+  #    environment:
+  #      POSTGRES_DB: catholic_souvenir
+  #      POSTGRES_USER: root
+  #      POSTGRES_PASSWORD: 123456
+  #    ports:
+  #      - "54321:5432"
+  #    volumes:
+  #      - postgres_data:/var/lib/postgresql
+  #      - ./init-data:/docker-entrypoint-initdb.d
+  #    networks:
+  #      - app-network
+  #    healthcheck:
+  #      test: ["CMD-SHELL", "pg_isready -U root -d catholic_souvenir"]
+  #      interval: 10s
+  #      timeout: 5s
+  #      retries: 5
 
   app:
     build:
@@ -36,11 +38,11 @@ services:
       SPRING_JPA_SHOW_SQL: "true"
       JWT_KEY: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
       JWT_EXPIRATION: 86400000
-#    depends_on:
-#      postgres:
-#        condition: service_healthy
-#    networks:
-#      - app-network
+    #    depends_on:
+    #      postgres:
+    #        condition: service_healthy
+    #    networks:
+    #      - app-network
     restart: unless-stopped
 
 #volumes:

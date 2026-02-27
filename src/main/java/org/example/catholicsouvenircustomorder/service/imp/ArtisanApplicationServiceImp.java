@@ -54,7 +54,7 @@ public class ArtisanApplicationServiceImp implements ArtisanApplicationService {
         account.setGender(request.getGender());
         account.setDateOfBirth(request.getDateOfBirth());
         account.setRole(customerRole);
-        account.setUpdatedDate(LocalDateTime.now());
+        account.setCreatedDate(LocalDateTime.now());
         account.setVerified(false);
 
         Account savedAccount = accountRepository.save(account);

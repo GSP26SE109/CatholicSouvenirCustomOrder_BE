@@ -1,9 +1,10 @@
 package org.example.catholicsouvenircustomorder.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.CreateOrderRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
-import org.example.catholicsouvenircustomorder.model.Order;
 import org.example.catholicsouvenircustomorder.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -20,33 +21,33 @@ public class OrderController {
     private OrderService orderService;
 
     @GetMapping()
-    public ResponseEntity<List<OrderResponseDTO>> getAllOrders() {
+    public ResponseEntity<BaseResponse> getAllOrders() {
         List<OrderResponseDTO> orderList = orderService.findAll();
-        return ResponseEntity.ok().body(orderList);
+        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách order thành công",orderList));
     }
 
     @GetMapping("/{orderId}")
-    public ResponseEntity<OrderResponseDTO> getOrderById(@PathVariable String orderId) {
+    public ResponseEntity<BaseResponse> getOrderById(@PathVariable String orderId) {
         OrderResponseDTO order = orderService.findById(UUID.fromString(orderId));
-        return ResponseEntity.ok().body(order);
+        return ResponseEntity.ok(BaseResponse.success("Lấy thông tin order thành công",order));
     }
 
-    @GetMapping("/{accountId}")
-    public ResponseEntity<List<OrderResponseDTO>> getAllOrdersByAccountId(@PathVariable String accountId) {
+    @GetMapping("/account/{accountId}")
+    public ResponseEntity<BaseResponse> getAllOrdersByAccountId(@PathVariable String accountId) {
         List<OrderResponseDTO> orderList = orderService.findAllByAccountId(UUID.fromString(accountId));
-        return ResponseEntity.ok().body(orderList);
+        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách order thành công",orderList));
     }
 
     @PostMapping()
-    public ResponseEntity<OrderResponseDTO> createOrder(@RequestBody CreateOrderRequest request) {
-        OrderResponseDTO order = orderService.createOrderWithRetry(request);
-        return ResponseEntity.ok().body(order);
+    public ResponseEntity<BaseResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {
+        OrderResponseDTO order = orderService.create(request);
+        return ResponseEntity.ok(BaseResponse.success("Tạo order thành công",order));
     }
 
     @PutMapping("/{orderId}")
-    public ResponseEntity<OrderResponseDTO> updateOrder(@PathVariable String orderId, @RequestBody String status) {
+    public ResponseEntity<BaseResponse> updateOrder(@PathVariable String orderId, @RequestBody String status) {
         OrderResponseDTO order = orderService.update(UUID.fromString(orderId), status);
-        return ResponseEntity.ok().body(order);
+        return ResponseEntity.ok(BaseResponse.success("Sửa order thành công",order));
     }
 
     @DeleteMapping("/{orderId}")
