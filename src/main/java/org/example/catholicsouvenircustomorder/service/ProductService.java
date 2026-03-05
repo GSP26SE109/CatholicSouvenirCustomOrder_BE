@@ -23,7 +23,7 @@ public interface ProductService {
 
     ProductResponse findById(UUID id);
 
-    ProductResponse create(CreateProductRequest request);
+    ProductResponse create(CreateProductRequest request, UUID artisanId);
 
     ProductResponse update(UUID productId, ProductCreateDTO product);
 
@@ -31,5 +31,5 @@ public interface ProductService {
 
     Map<UUID, Product> loadAndValidateQuantity(List<OrderItemRequest> items);
 
-    ProductResponse ApproveProduct(UUID productId, String status);
+    ProductResponse ApproveProduct(UUID productId, org.example.catholicsouvenircustomorder.dto.request.ApproveProductRequest request);
 }

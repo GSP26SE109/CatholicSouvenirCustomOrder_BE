@@ -8,8 +8,10 @@ import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemReq
 import org.example.catholicsouvenircustomorder.dto.request.ProductCreateDTO;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
+import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.Product;
 import org.example.catholicsouvenircustomorder.model.ProductImage;
+import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.ProductImageRepository;
 import org.example.catholicsouvenircustomorder.repository.ProductRepository;
 import org.example.catholicsouvenircustomorder.service.Helper.ProductMapper;
@@ -32,6 +34,7 @@ public class ProductServiceImp implements ProductService {
     private final ProductMapper productMapper;
     private final Cloudinary cloudinary;
     private final ProductImageRepository productImageRepository;
+    private final AccountRepository accountRepository;
 
     @Override
     public List<ProductResponse> findAll() {
@@ -58,10 +61,17 @@ public class ProductServiceImp implements ProductService {
 
     @Override
     @Transactional
-    public ProductResponse create(CreateProductRequest request) {
+    public ProductResponse create(CreateProductRequest request, UUID artisanId) {
+        // Validate artisan exists và có role ARTISAN
+        Account artisan = accountRepository.findById(artisanId)
+                .orElseThrow(() -> new ResourceNotFoundException("Artisan không tồn tại"));
+        
+        if (!"ARTISAN".equals(artisan.getRole().getName())) {
+            throw new RuntimeException("Chỉ artisan mới có thể tạo sản phẩm");
+        }
 
+        // Tạo product
         Product product = new Product();
-        product.setArtisanId(request.getArtisanId());
         product.setProductName(request.getProductName());
         product.setProductDescription(request.getProductDescription());
         product.setProductPrice(request.getProductPrice());
@@ -70,11 +80,13 @@ public class ProductServiceImp implements ProductService {
         product.setSize(request.getSize());
         product.setStatus("PENDING");
         product.setCreatedAt(LocalDateTime.now());
-        productRepository.save(product);
+        product.setAccount(artisan);
+        
+        Product savedProduct = productRepository.save(product);
 
+        // Upload image nếu có
         if (request.getImage() != null && !request.getImage().isEmpty()) {
             try {
-
                 Map uploadResult = cloudinary.uploader().upload(
                         request.getImage().getBytes(),
                         ObjectUtils.emptyMap()
@@ -86,16 +98,16 @@ public class ProductServiceImp implements ProductService {
                 ProductImage productImage = new ProductImage();
                 productImage.setImage_url(imageUrl);
                 productImage.setPublicId(publicId);
-                productImage.setProduct(product);
+                productImage.setProduct(savedProduct);
 
                 productImageRepository.save(productImage);
 
             } catch (IOException e) {
-                throw new RuntimeException("Upload hình ảnh thất bại");
+                throw new RuntimeException("Upload hình ảnh thất bại: " + e.getMessage());
             }
         }
 
-        return productMapper.toResponse(product);
+        return productMapper.toResponse(savedProduct);
     }
 
     @Override
@@ -153,12 +165,21 @@ public class ProductServiceImp implements ProductService {
     }
 
     @Override
-    public ProductResponse ApproveProduct(UUID productId, String status) {
+    public ProductResponse ApproveProduct(UUID productId, org.example.catholicsouvenircustomorder.dto.request.ApproveProductRequest request) {
 
         Product existingProduct = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
 
-        existingProduct.setStatus(status);
+        // Validate: nếu REJECTED thì phải có lý do
+        if ("REJECTED".equals(request.getStatus()) && 
+            (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty())) {
+            throw new RuntimeException("Lý do từ chối không được để trống khi từ chối sản phẩm");
+        }
+
+        existingProduct.setStatus(request.getStatus());
+        
+        // Lưu lý do từ chối nếu có (cần thêm field rejectionReason vào Product model)
+        // existingProduct.setRejectionReason(request.getRejectionReason());
 
         Product saved = productRepository.save(existingProduct);
 

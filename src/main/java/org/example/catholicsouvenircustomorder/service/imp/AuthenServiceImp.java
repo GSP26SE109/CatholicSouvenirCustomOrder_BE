@@ -3,6 +3,7 @@ package org.example.catholicsouvenircustomorder.service.imp;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.request.LoginRequest;
 import org.example.catholicsouvenircustomorder.dto.request.RegisterRequest;
+import org.example.catholicsouvenircustomorder.dto.response.AuthenResponse;
 import org.example.catholicsouvenircustomorder.dto.response.LoginResponse;
 import org.example.catholicsouvenircustomorder.dto.response.RegisterResponse;
 import org.example.catholicsouvenircustomorder.model.Account;
@@ -65,7 +66,7 @@ public class AuthenServiceImp implements AuthenService {
     }
 
     @Override
-    public String login(LoginRequest request) {
+    public AuthenResponse login(LoginRequest request) {
         Account account = accountRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Email hoặc mật khẩu không đúng"));
 
@@ -77,7 +78,13 @@ public class AuthenServiceImp implements AuthenService {
             throw new RuntimeException("Tài khoản chưa được xác thực");
         }
 
-        return jwtService.generateToken(account);
+        String token = jwtService.generateToken(account);
+        return AuthenResponse.builder()
+                .accountId(account.getAccountId())
+                .email(account.getEmail())
+                .roleName(account.getRole().getName())
+                .token(token)
+                .build();
     }
 
     @Override

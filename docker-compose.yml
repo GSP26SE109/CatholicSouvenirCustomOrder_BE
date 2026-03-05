@@ -38,6 +38,9 @@ services:
       SPRING_JPA_SHOW_SQL: "true"
       JWT_KEY: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
       JWT_EXPIRATION: 86400000
+      CLOUDINARY_CLOUD_NAME: daiwsshlm
+      CLOUDINARY_API_KEY: 931731612755631
+      CLOUDINARY_API_SECRET: gCO38ygVl0ZeEUR8CFdjTNXbu8M
     #    depends_on:
     #      postgres:
     #        condition: service_healthy
