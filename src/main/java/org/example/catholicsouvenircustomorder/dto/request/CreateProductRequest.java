@@ -10,7 +10,6 @@ import java.util.UUID;
 
 @Data
 public class CreateProductRequest {
-    private UUID artisanId;
     @NotBlank(message = "Product name is required")
     private String productName;
 

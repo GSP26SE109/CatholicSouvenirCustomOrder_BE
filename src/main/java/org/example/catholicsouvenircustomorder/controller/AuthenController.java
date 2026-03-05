@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.LoginRequest;
 import org.example.catholicsouvenircustomorder.dto.request.RegisterRequest;
+import org.example.catholicsouvenircustomorder.dto.response.AuthenResponse;
 import org.example.catholicsouvenircustomorder.dto.response.RegisterResponse;
 import org.example.catholicsouvenircustomorder.exception.InvalidTokenException;
 import org.example.catholicsouvenircustomorder.service.AuthenService;
@@ -29,8 +30,8 @@ public class AuthenController {
 
     @PostMapping("/login")
     public ResponseEntity<BaseResponse> login(@Valid @RequestBody LoginRequest request) {
-        String token = authenService.login(request);
-        return ResponseEntity.ok(BaseResponse.success("Đăng nhập thành công", token));
+        AuthenResponse response = authenService.login(request);
+        return ResponseEntity.ok(BaseResponse.success("Đăng nhập thành công", response));
     }
 
     @PostMapping("/logout")

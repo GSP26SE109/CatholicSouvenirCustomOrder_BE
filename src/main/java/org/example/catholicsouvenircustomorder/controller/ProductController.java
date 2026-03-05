@@ -1,7 +1,9 @@
 package org.example.catholicsouvenircustomorder.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
+import org.example.catholicsouvenircustomorder.dto.request.ApproveProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.ProductCreateDTO;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
@@ -13,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,8 +35,8 @@ public class ProductController {
     }
 
     @GetMapping("/artisan/{artisanId}")
-    public ResponseEntity<BaseResponse> getAllByArtisanId(
-            @PathVariable UUID artisanId,
+    public ResponseEntity<BaseResponse> getMyProducts(
+            @AuthenticationPrincipal UUID artisanId,
             @RequestParam(required = false) String status,
             @ParameterObject
             @PageableDefault(page = 0, size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
@@ -55,9 +58,9 @@ public class ProductController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<BaseResponse> create(
-            @ModelAttribute CreateProductRequest request) {
+            @ModelAttribute CreateProductRequest request, @AuthenticationPrincipal UUID accountId) {
 
-        ProductResponse product=productService.create(request);
+        ProductResponse product=productService.create(request, accountId);
 
         return ResponseEntity.ok(BaseResponse.success("Product created",product));
     }
@@ -72,8 +75,15 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
     @PutMapping("/admin/{productId}")
-    public ResponseEntity<BaseResponse> approveProduct(@PathVariable String productId, @RequestBody String status) {
-        ProductResponse product = productService.ApproveProduct(UUID.fromString(productId), status);
-        return ResponseEntity.ok(BaseResponse.success("Hoàn thành!",product));
+    public ResponseEntity<BaseResponse> approveProduct(
+            @PathVariable UUID productId, 
+            @Valid @RequestBody ApproveProductRequest request) {
+        ProductResponse product = productService.ApproveProduct(productId, request);
+        
+        String message = "APPROVED".equals(request.getStatus()) 
+            ? "Phê duyệt sản phẩm thành công" 
+            : "Từ chối sản phẩm thành công";
+            
+        return ResponseEntity.ok(BaseResponse.success(message, product));
     }
 }

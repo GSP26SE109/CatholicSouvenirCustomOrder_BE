@@ -12,10 +12,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ProductRepository extends JpaRepository<Product,UUID> {
-    List<Product> findByArtisanId(UUID artisanId);
+
     @Query("""
        SELECT p FROM Product p
-       WHERE p.artisanId = :artisanId
+       WHERE p.account = :artisanId
        AND (:status IS NULL OR p.status = :status)
        """)
     Page<Product> findByArtisanIdWithOptionalStatus(

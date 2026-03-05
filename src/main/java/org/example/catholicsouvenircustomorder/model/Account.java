@@ -26,6 +26,8 @@ public class Account {
     private String verificationToken;
     private boolean isVerified = false;
 
+
+
     @Column(name = "created_date")
     private LocalDateTime createdDate;
     @Column(name = "updated_date")
@@ -44,5 +46,10 @@ public class Account {
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     private Artisan artisanProfile;
+
+    @OneToMany(mappedBy = "account")
+    private List<Product> productList;
+
+
 
 }

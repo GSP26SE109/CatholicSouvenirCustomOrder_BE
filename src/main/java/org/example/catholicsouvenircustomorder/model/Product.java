@@ -15,7 +15,6 @@ public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID productId;
-    private UUID artisanId;
     private String productName;
     private BigDecimal productPrice;
     private String productDescription;
@@ -30,6 +29,13 @@ public class Product {
 
     @OneToMany(mappedBy = "product")
     private List<OrderDetail> orderDetails;
+
+
+    @ManyToOne
+    @JoinColumn(name = "account_id")
+    private Account account;
+
+
     @Version
     private int version;
 }

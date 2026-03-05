@@ -17,14 +17,16 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ProductResponse {
     private UUID productId;
-    private UUID artisanId;
     private String productName;
     private BigDecimal productPrice;
     private String productDescription;
     private String material;
     private String size;
     private int quantity;
+    private UUID artisanId;
+    private String artisanName;
     private String status;
     private LocalDateTime createdAt;
     private List<ProductImageResponse> images;
+
 }
