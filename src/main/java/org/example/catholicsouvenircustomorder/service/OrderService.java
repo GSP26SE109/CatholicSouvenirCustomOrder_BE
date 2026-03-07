@@ -12,4 +12,5 @@ public interface OrderService {
     OrderResponseDTO create(CreateOrderRequest request);
     OrderResponseDTO update(UUID orderId, String status);
     void delete(UUID orderId);
+    List<OrderResponseDTO> findAllOrderByArtisanId(UUID artisanId);
 }

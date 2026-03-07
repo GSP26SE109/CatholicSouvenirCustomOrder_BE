@@ -44,5 +44,6 @@ public class Account {
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     private Artisan artisanProfile;
-
+    @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
+    private Cart cart;
 }

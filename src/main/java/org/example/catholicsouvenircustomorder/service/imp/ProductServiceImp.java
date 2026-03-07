@@ -3,20 +3,24 @@ package org.example.catholicsouvenircustomorder.service.imp;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
-import org.example.catholicsouvenircustomorder.dto.request.CreateProductRequest;
+import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
-import org.example.catholicsouvenircustomorder.dto.request.ProductCreateDTO;
+import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
+import org.example.catholicsouvenircustomorder.model.Artisan;
 import org.example.catholicsouvenircustomorder.model.Product;
 import org.example.catholicsouvenircustomorder.model.ProductImage;
+import org.example.catholicsouvenircustomorder.repository.ArtisanRepository;
 import org.example.catholicsouvenircustomorder.repository.ProductImageRepository;
 import org.example.catholicsouvenircustomorder.repository.ProductRepository;
-import org.example.catholicsouvenircustomorder.service.Helper.ProductMapper;
+import org.example.catholicsouvenircustomorder.Utils.Helper.ProductMapper;
+import org.example.catholicsouvenircustomorder.service.ProductImageService;
 import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -31,7 +35,8 @@ public class ProductServiceImp implements ProductService {
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
     private final Cloudinary cloudinary;
-    private final ProductImageRepository productImageRepository;
+    private final ProductImageService productImageService;
+    private final ArtisanRepository artisanRepository;
 
     @Override
     public List<ProductResponse> findAll() {
@@ -61,7 +66,7 @@ public class ProductServiceImp implements ProductService {
     public ProductResponse create(CreateProductRequest request) {
 
         Product product = new Product();
-        product.setArtisanId(request.getArtisanId());
+        product.setArtisan(artisanRepository.findById(request.getArtisanId()).orElseThrow(() -> new ResourceNotFoundException("Artisan này không tồn tại")));
         product.setProductName(request.getProductName());
         product.setProductDescription(request.getProductDescription());
         product.setProductPrice(request.getProductPrice());
@@ -72,40 +77,24 @@ public class ProductServiceImp implements ProductService {
         product.setCreatedAt(LocalDateTime.now());
         productRepository.save(product);
 
-        if (request.getImage() != null && !request.getImage().isEmpty()) {
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
             try {
-
-                Map uploadResult = cloudinary.uploader().upload(
-                        request.getImage().getBytes(),
-                        ObjectUtils.emptyMap()
-                );
-
-                String imageUrl = uploadResult.get("secure_url").toString();
-                String publicId = uploadResult.get("public_id").toString();
-
-                ProductImage productImage = new ProductImage();
-                productImage.setImage_url(imageUrl);
-                productImage.setPublicId(publicId);
-                productImage.setProduct(product);
-
-                productImageRepository.save(productImage);
-
+                productImageService.addNewImage(product.getProductId(), request.getImages());
             } catch (IOException e) {
                 throw new RuntimeException("Upload hình ảnh thất bại");
             }
         }
-
         return productMapper.toResponse(product);
     }
 
     @Override
-    public ProductResponse update(UUID productId, ProductCreateDTO dto) {
+    public ProductResponse update(UUID productId, UpdateProductRequest dto) {
 
         Product existingProduct = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
 
         productMapper.updateProductFromDto(dto, existingProduct);
-
+        productImageService.updateImages(productId,dto.getImages());
         Product saved = productRepository.save(existingProduct);
 
         return productMapper.toResponse(saved);

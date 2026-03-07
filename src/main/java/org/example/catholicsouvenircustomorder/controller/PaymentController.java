@@ -53,7 +53,7 @@ public class PaymentController {
     @PostMapping("/{orderId}")
     public ResponseEntity<String> createPayment(@PathVariable String orderId,
                                                 @RequestParam(required = false) String stageId) {
-        String paymentUrl = paymentService.createPayment(UUID.fromString(orderId), UUID.fromString(stageId));
+        String paymentUrl = paymentService.createPaymentByPayOS(UUID.fromString(orderId), UUID.fromString(stageId));
         return ResponseEntity.ok(paymentUrl);
     }
 }

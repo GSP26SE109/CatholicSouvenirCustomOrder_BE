@@ -1,4 +1,4 @@
-package org.example.catholicsouvenircustomorder.dto.request;
+package org.example.catholicsouvenircustomorder.dto.request.Product;
 import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.List;
 
 @Data
 public class CreateProductRequest {
@@ -25,6 +26,5 @@ public class CreateProductRequest {
     private Integer quantity;
     private String material;
     private String size;
-    // Image file from form-data
-    private MultipartFile image;
+    private List<MultipartFile> images;
 }
