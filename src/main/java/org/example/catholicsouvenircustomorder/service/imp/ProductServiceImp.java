@@ -78,7 +78,7 @@ public class ProductServiceImp implements ProductService {
 
         // Tạo product
         Product product = new Product();
-        product.setArtisan(artisanRepository.findById(request.getArtisanId()).orElseThrow(() -> new ResourceNotFoundException("Artisan này không tồn tại")));
+        product.setArtisan(artisanRepository.findById(artisanId).orElseThrow(() -> new ResourceNotFoundException("Artisan này không tồn tại")));
         product.setProductName(request.getProductName());
         product.setProductDescription(request.getProductDescription());
         product.setProductPrice(request.getProductPrice());

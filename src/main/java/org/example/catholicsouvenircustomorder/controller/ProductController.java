@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.ApproveProductRequest;
-import org.example.catholicsouvenircustomorder.dto.request.ProductCreateDTO;
 import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
