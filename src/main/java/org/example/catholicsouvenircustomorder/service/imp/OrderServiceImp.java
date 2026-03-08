@@ -13,7 +13,7 @@ import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.service.AccountService;
 import org.example.catholicsouvenircustomorder.service.OrderService;
 import org.example.catholicsouvenircustomorder.service.ProductService;
-import org.example.catholicsouvenircustomorder.service.Helper.OrderMapper;
+import org.example.catholicsouvenircustomorder.Utils.Helper.OrderMapper;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -110,5 +110,11 @@ public class OrderServiceImp implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order không tồn tại"));
         orderRepository.delete(order);
     }
+
+    @Override
+    public List<OrderResponseDTO> findAllOrderByArtisanId(UUID artisanId) {
+        return orderMapper.toResponseList(orderRepository.findOrdersByArtisanId(artisanId));
+    }
+
 
 }

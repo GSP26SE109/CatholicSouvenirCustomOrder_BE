@@ -37,7 +37,11 @@ public class OrderController {
         List<OrderResponseDTO> orderList = orderService.findAllByAccountId(UUID.fromString(accountId));
         return ResponseEntity.ok(BaseResponse.success("Lấy danh sách order thành công",orderList));
     }
-
+    @GetMapping("/artisan/{artisanId}")
+    public ResponseEntity<BaseResponse> getAllOrdersByArtisanId(@PathVariable String artisanId) {
+        List<OrderResponseDTO> orderList = orderService.findAllOrderByArtisanId(UUID.fromString(artisanId));
+        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách order thành công",orderList));
+    }
     @PostMapping()
     public ResponseEntity<BaseResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {
         OrderResponseDTO order = orderService.create(request);

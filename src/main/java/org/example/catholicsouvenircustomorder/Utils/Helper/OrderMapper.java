@@ -1,4 +1,4 @@
-package org.example.catholicsouvenircustomorder.service.Helper;
+package org.example.catholicsouvenircustomorder.Utils.Helper;
 
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.CreateOrderRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
@@ -22,11 +22,13 @@ public interface OrderMapper {
     OrderDetailResponseDTO toDetailResponse(OrderDetail detail);
 
     List<OrderDetailResponseDTO> toDetailResponseList(List<OrderDetail> details);
-
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "orderId", ignore = true)
     @Mapping(target = "orderDetails", source = "items")
     Order toEntity(CreateOrderRequest dto);
 
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "order", ignore = true)
     @Mapping(target = "product", ignore = true)

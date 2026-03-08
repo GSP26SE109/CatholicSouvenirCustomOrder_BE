@@ -1,8 +1,8 @@
 package org.example.catholicsouvenircustomorder.service;
 
-import org.example.catholicsouvenircustomorder.dto.request.CreateProductRequest;
+import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
-import org.example.catholicsouvenircustomorder.dto.request.ProductCreateDTO;
+import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.model.Product;
 import org.springframework.data.domain.Page;
@@ -25,7 +25,7 @@ public interface ProductService {
 
     ProductResponse create(CreateProductRequest request, UUID artisanId);
 
-    ProductResponse update(UUID productId, ProductCreateDTO product);
+    ProductResponse update(UUID productId, UpdateProductRequest product);
 
     void delete(UUID productId);
 
