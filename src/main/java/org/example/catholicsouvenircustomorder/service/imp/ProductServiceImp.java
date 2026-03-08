@@ -10,7 +10,6 @@ import org.example.catholicsouvenircustomorder.dto.response.Product.ProductRespo
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.Product;
-import org.example.catholicsouvenircustomorder.model.Artisan;
 import org.example.catholicsouvenircustomorder.model.ProductImage;
 import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.ArtisanRepository;
@@ -22,7 +21,6 @@ import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -87,7 +85,6 @@ public class ProductServiceImp implements ProductService {
         product.setSize(request.getSize());
         product.setStatus("PENDING");
         product.setCreatedAt(LocalDateTime.now());
-        product.setAccount(artisan);
         
         Product savedProduct = productRepository.save(product);
 

@@ -13,5 +13,5 @@ import java.util.UUID;
 @NoArgsConstructor
 public class ProductImageResponse {
     private UUID id;
-    private String imageUrl;
+    private String image_url;
 }

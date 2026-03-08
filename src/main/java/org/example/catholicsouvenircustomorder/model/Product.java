@@ -33,12 +33,6 @@ public class Product {
     @OneToMany(mappedBy = "product")
     private List<OrderDetail> orderDetails;
 
-
-    @ManyToOne
-    @JoinColumn(name = "account_id")
-    private Account account;
-
-
     @Version
     private int version;
 }
