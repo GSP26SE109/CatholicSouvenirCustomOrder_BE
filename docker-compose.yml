@@ -1,7 +1,3 @@
-version: '3.8'
-
-
-
 services:
   #  postgres:
   #    image: postgres:latest
@@ -41,6 +37,11 @@ services:
       CLOUDINARY_CLOUD_NAME: daiwsshlm
       CLOUDINARY_API_KEY: 931731612755631
       CLOUDINARY_API_SECRET: gCO38ygVl0ZeEUR8CFdjTNXbu8M
+
+        # Redis (Railway)
+      SPRING_DATA_REDIS_HOST: redis.railway.internal
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: mSHFRpHguqfAQFilEvExDaEFTFGUdyEC
     #    depends_on:
     #      postgres:
     #        condition: service_healthy
@@ -50,6 +51,34 @@ services:
 
 #volumes:
 #  postgres_data:
+#    driver: local
+#
+#  app:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    container_name: catholic-souvenir-app
+#    ports:
+#      - "8080:8080"
+#    environment:
+#      SPRING_DATASOURCE_URL: jdbc:postgresql://turntable.proxy.rlwy.net:20593/railway
+#      SPRING_DATASOURCE_USERNAME: postgres
+#      SPRING_DATASOURCE_PASSWORD: ZGtcbjxPIVqloFKaPddglcgWyeBRLLFb
+#      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+#      SPRING_JPA_SHOW_SQL: "true"
+#      JWT_KEY: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
+#      JWT_EXPIRATION: 86400000
+#    #    depends_on:
+#    #      postgres:
+#    #        condition: service_healthy
+#    #    networks:
+#    #      - app-network
+#    restart: unless-stopped
+
+#volumes:
+#  postgres_data:
+#    driver: local
+#  redis_data:
 #    driver: local
 #
 #networks:

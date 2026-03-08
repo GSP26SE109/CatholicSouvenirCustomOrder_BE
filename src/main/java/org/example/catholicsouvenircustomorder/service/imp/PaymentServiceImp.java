@@ -9,14 +9,12 @@ import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.repository.PaymentRepository;
 import org.example.catholicsouvenircustomorder.repository.ProductRepository;
 import org.example.catholicsouvenircustomorder.repository.StageRepository;
-import org.example.catholicsouvenircustomorder.service.OrderService;
 import org.example.catholicsouvenircustomorder.service.PaymentService;
 import org.example.catholicsouvenircustomorder.service.thirdParty.PayOSClient;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.UUID;
 @Service
 @RequiredArgsConstructor
@@ -29,7 +27,7 @@ public class PaymentServiceImp implements PaymentService {
 
     @Override
     @Transactional
-    public String createPayment(UUID orderId, UUID stageId) {
+    public String createPaymentByPayOS(UUID orderId, UUID stageId) {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow();

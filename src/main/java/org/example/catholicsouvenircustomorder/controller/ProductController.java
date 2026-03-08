@@ -4,8 +4,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.ApproveProductRequest;
-import org.example.catholicsouvenircustomorder.dto.request.CreateProductRequest;
-import org.example.catholicsouvenircustomorder.dto.request.ProductCreateDTO;
+import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
+import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.springdoc.core.annotations.ParameterObject;
@@ -65,7 +65,7 @@ public class ProductController {
         return ResponseEntity.ok(BaseResponse.success("Product created",product));
     }
     @PutMapping("/{productId}")
-    public ResponseEntity<BaseResponse> update(@PathVariable String productId, @RequestBody ProductCreateDTO dto) {
+    public ResponseEntity<BaseResponse> update(@PathVariable String productId, @RequestBody UpdateProductRequest dto) {
         ProductResponse product = productService.update(UUID.fromString(productId), dto);
         return ResponseEntity.ok(BaseResponse.success("Sửa product thành công",product));
     }

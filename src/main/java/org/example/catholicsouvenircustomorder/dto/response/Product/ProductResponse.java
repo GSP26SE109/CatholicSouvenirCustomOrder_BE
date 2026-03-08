@@ -28,5 +28,4 @@ public class ProductResponse {
     private String status;
     private LocalDateTime createdAt;
     private List<ProductImageResponse> images;
-
 }

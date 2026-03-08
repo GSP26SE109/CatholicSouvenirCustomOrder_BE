@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -35,4 +37,9 @@ public class Artisan {
     @ManyToOne
     @JoinColumn(name = "reviewed_by")
     private Account reviewedBy;
+
+    @OneToMany(mappedBy = "artisan",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true)
+    private List<Product> products = new ArrayList<>();
 }
