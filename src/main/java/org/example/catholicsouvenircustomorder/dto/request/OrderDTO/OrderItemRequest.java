@@ -2,13 +2,14 @@ package org.example.catholicsouvenircustomorder.dto.request.OrderDTO;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
 import java.util.UUID;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OrderItemRequest {
     @NotNull(message = "Product ID is required")
     private UUID productId;
