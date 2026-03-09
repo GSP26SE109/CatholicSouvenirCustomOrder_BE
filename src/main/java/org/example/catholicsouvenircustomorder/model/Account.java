@@ -1,6 +1,7 @@
 package org.example.catholicsouvenircustomorder.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -42,12 +43,15 @@ public class Account {
     private Saint saint;
 
     @OneToMany(mappedBy = "customer")
+    @JsonIgnore
     private List<Order> orders;
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
+    @JsonIgnore
     private Artisan artisanProfile;
 
     @OneToMany(mappedBy = "account")
+    @JsonIgnore
     private List<Product> productList;
 
 

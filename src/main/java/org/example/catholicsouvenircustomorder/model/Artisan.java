@@ -1,6 +1,7 @@
 package org.example.catholicsouvenircustomorder.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -17,6 +18,7 @@ public class Artisan {
     @OneToOne
     @MapsId
     @JoinColumn(name = "artisan_id")
+    @JsonIgnore
     private Account account;
     
     private String artisanName;
@@ -34,5 +36,6 @@ public class Artisan {
     
     @ManyToOne
     @JoinColumn(name = "reviewed_by")
+    @JsonIgnore
     private Account reviewedBy;
 }

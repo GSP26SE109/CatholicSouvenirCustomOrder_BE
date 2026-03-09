@@ -62,7 +62,7 @@ public class ProductController {
 
         ProductResponse product=productService.create(request, accountId);
 
-        return ResponseEntity.ok(BaseResponse.success("Product created",product));
+        return ResponseEntity.ok(BaseResponse.success("Tạo sản phẩm thành công",product));
     }
     @PutMapping("/{productId}")
     public ResponseEntity<BaseResponse> update(@PathVariable String productId, @RequestBody ProductCreateDTO dto) {
