@@ -22,6 +22,49 @@ data:
 jwt:
   key: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
   expiration: 86400000
+
 payos:
   return-url: https://your-frontend.com/payment-success
   cancel-url: https://your-frontend.com/payment-cancel
+
+# AI Configuration
+ai:
+  image:
+    # Options: huggingface (FREE), stable-diffusion (FREE self-hosted), openai (PAID)
+    provider: huggingface
+
+# Hugging Face (FREE - 1000 requests/month)
+# Get free API key at: https://huggingface.co/settings/tokens
+huggingface:
+  api:
+    key: ${HUGGINGFACE_API_KEY:}
+
+# Stable Diffusion (FREE - Self-hosted)
+# Install: https://github.com/AUTOMATIC1111/stable-diffusion-webui
+# Run with: ./webui.sh --api
+stable-diffusion:
+  api:
+    url: ${STABLE_DIFFUSION_URL:http://localhost:7860}
+
+# OpenAI (PAID - Optional)
+openai:
+  api:
+    key: ${OPENAI_API_KEY:}
+
+
+zalopay:
+  app-id: ${ZALOPAY_APP_ID:554}
+  key1: ${ZALOPAY_KEY1:8NdU5pG5R2spGHGhyO99HN1OhD8IQJBn}
+  key2: ${ZALOPAY_KEY2:uUfsWgfLkRLzq6W2uNXTCxrfxs51auny}
+  endpoint: https://sb-openapi.zalopay.vn/v2/create
+  callback-url: ${ZALOPAY_CALLBACK_URL:http://localhost:8080/api/payments/zalopay/callback}
+
+
+vnpay:
+  tmn-code: ${VNPAY_TMN_CODE:A1F15ZBS}
+  hash-secret: ${VNPAY_HASH_SECRET:I8GJ3NOJ5A6X74QB41YUKWCWAB17A90R}
+  url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/payments/vnpay/callback}
+  version: 2.1.0
+  command: pay
+  order-type: other
