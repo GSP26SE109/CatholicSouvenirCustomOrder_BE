@@ -1,59 +1,102 @@
 package org.example.catholicsouvenircustomorder.controller;
 
-import jakarta.transaction.Transactional;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.example.catholicsouvenircustomorder.model.Order;
-import org.example.catholicsouvenircustomorder.model.Payment;
-import org.example.catholicsouvenircustomorder.model.Stage;
-import org.example.catholicsouvenircustomorder.service.imp.PaymentServiceImp;
+import lombok.extern.slf4j.Slf4j;
+import org.example.catholicsouvenircustomorder.dto.BaseResponse;
+import org.example.catholicsouvenircustomorder.dto.response.PaymentResponse;
+import org.example.catholicsouvenircustomorder.dto.response.VNPayCallbackResponse;
+import org.example.catholicsouvenircustomorder.dto.response.ZaloPayCallbackResponse;
+import org.example.catholicsouvenircustomorder.model.PaymentMethod;
+import org.example.catholicsouvenircustomorder.service.PaymentService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @RestController
-@RequestMapping("/api/payment")
+@RequestMapping("/api/payments")
 @RequiredArgsConstructor
 public class PaymentController {
-    private final PaymentServiceImp paymentService;
-
-    @PostMapping("/webhook")
-    @Transactional
-    public ResponseEntity<Void> webhook(@RequestBody Map<String, Object> payload) {
-
-        String orderCode = payload.get("orderCode").toString();
-        String status = payload.get("status").toString();
-        String transactionId = payload.get("id").toString();
-
-        Payment payment = paymentService
-                .findById(UUID.fromString(orderCode));
-
-        if (payment.getStatus().equals("SUCCESS"))
-            return ResponseEntity.ok().build();
-
-        if ("PAID".equals(status)) {
-
-            payment.setStatus("SUCCESS");
-            payment.setProviderTransactionId(transactionId);
-
-            Order order = payment.getOrder();
-
-            if (payment.getStage() != null) {
-                Stage stage = payment.getStage();
-                stage.setStatus("PAID");
-                order.setStatus("PARTIALLY_PAID");
-            } else {
-                order.setStatus("PAID");
-            }
+    
+    private final PaymentService paymentService;
+    
+    @PostMapping("/stages/{stageId}/create-payment")
+    public ResponseEntity<BaseResponse<PaymentResponse>> createPayment(
+            @PathVariable UUID stageId,
+            @RequestParam PaymentMethod method,
+            Authentication authentication) {
+        
+        // Get customerId from authentication if available, otherwise use provided customerId
+        UUID actualCustomerId = UUID.fromString(authentication.getName());
+            
+        if (actualCustomerId == null) {
+            return ResponseEntity.badRequest().body(BaseResponse.<PaymentResponse>builder()
+                    .code(400)
+                    .message("Yêu cầu ID khách hàng")
+                    .build());
         }
-        return ResponseEntity.ok().build();
+        
+        PaymentResponse response = paymentService.createPayment(stageId, method, actualCustomerId);
+        
+        return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
+                .code(200)
+                .message("Tạo thanh toán thành công")
+                .data(response)
+                .build());
     }
-
-    @PostMapping("/{orderId}")
-    public ResponseEntity<String> createPayment(@PathVariable String orderId,
-                                                @RequestParam(required = false) String stageId) {
-        String paymentUrl = paymentService.createPaymentByPayOS(UUID.fromString(orderId), UUID.fromString(stageId));
-        return ResponseEntity.ok(paymentUrl);
+    
+    @PostMapping("/zalopay/callback")
+    public ResponseEntity<ZaloPayCallbackResponse> zaloPayCallback(@RequestBody Map<String, String> callbackData) {
+        try {
+            log.info("Received ZaloPay callback: {}", callbackData);
+            paymentService.handleZaloPayCallback(callbackData);
+            
+            return ResponseEntity.ok(ZaloPayCallbackResponse.builder()
+                    .returnCode(1)
+                    .returnMessage("success")
+                    .build());
+        } catch (Exception e) {
+            log.error("ZaloPay callback error", e);
+            return ResponseEntity.ok(ZaloPayCallbackResponse.builder()
+                    .returnCode(-1)
+                    .returnMessage("failed")
+                    .build());
+        }
+    }
+    
+    @GetMapping("/vnpay/callback")
+    public ResponseEntity<VNPayCallbackResponse> vnPayCallback(@RequestParam Map<String, String> callbackData) {
+        try {
+            log.info("Received VNPay callback: {}", callbackData);
+            paymentService.handleVNPayCallback(callbackData);
+            
+            return ResponseEntity.ok(VNPayCallbackResponse.builder()
+                    .RspCode("00")
+                    .Message("success")
+                    .build());
+        } catch (Exception e) {
+            log.error("VNPay callback error", e);
+            return ResponseEntity.ok(VNPayCallbackResponse.builder()
+                    .RspCode("99")
+                    .Message("failed")
+                    .build());
+        }
+    }
+    
+    @GetMapping("/stages/{stageId}")
+    public ResponseEntity<BaseResponse<PaymentResponse>> getPaymentByStage(@PathVariable UUID stageId) {
+        PaymentResponse response = paymentService.getPaymentByStageId(stageId);
+        
+        return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
+                .code(200)
+                .message("Lấy thông tin thanh toán thành công")
+                .data(response)
+                .build());
     }
 }

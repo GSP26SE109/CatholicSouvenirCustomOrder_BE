@@ -49,4 +49,7 @@ public class Account {
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     private Cart cart;
+
+
+
 }
