@@ -40,7 +40,17 @@ public class PaymentServiceImp implements PaymentService {
     private final VNPayUtil vnPayUtil;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-    
+
+    @Override
+    public String createPaymentByPayOS(UUID orderId, UUID stageId) {
+        return "";
+    }
+
+    @Override
+    public Payment findById(UUID paymentId) {
+        return null;
+    }
+
     @Override
     @Transactional
     public PaymentResponse createPayment(UUID stageId, PaymentMethod method, UUID customerId) {
