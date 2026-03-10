@@ -11,7 +11,11 @@ import java.util.UUID;
 
 @Entity
 @Data
-@Table(name = "orders")
+@Table(name = "orders",
+indexes = {
+        @Index(name="idx_orders_status",columnList = "status"),
+        @Index(name="idx_orders_created_at",columnList = "created_at")
+})
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -30,5 +34,6 @@ public class Order {
     @OneToMany(mappedBy = "order",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
-    private List<OrderDetail> orderDetails = new ArrayList<>();;
+    private List<OrderDetail> orderDetails = new ArrayList<>();
+    ;
 }
