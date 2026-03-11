@@ -4,13 +4,15 @@ import java.util.UUID;
 
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.CreateOrderRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface OrderService {
-    List<OrderResponseDTO> findAll();
-    List<OrderResponseDTO> findAllByAccountId(UUID accountId);
+    Page<OrderResponseDTO> findAll(Pageable pageable);
+    Page<OrderResponseDTO> findAllByAccountId(UUID accountId,Pageable pageable);
     OrderResponseDTO findById(UUID id);
     OrderResponseDTO create(CreateOrderRequest request);
     OrderResponseDTO update(UUID orderId, String status);
     void delete(UUID orderId);
-    List<OrderResponseDTO> findAllOrderByArtisanId(UUID artisanId);
+    Page<OrderResponseDTO> findAllOrderByArtisanId(UUID artisanId,Pageable pageable);
 }

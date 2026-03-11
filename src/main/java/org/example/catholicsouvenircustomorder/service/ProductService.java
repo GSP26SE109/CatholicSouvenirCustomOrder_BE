@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 
 public interface ProductService {
-    List<ProductResponse> findAll();
+    Page<ProductResponse> findAll(Pageable pageable);
 
     Page<ProductResponse> findAllByArtisanId(
             UUID artisanId,

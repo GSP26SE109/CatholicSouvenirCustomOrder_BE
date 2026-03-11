@@ -10,6 +10,7 @@ import org.example.catholicsouvenircustomorder.dto.response.Product.ProductRespo
 import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -29,8 +30,14 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping()
-    public ResponseEntity<BaseResponse> getAll() {
-        List<ProductResponse> products = productService.findAll();
+    public ResponseEntity<BaseResponse> getAll(
+            @RequestParam(defaultValue = "0") int page,
+           @RequestParam(defaultValue = "10") int size,
+           @RequestParam(defaultValue = "createdAt") String sortBy,
+           @RequestParam(defaultValue = "DESC") String sortDirection) {
+        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Page<ProductResponse> products = productService.findAll(pageable);
         return ResponseEntity.ok(BaseResponse.success("Lấy danh sách sản phẩm thành công", products));
     }
 

@@ -14,6 +14,8 @@ import org.example.catholicsouvenircustomorder.service.AccountService;
 import org.example.catholicsouvenircustomorder.service.OrderService;
 import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.example.catholicsouvenircustomorder.Utils.Helper.OrderMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -35,13 +37,15 @@ public class OrderServiceImp implements OrderService {
     private final OrderMapper orderMapper;
 
     @Override
-    public List<OrderResponseDTO> findAll() {
-        return orderMapper.toResponseList(orderRepository.findAll());
+    public Page<OrderResponseDTO> findAll(Pageable pageable) {
+        Page<Order> orderPage = orderRepository.findAll(pageable);
+        return orderPage.map(orderMapper::toResponse);
     }
 
     @Override
-    public List<OrderResponseDTO> findAllByAccountId(UUID accountId) {
-        return orderMapper.toResponseList(orderRepository.findByCustomerAccountId(accountId));
+    public Page<OrderResponseDTO> findAllByAccountId(UUID accountId,Pageable pageable) {
+        Page<Order> orders = orderRepository.findByCustomerAccountId(accountId, pageable);
+        return orders.map(orderMapper::toResponse);
     }
 
     @Override
@@ -112,8 +116,9 @@ public class OrderServiceImp implements OrderService {
     }
 
     @Override
-    public List<OrderResponseDTO> findAllOrderByArtisanId(UUID artisanId) {
-        return orderMapper.toResponseList(orderRepository.findOrdersByArtisanId(artisanId));
+    public Page<OrderResponseDTO> findAllOrderByArtisanId(UUID artisanId,Pageable pageable) {
+        Page<Order> orderPage = orderRepository.findOrdersByArtisanId(artisanId, pageable);
+        return orderPage.map(orderMapper::toResponse);
     }
 
 

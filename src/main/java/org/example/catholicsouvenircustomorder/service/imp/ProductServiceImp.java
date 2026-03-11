@@ -41,9 +41,9 @@ public class ProductServiceImp implements ProductService {
     private final ArtisanRepository artisanRepository;
 
     @Override
-    public List<ProductResponse> findAll() {
-        List<Product> productList = productRepository.findAll();
-        return productMapper.toResponseList(productList);
+    public Page<ProductResponse> findAll(Pageable pageable) {
+        Page<Product> productPage = productRepository.findAll(pageable);
+        return productPage.map(productMapper::toResponse);
     }
 
     @Override

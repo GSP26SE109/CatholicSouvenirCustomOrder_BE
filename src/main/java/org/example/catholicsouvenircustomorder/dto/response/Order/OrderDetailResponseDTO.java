@@ -20,4 +20,5 @@ public class OrderDetailResponseDTO {
     private int discount;
 
     private UUID productId;
+    private String productName;
 }
