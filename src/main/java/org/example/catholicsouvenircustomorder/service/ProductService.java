@@ -25,7 +25,7 @@ public interface ProductService {
 
     ProductResponse create(CreateProductRequest request, UUID artisanId);
 
-    ProductResponse update(UUID productId, UpdateProductRequest product);
+    ProductResponse update(UUID artisanId,UUID productId, UpdateProductRequest dto);
 
     void delete(UUID productId);
 

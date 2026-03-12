@@ -100,13 +100,13 @@ public class ProductServiceImp implements ProductService {
     }
 
     @Override
-    public ProductResponse update(UUID productId, UpdateProductRequest dto) {
+    public ProductResponse update(UUID artisanId,UUID productId, UpdateProductRequest dto) {
 
-        Product existingProduct = productRepository.findById(productId)
+        Product existingProduct = productRepository.findProductByProductIdAndArtisan_ArtisanUuid(artisanId, productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
 
         productMapper.updateProductFromDto(dto, existingProduct);
-        productImageService.updateImages(productId,dto.getImages());
+        productImageService.updateImages(productId, dto.getImages());
         Product saved = productRepository.save(existingProduct);
 
         return productMapper.toResponse(saved);
