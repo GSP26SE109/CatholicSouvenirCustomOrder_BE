@@ -13,15 +13,18 @@ import java.util.List;
 public interface OrderMapper {
 
     @Mapping(target = "customerId", source = "customer.accountId")
+    @Mapping(target = "fullName", source = "customer.fullName")
     @Mapping(target = "orderDetails", source = "orderDetails")
     OrderResponseDTO toResponse(Order order);
 
     List<OrderResponseDTO> toResponseList(List<Order> orders);
 
     @Mapping(target = "productId", source = "product.productId")
+    @Mapping(target = "productName", source = "product.productName")
     OrderDetailResponseDTO toDetailResponse(OrderDetail detail);
 
     List<OrderDetailResponseDTO> toDetailResponseList(List<OrderDetail> details);
+
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "orderId", ignore = true)
     @Mapping(target = "orderDetails", source = "items")
