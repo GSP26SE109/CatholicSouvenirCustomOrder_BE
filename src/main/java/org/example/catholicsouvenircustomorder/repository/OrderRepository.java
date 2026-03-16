@@ -6,11 +6,9 @@ import org.example.catholicsouvenircustomorder.dto.response.Dashboard.DashboardS
 import org.example.catholicsouvenircustomorder.model.Order;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 public interface OrderRepository extends JpaRepository<Order, UUID> {
@@ -26,27 +24,37 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findOrdersByArtisanId(UUID artisanId);
 
     @Query("""
-    SELECT COUNT(o) as totalOrders,
-    SUM(o.total) as totalRevenue
+    SELECT COUNT(DISTINCT o.orderId) AS totalOrders,
+           SUM(od.quantity * p.productPrice) AS totalRevenue
     FROM Order o
+    JOIN o.orderDetails od
+    JOIN od.product p
     WHERE o.createAt >= :start
+    AND p.artisan.artisanUuid = :artisanId
 """)
-    DashboardSummary getSummary(LocalDateTime start);
+    DashboardSummary getSummary(LocalDateTime start, UUID artisanId);
 
     @Query("""
-    SELECT DATE(o.createAt) AS day,
-           SUM(o.total) AS revenue
+    SELECT CAST(o.createAt AS date) AS date,
+           COUNT(o.orderId) AS orderNumber,
+           SUM(od.quantity * p.productPrice) AS revenue
     FROM Order o
+    JOIN o.orderDetails od
+    JOIN od.product p
     WHERE o.createAt >= :startDate
-    GROUP BY DATE(o.createAt)
-    ORDER BY DATE(o.createAt)
+    AND p.artisan.artisanUuid = :artisanId
+    GROUP BY CAST(o.createAt AS date)
+    ORDER BY CAST(o.createAt AS date)
 """)
-    DailyRevenue getRevenueFromDate(@Param("startDate") LocalDateTime startDate);
+    List<DailyRevenue> getRevenueFromDate(LocalDateTime startDate, UUID artisanId);
 
     @Query("""
-    SELECT o.status, COUNT(*) as total
+    SELECT o.status, COUNT(DISTINCT o.orderId)
     FROM Order o
+    JOIN o.orderDetails od
+    JOIN od.product p
+    WHERE p.artisan.artisanUuid = :artisanId
     GROUP BY o.status
 """)
-    List<Object[]> getOrderStatusRaw();
+    List<Object[]> getOrderStatusRaw(UUID artisanId);
 }

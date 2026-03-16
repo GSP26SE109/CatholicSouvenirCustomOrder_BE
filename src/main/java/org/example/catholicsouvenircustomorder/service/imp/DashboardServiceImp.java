@@ -1,21 +1,18 @@
 package org.example.catholicsouvenircustomorder.service.imp;
 
 import lombok.RequiredArgsConstructor;
-import org.example.catholicsouvenircustomorder.Utils.Helper.ProductMapper;
-import org.example.catholicsouvenircustomorder.dto.response.Dashboard.DailyRevenue;
-import org.example.catholicsouvenircustomorder.dto.response.Dashboard.DashboardResponse;
-import org.example.catholicsouvenircustomorder.dto.response.Dashboard.DashboardSummary;
-import org.example.catholicsouvenircustomorder.dto.response.Dashboard.TopProductDTO;
-import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
+import org.example.catholicsouvenircustomorder.dto.response.Dashboard.*;
 import org.example.catholicsouvenircustomorder.repository.OrderDetailRepository;
 import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.repository.ProductRepository;
 import org.example.catholicsouvenircustomorder.service.DashboardService;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,22 +20,21 @@ import java.util.stream.Collectors;
 public class DashboardServiceImp implements DashboardService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
-    private final ProductMapper productMapper;
     private final OrderDetailRepository orderDetailRepository;
 
     @Override
-    public DashboardSummary getDashboardSummary(LocalDateTime start) {
-        return orderRepository.getSummary(start);
+    public DashboardSummary getDashboardSummary(LocalDateTime start, UUID artisanId) {
+        return orderRepository.getSummary(start, artisanId);
     }
 
     @Override
-    public DailyRevenue getDailyRevenueFromDate(LocalDateTime startDate) {
-        return orderRepository.getRevenueFromDate(startDate);
+    public List<DailyRevenue> getDailyRevenueFromDate(LocalDateTime start, UUID artisanId) {
+        return orderRepository.getRevenueFromDate(start, artisanId);
     }
 
     @Override
-    public Map<String, Integer> getOrderStatusStatistic() {
-        return orderRepository.getOrderStatusRaw()
+    public Map<String, Integer> getOrderStatusStatistic(UUID artisanId) {
+        return orderRepository.getOrderStatusRaw(artisanId)
                 .stream()
                 .collect(Collectors.toMap(
                         row -> (String) row[0],
@@ -47,26 +43,25 @@ public class DashboardServiceImp implements DashboardService {
     }
 
     @Override
-    public List<TopProductDTO> getMostSoldProducts() {
-        return orderDetailRepository.getMostSoldProducts();
+    public List<TopProductDTO> getMostSoldProducts(UUID artisanId) {
+        return orderDetailRepository.getMostSoldProducts(artisanId, PageRequest.of(0, 10));
     }
 
     @Override
-    public List<ProductResponse> findShortStockProduct() {
-        return productMapper.toResponseList(productRepository.findShortStockProduct());
+    public List<ShortStockProduct> findShortStockProduct(UUID artisanId) {
+        return productRepository.findShortStockProduct(artisanId);
     }
 
     @Override
-    public DashboardResponse getDashboardInDays(int days) {
+    public DashboardResponse getDashboardInDays(UUID artisanId, int days) {
         LocalDateTime start = LocalDateTime.now().minusDays(days);
 
         return DashboardResponse.builder()
-                .summary(getDashboardSummary(start))
-                .revenueChart(getDailyRevenueFromDate(start))
-                .orderStatus(getOrderStatusStatistic())
-                .topProducts(getMostSoldProducts())
-                .lowStockProducts(findShortStockProduct())
+                .summary(getDashboardSummary(start, artisanId))
+                .revenueChart(getDailyRevenueFromDate(start, artisanId))
+                .orderStatus(getOrderStatusStatistic(artisanId))
+                .topProducts(getMostSoldProducts(artisanId))
+                .lowStockProducts(findShortStockProduct(artisanId))
                 .build();
     }
-
 }

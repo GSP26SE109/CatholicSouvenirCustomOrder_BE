@@ -1,9 +1,10 @@
 package org.example.catholicsouvenircustomorder.dto.response.Dashboard;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public interface DailyRevenue {
-    LocalDateTime getDate();
+    LocalDate getDate();
+    Long getOrderNumber();
     BigDecimal getRevenue();
 }
