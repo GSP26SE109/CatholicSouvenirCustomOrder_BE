@@ -2,6 +2,8 @@ package org.example.catholicsouvenircustomorder.repository;
 
 
 import org.example.catholicsouvenircustomorder.model.Order;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -9,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface OrderRepository extends JpaRepository<Order, UUID> {
-    List<Order> findByCustomerAccountId(UUID customerId);
+    Page<Order> findByCustomerAccountId(UUID customerId, Pageable pageable);
     @Query("""
     SELECT DISTINCT o
     FROM Order o
@@ -17,5 +19,5 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     JOIN od.product p
     WHERE p.artisan.artisanUuid = :artisanId
 """)
-    List<Order> findOrdersByArtisanId(UUID artisanId);
+    Page<Order> findOrdersByArtisanId(UUID artisanId,Pageable pageable);
 }

@@ -9,29 +9,29 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BaseResponse {
+public class BaseResponse<T> {
     private int code;
     private String message;
-    private Object data;
+    private T data;
 
-    public static BaseResponse success(String message, Object data) {
-        return BaseResponse.builder()
+    public static <T> BaseResponse<T> success(String message, T data) {
+        return BaseResponse.<T>builder()
                 .code(200)
                 .message(message)
                 .data(data)
                 .build();
     }
 
-    public static BaseResponse success(String message) {
-        return BaseResponse.builder()
+    public static <T> BaseResponse<T> success(String message) {
+        return BaseResponse.<T>builder()
                 .code(200)
                 .message(message)
                 .data(null)
                 .build();
     }
 
-    public static BaseResponse error(int code, String message) {
-        return BaseResponse.builder()
+    public static <T> BaseResponse<T> error(int code, String message) {
+        return BaseResponse.<T>builder()
                 .code(code)
                 .message(message)
                 .data(null)

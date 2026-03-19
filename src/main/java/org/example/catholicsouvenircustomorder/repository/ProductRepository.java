@@ -20,10 +20,5 @@ public interface ProductRepository extends JpaRepository<Product,UUID> {
             @Param("status") String status,
             Pageable pageable
     );
-    @Query("""
-       SELECT p FROM Product p
-       LEFT JOIN FETCH p.images
-       WHERE p.productId = :id
-       """)
-    Optional<Product> findByIdWithImages(UUID id);
+    Optional<Product> findProductByProductIdAndArtisan_ArtisanUuid(UUID artisanId, UUID productId);
 }

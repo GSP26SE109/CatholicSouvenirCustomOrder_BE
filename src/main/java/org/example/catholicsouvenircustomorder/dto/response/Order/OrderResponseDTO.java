@@ -24,6 +24,7 @@ public class OrderResponseDTO {
     private LocalDateTime updateAt;
 
     private UUID customerId;
+    private String fullName;
     private List<OrderDetailResponseDTO> orderDetails;
 }
 

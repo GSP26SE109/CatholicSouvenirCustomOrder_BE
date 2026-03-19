@@ -41,9 +41,9 @@ public class ProductServiceImp implements ProductService {
     private final ArtisanRepository artisanRepository;
 
     @Override
-    public List<ProductResponse> findAll() {
-        List<Product> productList = productRepository.findAll();
-        return productMapper.toResponseList(productList);
+    public Page<ProductResponse> findAll(Pageable pageable) {
+        Page<Product> productPage = productRepository.findAll(pageable);
+        return productPage.map(productMapper::toResponse);
     }
 
     @Override
@@ -100,13 +100,13 @@ public class ProductServiceImp implements ProductService {
     }
 
     @Override
-    public ProductResponse update(UUID productId, UpdateProductRequest dto) {
+    public ProductResponse update(UUID artisanId,UUID productId, UpdateProductRequest dto) {
 
-        Product existingProduct = productRepository.findById(productId)
+        Product existingProduct = productRepository.findProductByProductIdAndArtisan_ArtisanUuid(artisanId, productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
 
         productMapper.updateProductFromDto(dto, existingProduct);
-        productImageService.updateImages(productId,dto.getImages());
+        productImageService.updateImages(productId, dto.getImages());
         Product saved = productRepository.save(existingProduct);
 
         return productMapper.toResponse(saved);

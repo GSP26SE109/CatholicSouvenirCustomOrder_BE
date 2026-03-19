@@ -3,23 +3,22 @@ package org.example.catholicsouvenircustomorder.service.imp;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.CreateOrderRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
-import org.example.catholicsouvenircustomorder.dto.response.CartResponse;
+import org.example.catholicsouvenircustomorder.dto.response.Cart.CartItemResponse;
+import org.example.catholicsouvenircustomorder.dto.response.Cart.CartResponse;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
-import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.Cart;
 import org.example.catholicsouvenircustomorder.model.CartItem;
 import org.example.catholicsouvenircustomorder.model.Product;
-import org.example.catholicsouvenircustomorder.repository.AccountRepository;
-import org.example.catholicsouvenircustomorder.repository.CartItemRepository;
-import org.example.catholicsouvenircustomorder.repository.CartRepository;
-import org.example.catholicsouvenircustomorder.repository.ProductRepository;
+import org.example.catholicsouvenircustomorder.model.ProductImage;
+import org.example.catholicsouvenircustomorder.repository.*;
 import org.example.catholicsouvenircustomorder.service.CartService;
 import org.example.catholicsouvenircustomorder.service.OrderService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -70,7 +69,7 @@ public class CartServiceImp implements CartService {
     }
 
     @Override
-    public List<CartResponse> getCart(UUID accountId) {
+    public CartResponse getCart(UUID accountId) {
 
         String key = buildKey(accountId);
 
@@ -106,9 +105,8 @@ public class CartServiceImp implements CartService {
                 productRepository.findAllById(productIds)
                         .stream()
                         .collect(Collectors.toMap(Product::getProductId, p -> p));
-
-        List<CartResponse> responses = new ArrayList<>();
-
+        List<CartItemResponse> itemResponses = new ArrayList<>();
+        BigDecimal total = new BigDecimal(0);
         for (Map.Entry<Object, Object> entry : redisCart.entrySet()) {
 
             UUID productId = UUID.fromString(entry.getKey().toString());
@@ -116,17 +114,29 @@ public class CartServiceImp implements CartService {
 
             Product product = productMap.get(productId);
 
+            BigDecimal subtotal = product.getProductPrice()
+                    .multiply(BigDecimal.valueOf(quantity));
+
+            total = total.add(subtotal);
             if (product != null) {
-                responses.add(
-                        CartResponse.builder()
-                                .product(product)
+                itemResponses.add(
+                        CartItemResponse.builder()
+                                .productId(productId)
+                                .productName(product.getProductName())
+                                .productPrice(product.getProductPrice())
                                 .quantity(quantity)
-                                .build()
-                );
+                                .images(product.getImages()
+                                        .stream()
+                                        .map(ProductImage::getImage_url)
+                                        .toList())
+                                .build());
             }
         }
 
-        return responses;
+        return CartResponse.builder()
+                .items(itemResponses)
+                .totalPrice(total)
+                .build();
     }
 
     @Override
