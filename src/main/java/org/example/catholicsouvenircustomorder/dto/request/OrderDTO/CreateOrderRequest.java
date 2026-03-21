@@ -16,7 +16,6 @@ import java.util.UUID;
 public class CreateOrderRequest {
     @NotNull(message = "Người dùng không được để trống")
     private UUID accountId;
-    private String paymentMethod;
     private LocalDateTime orderDate;
     @NotEmpty(message = "Cần thêm hàng hoá")
     @Valid

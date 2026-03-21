@@ -18,7 +18,8 @@ public class Order {
     private UUID orderId;
     private LocalDateTime orderDate;
     private BigDecimal total;
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status;
     private String paymentMethod;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
@@ -30,5 +31,7 @@ public class Order {
     @OneToMany(mappedBy = "order",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
-    private List<OrderDetail> orderDetails = new ArrayList<>();;
+    private List<OrderDetail> orderDetails = new ArrayList<>();
+    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
+    private Complaint complaint;
 }

@@ -15,7 +15,7 @@ import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.ArtisanRepository;
 import org.example.catholicsouvenircustomorder.repository.ProductImageRepository;
 import org.example.catholicsouvenircustomorder.repository.ProductRepository;
-import org.example.catholicsouvenircustomorder.Utils.Helper.ProductMapper;
+import org.example.catholicsouvenircustomorder.util.ProductMapper;
 import org.example.catholicsouvenircustomorder.service.ProductImageService;
 import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.springframework.data.domain.*;

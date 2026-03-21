@@ -1,6 +1,5 @@
-package org.example.catholicsouvenircustomorder.Utils.Helper;
+package org.example.catholicsouvenircustomorder.util;
 
-import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductImageResponse;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
@@ -9,7 +8,6 @@ import org.example.catholicsouvenircustomorder.model.ProductImage;
 import org.mapstruct.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @Mapper(componentModel = "spring")
 public interface ProductMapper {

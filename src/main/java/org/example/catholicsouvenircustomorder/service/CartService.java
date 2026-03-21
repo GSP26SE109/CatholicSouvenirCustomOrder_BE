@@ -12,5 +12,5 @@ public interface CartService {
     void clearCart(UUID accountId);
     void removeFromCart(UUID accountId, UUID productId);
     void updateCart(UUID accountId, UUID productId, int quantity);
-    OrderResponseDTO checkout(UUID accountId);
+    List<OrderResponseDTO> checkout(UUID accountId, List<UUID> selectedProductIds);
 }

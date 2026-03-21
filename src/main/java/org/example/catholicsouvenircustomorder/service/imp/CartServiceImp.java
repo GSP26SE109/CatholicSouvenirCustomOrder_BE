@@ -14,11 +14,13 @@ import org.example.catholicsouvenircustomorder.model.ProductImage;
 import org.example.catholicsouvenircustomorder.repository.*;
 import org.example.catholicsouvenircustomorder.service.CartService;
 import org.example.catholicsouvenircustomorder.service.OrderService;
+import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -31,7 +33,7 @@ public class CartServiceImp implements CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final AccountRepository accountRepository;
-
+    private final ProductService productService;
     private String buildKey(UUID accountId) {
         return "cart:" + accountId;
     }
@@ -165,27 +167,59 @@ public class CartServiceImp implements CartService {
 
     @Override
     @Transactional
-    public OrderResponseDTO checkout(UUID accountId) {
+    public List<OrderResponseDTO> checkout(UUID accountId, List<UUID> selectedProductIds) {
+
         Map<Object, Object> cartItems = redisTemplate.opsForHash().entries(buildKey(accountId));
-        if (cartItems.isEmpty()) {
-            throw new ResourceNotFoundException("Cart is empty");
+
+        Map<UUID, Integer> selectedItems = cartItems.entrySet().stream()
+                .filter(entry -> selectedProductIds.contains(UUID.fromString(entry.getKey().toString())))
+                .collect(Collectors.toMap(
+                        entry -> UUID.fromString(entry.getKey().toString()),
+                        entry -> Integer.parseInt(entry.getValue().toString())
+                ));
+
+        if (selectedItems.isEmpty()) {
+            throw new ResourceNotFoundException("No selected items found in cart");
         }
-        List<OrderItemRequest> items = cartItems.entrySet().stream()
+
+        // Build a flat list of ALL items across all artisans first
+        List<OrderItemRequest> allItems = selectedItems.entrySet().stream()
                 .map(entry -> OrderItemRequest.builder()
-                        .productId(UUID.fromString(entry.getKey().toString()))
-                        .quantity(Integer.parseInt(entry.getValue().toString()))
-                        .build()
-                )
+                        .productId(entry.getKey())
+                        .quantity(entry.getValue())
+                        .build())
                 .toList();
 
-        CreateOrderRequest request = CreateOrderRequest.builder()
-                .accountId(accountId)
-                .items(items)
-                .build();
+        // Validate stock for ALL items before creating any order
+        Map<UUID, Product> validatedProducts = productService.loadAndValidateQuantity(allItems);
 
-        OrderResponseDTO response = orderService.create(request);
+        Map<UUID, List<OrderItemRequest>> groupedByArtisan = new HashMap<>();
 
-        redisTemplate.delete(buildKey(accountId));
-        return response;
+        for (OrderItemRequest item : allItems) {
+            UUID artisanId = validatedProducts.get(item.getProductId())
+                    .getArtisan()
+                    .getArtisanUuid();
+
+            groupedByArtisan
+                    .computeIfAbsent(artisanId, k -> new ArrayList<>())
+                    .add(item);
+        }
+        List<OrderResponseDTO> orders = new ArrayList<>();
+
+        for (Map.Entry<UUID, List<OrderItemRequest>> entry : groupedByArtisan.entrySet()) {
+            CreateOrderRequest request = CreateOrderRequest.builder()
+                    .accountId(accountId)
+                    .orderDate(LocalDateTime.now())
+                    .items(entry.getValue())
+                    .build();
+
+            orders.add(orderService.create(request));
+        }
+
+        selectedProductIds.forEach(productId ->
+                redisTemplate.opsForHash().delete(buildKey(accountId), productId.toString())
+        );
+
+        return orders;
     }
 }

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.CartItemRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Cart.CartResponse;
+import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
 import org.example.catholicsouvenircustomorder.service.CartService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -52,6 +53,13 @@ public class CartController {
     public ResponseEntity<BaseResponse> clearCart(@AuthenticationPrincipal UUID accountId) {
         cartService.clearCart(accountId);
         return ResponseEntity.ok(BaseResponse.success("Xóa giỏ hàng thành công", null));
+    }
+    @PostMapping("/check_out")
+    public ResponseEntity<BaseResponse> checkout(
+            @AuthenticationPrincipal UUID accountId,
+            @RequestBody List<UUID> selectedProductIds){
+        List<OrderResponseDTO> orders= cartService.checkout(accountId, selectedProductIds);
+        return ResponseEntity.ok(BaseResponse.success("Check out thành công", orders));
     }
 }
 

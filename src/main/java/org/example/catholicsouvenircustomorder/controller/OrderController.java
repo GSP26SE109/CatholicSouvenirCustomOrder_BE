@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.CreateOrderRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
+import org.example.catholicsouvenircustomorder.model.OrderStatus;
 import org.example.catholicsouvenircustomorder.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -22,8 +23,7 @@ import java.util.UUID;
 @RequestMapping("/api/order")
 @RequiredArgsConstructor
 public class OrderController {
-    @Autowired
-    private OrderService orderService;
+    private final OrderService orderService;
 
     @GetMapping()
     public ResponseEntity<BaseResponse> getAllOrders(
@@ -74,7 +74,7 @@ public class OrderController {
     }
 
     @PutMapping("/{orderId}")
-    public ResponseEntity<BaseResponse> updateOrder(@PathVariable String orderId, @RequestBody String status) {
+    public ResponseEntity<BaseResponse> updateOrder(@PathVariable String orderId, @RequestBody OrderStatus status) {
         OrderResponseDTO order = orderService.update(UUID.fromString(orderId), status);
         return ResponseEntity.ok(BaseResponse.success("Sửa order thành công",order));
     }
