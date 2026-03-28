@@ -1,11 +1,14 @@
 package org.example.catholicsouvenircustomorder.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.example.catholicsouvenircustomorder.dto.QuotationStageDTO;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -19,24 +22,28 @@ public class Quotation {
     
     @ManyToOne(optional = false)
     @JoinColumn(name = "request_id")
-    @JsonIgnore
-    private CustomRequest customRequest;
+    private CustomRequest request;
     
     @ManyToOne(optional = false)
     @JoinColumn(name = "artisan_id")
     private Artisan artisan;
     
     @Column(nullable = false, precision = 18, scale = 2)
-    private BigDecimal price;
+    private BigDecimal totalPrice;
     
-    @Column(length = 1000)
-    private String notes;
+    @Column(nullable = false)
+    private Integer estimatedDays;
+    
+    @Column(columnDefinition = "TEXT")
+    private String proposal;
+    
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    private List<QuotationStageDTO> stages;
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private QuotationStatus status = QuotationStatus.DRAFT;
-    
-    private Integer version = 1;
+    private QuotationStatus status = QuotationStatus.PENDING;
     
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

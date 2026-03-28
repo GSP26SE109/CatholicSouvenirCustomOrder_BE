@@ -80,6 +80,19 @@ public class ChatController {
         return ResponseEntity.ok(BaseResponse.success("Lấy tin nhắn thành công", messages));
     }
 
+    // New endpoint matching task specification
+    @GetMapping("/api/custom-requests/{id}/messages")
+    @ResponseBody
+    public ResponseEntity<BaseResponse<List<ChatMessageResponse>>> getCustomRequestMessages(
+            @PathVariable UUID id,
+            Authentication authentication) {
+        
+        UUID userId = UUID.fromString(authentication.getName());
+        List<ChatMessageResponse> messages = chatService.getChatHistory(id, userId);
+        
+        return ResponseEntity.ok(BaseResponse.success("Lấy tin nhắn thành công", messages));
+    }
+
     @GetMapping("/api/chat/{requestId}/{artisanId}/messages")
     @ResponseBody
     public ResponseEntity<BaseResponse<List<ChatMessageResponse>>> getPrivateMessages(
@@ -90,6 +103,21 @@ public class ChatController {
         
         return ResponseEntity.ok(BaseResponse.success("Lấy tin nhắn riêng thành công", messages));
 
+    }
+
+    // New endpoint matching task specification
+    @PostMapping("/api/custom-requests/{id}/messages")
+    @ResponseBody
+    public ResponseEntity<BaseResponse<ChatMessageResponse>> sendCustomRequestMessage(
+            @PathVariable UUID id,
+            @RequestBody @Valid SendMessageRequest request,
+            Authentication authentication) {
+        
+        UUID senderId = UUID.fromString(authentication.getName());
+        request.setRequestId(id);
+        ChatMessageResponse response = chatService.sendMessage(request, senderId);
+        
+        return ResponseEntity.ok(BaseResponse.success("Gửi tin nhắn thành công", response));
     }
 
     @PostMapping("/api/chat/{requestId}/mark-read")

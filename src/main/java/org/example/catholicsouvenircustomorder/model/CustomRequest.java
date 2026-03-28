@@ -2,10 +2,12 @@ package org.example.catholicsouvenircustomorder.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -21,38 +23,45 @@ public class CustomRequest {
     @JoinColumn(name = "customer_id")
     private Account customer;
     
-    @Column(nullable = false, length = 200)
-    private String title;
+    @ManyToOne
+    @JoinColumn(name = "template_id")
+    private ProductTemplate template;
     
-    @Column(nullable = false, length = 2000)
+    @ManyToOne
+    @JoinColumn(name = "selected_artisan_id")
+    private Artisan selectedArtisan;
+    
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, String> customizationData;
+    
+    @Column(columnDefinition = "TEXT")
     private String description;
     
-    @Column(length = 1000)
-    private String referenceImageUrl;
+    @Column(columnDefinition = "TEXT")
+    private String aiConceptImageUrl;
     
-    @Column(length = 1000)
-    private String aiGeneratedImageUrl;
+    @Column(columnDefinition = "TEXT")
+    private String aiImagePrompt;
+    
+    @Column(nullable = false)
+    private Integer imageGenCount = 0;
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CustomRequestStatus status = CustomRequestStatus.PENDING;
     
-    @ManyToMany
-    @JoinTable(
-        name = "request_selected_artisans",
-        joinColumns = @JoinColumn(name = "request_id"),
-        inverseJoinColumns = @JoinColumn(name = "artisan_id")
-    )
-    private List<Artisan> selectedArtisans = new ArrayList<>();
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private RequestType requestType;
     
-    @ManyToOne
-    @JoinColumn(name = "confirmed_artisan_id")
-    private Artisan confirmedArtisan;
+    @Column(precision = 18, scale = 2)
+    private BigDecimal minBudget;
     
-    @OneToMany(mappedBy = "customRequest", cascade = CascadeType.ALL)
-    private List<Quotation> quotations = new ArrayList<>();
+    @Column(precision = 18, scale = 2)
+    private BigDecimal maxBudget;
     
-    @OneToOne(mappedBy = "customRequest")
+    @OneToOne(mappedBy = "request")
     private CustomOrder customOrder;
     
     @Column(nullable = false)

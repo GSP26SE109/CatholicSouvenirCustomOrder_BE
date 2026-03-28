@@ -15,9 +15,12 @@ public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID productId;
+    
     @ManyToOne
     @JoinColumn(name="artisan_id")
     private Artisan artisan;
+
+    
     private String productName;
     private BigDecimal productPrice;
     private String productDescription;

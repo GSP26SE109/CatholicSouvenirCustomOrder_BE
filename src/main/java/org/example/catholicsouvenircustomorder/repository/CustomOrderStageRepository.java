@@ -9,5 +9,5 @@ import java.util.UUID;
 
 @Repository
 public interface CustomOrderStageRepository extends JpaRepository<CustomOrderStage, UUID> {
-    List<CustomOrderStage> findByCustomOrder_OrderIdOrderByStageOrderAsc(UUID orderId);
+    List<CustomOrderStage> findByCustomOrder_CustomOrderIdOrderByStageOrderAsc(UUID customOrderId);
 }

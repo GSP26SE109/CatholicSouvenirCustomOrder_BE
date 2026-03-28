@@ -1,10 +1,12 @@
 package org.example.catholicsouvenircustomorder.model;
 
 public enum CustomRequestStatus {
-    PENDING,           // Customer vừa tạo request
-    ARTISAN_SELECTED,  // Customer đã chọn artisan
-    NEGOTIATING,       // Đang trao đổi báo giá
-    ARTISAN_CONFIRMED, // Artisan đã được chốt
-    ORDER_CREATED,     // Order đã được tạo
-    CANCELLED          // Request bị hủy
+    PENDING,           // Chờ nghệ nhân chấp nhận (Template-Based)
+    OPEN,              // Mở cho nghệ nhân gửi báo giá (Request-Based)
+    NEGOTIATING,       // Đang thương lượng (Request-Based)
+    ACCEPTED,          // Đã chấp nhận
+    REJECTED,          // Bị từ chối
+    IN_PROGRESS,       // Đang thực hiện
+    COMPLETED,         // Hoàn thành
+    CANCELLED          // Đã hủy
 }

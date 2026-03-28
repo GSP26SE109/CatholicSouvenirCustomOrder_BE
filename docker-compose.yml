@@ -31,9 +31,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://turntable.proxy.rlwy.net:20593/railway
+      SPRING_DATASOURCE_URL: jdbc:postgresql://gondola.proxy.rlwy.net:53236/railway
       SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: ZGtcbjxPIVqloFKaPddglcgWyeBRLLFb
+      SPRING_DATASOURCE_PASSWORD: DjgeGrFrGPMsSktweGsZWnkqbjvtSzhp
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: "true"
       JWT_KEY: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
@@ -41,17 +41,19 @@ services:
       CLOUDINARY_CLOUD_NAME: daiwsshlm
       CLOUDINARY_API_KEY: 931731612755631
       CLOUDINARY_API_SECRET: gCO38ygVl0ZeEUR8CFdjTNXbu8M
+      HUGGINGFACE_API_KEY: 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
+      SUPABASE_URL: https://ukglqatwjgokrcdvvysl.supabase.co
+      SUPABASE_KEY: sb_secret_kgQY8_2OQDKUzkv1d13_oA_rA9eKu7U
+      SUPABASE_STORAGE_BUCKET: ai-images
 
         # Redis (Railway)
-      SPRING_DATA_REDIS_HOST: redis.railway.internal
+      SPRING_DATA_REDIS_HOST: redis://shuttle.proxy.rlwy.net:14269
       SPRING_DATA_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_PASSWORD: mSHFRpHguqfAQFilEvExDaEFTFGUdyEC
+      SPRING_DATA_REDIS_PASSWORD: fnAvzPYafnSDNagbiLxyYIPjWsMuHrHv
 
       AI_IMAGE_PROVIDER: huggingface
-      HUGGINGFACE_API_KEY: ""
 
       STABLE_DIFFUSION_URL: http://localhost:7860
-      OPENAI_API_KEY: ""
 
         # ================= ZALOPAY =================
       ZALOPAY_APP_ID: 554
