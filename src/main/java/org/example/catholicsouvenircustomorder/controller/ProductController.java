@@ -70,10 +70,11 @@ public class ProductController {
     public ResponseEntity<BaseResponse> create(
             @ModelAttribute CreateProductRequest request, @AuthenticationPrincipal UUID accountId) {
 
-        ProductResponse product=productService.create(request, accountId);
+        ProductResponse product = productService.create(request, accountId);
 
         return ResponseEntity.ok(BaseResponse.success("Tạo sản phẩm thành công",product));
     }
+
     @PutMapping("/{productId}")
     public ResponseEntity<BaseResponse> update(
             @AuthenticationPrincipal UUID artisanId,
@@ -82,21 +83,23 @@ public class ProductController {
         ProductResponse product = productService.update(artisanId,UUID.fromString(productId), dto);
         return ResponseEntity.ok(BaseResponse.success("Sửa product thành công",product));
     }
+
     @DeleteMapping("/{productId}")
     public ResponseEntity<Void> deleteOrder(@PathVariable String productId) {
         productService.delete(UUID.fromString(productId));
         return ResponseEntity.noContent().build();
     }
+
     @PutMapping("/admin/{productId}")
     public ResponseEntity<BaseResponse> approveProduct(
-            @PathVariable UUID productId, 
+            @PathVariable UUID productId,
             @Valid @RequestBody ApproveProductRequest request) {
         ProductResponse product = productService.ApproveProduct(productId, request);
-        
-        String message = "APPROVED".equals(request.getStatus()) 
-            ? "Phê duyệt sản phẩm thành công" 
-            : "Từ chối sản phẩm thành công";
-            
+
+        String message = "APPROVED".equals(request.getStatus())
+                ? "Phê duyệt sản phẩm thành công"
+                : "Từ chối sản phẩm thành công";
+
         return ResponseEntity.ok(BaseResponse.success(message, product));
     }
 }

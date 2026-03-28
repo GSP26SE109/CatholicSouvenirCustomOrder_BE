@@ -11,7 +11,11 @@ import java.util.UUID;
 
 @Entity
 @Data
-@Table(name = "orders")
+@Table(name = "orders",
+indexes = {
+        @Index(name="idx_orders_status",columnList = "status"),
+        @Index(name="idx_orders_created_at",columnList = "create_at")
+})
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

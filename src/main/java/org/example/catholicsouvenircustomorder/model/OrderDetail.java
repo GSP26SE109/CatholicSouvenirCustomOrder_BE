@@ -8,6 +8,11 @@ import java.util.UUID;
 
 @Entity
 @Data
+@Table(name="order_detail",
+indexes = {
+        @Index(name="idx_orders_detail_product_id",columnList = "product_id"),
+        @Index(name="idx_orders_detail_order_id",columnList = "order_id")
+})
 public class OrderDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

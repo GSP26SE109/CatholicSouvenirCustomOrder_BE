@@ -35,7 +35,6 @@ public class ProductServiceImp implements ProductService {
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
     private final Cloudinary cloudinary;
-    private final ProductImageRepository productImageRepository;
     private final AccountRepository accountRepository;
     private final ProductImageService productImageService;
     private final ArtisanRepository artisanRepository;
