@@ -30,26 +30,15 @@ payos:
 # AI Configuration
 ai:
   image:
-    # Options: huggingface (FREE), stable-diffusion (FREE self-hosted), openai (PAID)
+    # Using Hugging Face Stable Diffusion (FREE)
     provider: huggingface
 
 # Hugging Face (FREE - 1000 requests/month)
+# Model: stabilityai/stable-diffusion-2-1
 # Get free API key at: https://huggingface.co/settings/tokens
 huggingface:
   api:
-    key: ${HUGGINGFACE_API_KEY:}
-
-# Stable Diffusion (FREE - Self-hosted)
-# Install: https://github.com/AUTOMATIC1111/stable-diffusion-webui
-# Run with: ./webui.sh --api
-stable-diffusion:
-  api:
-    url: ${STABLE_DIFFUSION_URL:http://localhost:7860}
-
-# OpenAI (PAID - Optional)
-openai:
-  api:
-    key: ${OPENAI_API_KEY:}
+    key: ${HUGGINGFACE_API_KEY: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}
 
 
 zalopay:
@@ -68,3 +57,10 @@ vnpay:
   version: 2.1.0
   command: pay
   order-type: other
+
+# Supabase Storage Configuration
+supabase:
+  url: ${SUPABASE_URL:https://ukglqatwjgokrcdvvysl.supabase.co}
+  key: ${SUPABASE_KEY:sb_secret_kgQY8_2OQDKUzkv1d13_oA_rA9eKu7U}
+  storage:
+    bucket: ai-images

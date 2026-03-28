@@ -5,6 +5,6 @@ import lombok.Data;
 import java.util.UUID;
 
 @Data
-public class AcceptCustomRequestRequest {
-    private UUID requestId;
+public class AcceptQuotationRequest {
+    private UUID quotationId;
 }

@@ -12,6 +12,9 @@ import java.util.UUID;
 
 public interface OrderRepository extends JpaRepository<Order, UUID> {
     Page<Order> findByCustomerAccountId(UUID customerId, Pageable pageable);
+    
+    List<Order> findByCustomer_AccountId(UUID customerId);
+    
     @Query("""
     SELECT DISTINCT o
     FROM Order o

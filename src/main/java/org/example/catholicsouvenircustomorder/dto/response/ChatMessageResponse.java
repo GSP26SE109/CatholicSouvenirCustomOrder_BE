@@ -14,7 +14,6 @@ public class ChatMessageResponse {
     private String senderName;
     private String content;
     private MessageType messageType;
-    private QuotationResponse relatedQuotation;
     private LocalDateTime sentAt;
     private Boolean isRead;
 }

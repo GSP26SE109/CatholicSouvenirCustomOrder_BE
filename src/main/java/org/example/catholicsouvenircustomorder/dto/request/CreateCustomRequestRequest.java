@@ -1,25 +1,32 @@
 package org.example.catholicsouvenircustomorder.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CreateCustomRequestRequest {
     
-    @NotBlank(message = "Title is required")
-    private String title;
+    @NotNull(message = "Template ID không được để trống")
+    private UUID templateId;
     
-    @NotBlank(message = "Description is required")
-    private String description;
+    @NotNull(message = "Zone inputs không được để trống")
+    @Builder.Default
+    private Map<String, String> zoneInputs = new HashMap<>();
     
-    private String referenceImageUrl;
+    @Size(max = 2000, message = "Mô tả bổ sung không được vượt quá 2000 ký tự")
+    private String additionalDescription;
     
-    private Boolean generateAiImage = true;
-    
-    @NotEmpty(message = "At least one artisan must be selected")
-    private List<UUID> selectedArtisanIds;
+    @Builder.Default
+    private Boolean generateAiImage = false;
 }

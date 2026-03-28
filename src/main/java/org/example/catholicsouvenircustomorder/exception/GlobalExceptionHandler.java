@@ -77,6 +77,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(BaseResponse.error(400, ex.getMessage()));
     }
+    
+    @ExceptionHandler(ZoneValidationException.class)
+    public ResponseEntity<BaseResponse> handleZoneValidationException(ZoneValidationException ex) {
+        return ResponseEntity.badRequest()
+                .body(BaseResponse.error(400, ex.getMessage()));
+    }
+    
+    @ExceptionHandler(ImageGenerationLimitExceededException.class)
+    public ResponseEntity<BaseResponse> handleImageGenerationLimitExceeded(ImageGenerationLimitExceededException ex) {
+        return ResponseEntity.badRequest()
+                .body(BaseResponse.error(400, ex.getMessage()));
+    }
+    
+    @ExceptionHandler(UnauthorizedTemplateAccessException.class)
+    public ResponseEntity<BaseResponse> handleUnauthorizedTemplateAccess(UnauthorizedTemplateAccessException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(BaseResponse.error(403, ex.getMessage()));
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseResponse> handleGenericException(Exception ex) {

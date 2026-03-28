@@ -17,38 +17,27 @@ public class CustomOrder {
     
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID orderId;
+    private UUID customOrderId;
     
     @OneToOne(optional = false)
-    @JoinColumn(name = "request_id")
-    private CustomRequest customRequest;
-    
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "customer_id")
-    private Account customer;
+    @JoinColumn(name = "request_id", unique = true)
+    private CustomRequest request;
     
     @ManyToOne(optional = false)
     @JoinColumn(name = "artisan_id")
     private Artisan artisan;
     
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "quotation_id")
-    private Quotation finalQuotation;
-    
-    @Column(nullable = false, precision = 18, scale = 2)
-    private BigDecimal totalAmount;
-    
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private CustomOrderStatus status = CustomOrderStatus.PENDING;
+    private CustomOrderStatus status = CustomOrderStatus.PENDING_PAYMENT;
+    
+    @Column(nullable = false, precision = 18, scale = 2)
+    private BigDecimal totalPrice;
     
     @OneToMany(mappedBy = "customOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("stageOrder ASC")
     @JsonManagedReference
     private List<CustomOrderStage> stages = new ArrayList<>();
-    
-    private String shippingAddress;
-    private String trackingNumber;
     
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
