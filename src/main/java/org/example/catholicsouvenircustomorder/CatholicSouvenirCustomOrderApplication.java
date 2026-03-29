@@ -8,10 +8,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
 @OpenAPIDefinition(info = @Info(title = "Catholic Souvenir Custom Order API", version = "1.0", description = "Information"), security = @SecurityRequirement(name = "api"))
 @SecurityScheme(name = "api", scheme = "bearer", type = SecuritySchemeType.HTTP, in = SecuritySchemeIn.HEADER)
+@EnableAsync
 public class CatholicSouvenirCustomOrderApplication {
 
 	public static void main(String[] args) {

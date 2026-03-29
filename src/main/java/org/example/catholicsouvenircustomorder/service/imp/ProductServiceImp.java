@@ -3,6 +3,8 @@ package org.example.catholicsouvenircustomorder.service.imp;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
+import org.example.catholicsouvenircustomorder.dto.Event.ProductChangeEvent;
+import org.example.catholicsouvenircustomorder.dto.Event.ProductDeleteEvent;
 import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductRequest;
@@ -18,7 +20,9 @@ import org.example.catholicsouvenircustomorder.repository.ProductRepository;
 import org.example.catholicsouvenircustomorder.util.ProductMapper;
 import org.example.catholicsouvenircustomorder.service.ProductImageService;
 import org.example.catholicsouvenircustomorder.service.ProductService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +42,7 @@ public class ProductServiceImp implements ProductService {
     private final AccountRepository accountRepository;
     private final ProductImageService productImageService;
     private final ArtisanRepository artisanRepository;
-
+    private final ApplicationEventPublisher eventPublisher;
     @Override
     public Page<ProductResponse> findAll(Pageable pageable) {
         Page<Product> productPage = productRepository.findAll(pageable);
@@ -94,7 +98,7 @@ public class ProductServiceImp implements ProductService {
                 throw new RuntimeException("Upload hình ảnh thất bại: " + e.getMessage());
             }
         }
-
+        eventPublisher.publishEvent(new ProductChangeEvent(savedProduct));
         return productMapper.toResponse(savedProduct);
     }
 
@@ -107,12 +111,13 @@ public class ProductServiceImp implements ProductService {
         productMapper.updateProductFromDto(dto, existingProduct);
         productImageService.updateImages(productId, dto.getImages());
         Product saved = productRepository.save(existingProduct);
-
+        eventPublisher.publishEvent(new ProductChangeEvent(saved));
         return productMapper.toResponse(saved);
     }
 
     @Override
     @Transactional
+    @Async
     public void delete(UUID productId) {
 
         Product product = productRepository.findById(productId)
@@ -128,6 +133,7 @@ public class ProductServiceImp implements ProductService {
                 throw new RuntimeException("Failed to delete image from Cloudinary");
             }
         }
+        eventPublisher.publishEvent(new ProductDeleteEvent(productId));
         productRepository.delete(product);
     }
 

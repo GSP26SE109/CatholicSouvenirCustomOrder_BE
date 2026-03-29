@@ -2,8 +2,8 @@ spring:
   application:
     name: CatholicSouvenirCustomOrder
   datasource:
-    url: jdbc:postgresql://localhost:54321/catholic_souvenir
-    username: postgres
+    url: jdbc:postgresql://localhost:54321/catholic-souvenir
+    username: root
     password: 123456
     driver-class-name: org.postgresql.Driver
 
@@ -14,11 +14,16 @@ spring:
     properties:
       hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
       hibernate.format_sql: true
-data:
-  redis:
-    host: localhost
-    port: 6379
-    timeout: 60000
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 60000
+  elasticsearch:
+    uris: http://localhost:9200
+    api-key: ${ELASTIC_API_KEY}
+    connection-timeout: 5s
+    socket-timeout: 30s
 jwt:
   key: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
   expiration: 86400000
@@ -27,6 +32,10 @@ payos:
   return-url: https://your-frontend.com/payment-success
   cancel-url: https://your-frontend.com/payment-cancel
 
+cloudinary:
+  cloud-name: daiwsshlm
+  api-key: 931731612755631
+  api-secret: gCO38ygVl0ZeEUR8CFdjTNXbu8M
 # AI Configuration
 ai:
   image:

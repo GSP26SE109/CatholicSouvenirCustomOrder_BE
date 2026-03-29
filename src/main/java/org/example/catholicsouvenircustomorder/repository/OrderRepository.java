@@ -22,7 +22,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     JOIN od.product p
     WHERE p.artisan.artisanUuid = :artisanId
 """)
-    List<Order> findOrdersByArtisanId(UUID artisanId);
+    Page<Order> findOrdersByArtisanId(UUID artisanId, Pageable pageable);
 
     @Query("""
     SELECT COUNT(DISTINCT o.orderId) AS totalOrders,
