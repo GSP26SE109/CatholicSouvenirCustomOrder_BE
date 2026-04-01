@@ -1,0 +1,54 @@
+name: Deploy BE to Azure VM
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build JAR
+        run: ./mvnw clean package -DskipTests
+
+      - name: Copy JAR to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AZURE_VM_IP }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          source: "target/*.jar"
+          target: "/home/azureuser/catholic-souvenir-custom-order/backend/"
+          strip_components: 1
+
+      - name: Deploy on VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_IP }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          script: |
+            cd ~/myapp
+            mv backend/*.jar backend/app.jar 2>/dev/null || true
+            if [ "$(docker compose ps -q 2>/dev/null)" = "" ]; then
+              echo "==> First deploy: starting all containers..."
+              docker compose --env-file .env up -d
+            else
+              echo "==> Restarting backend only..."
+              docker compose --env-file .env stop backend
+              docker compose --env-file .env start backend
+            fi
+            sleep 20
+            docker compose ps
+            echo "==> Deploy done!"
