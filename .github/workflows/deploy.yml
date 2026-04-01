@@ -39,7 +39,7 @@ jobs:
           username: ${{ secrets.AZURE_VM_USER }}
           key: ${{ secrets.AZURE_SSH_KEY }}
           script: |
-            cd ~/myapp
+            cd ~/catholic-souvenir-custom-order
             mv backend/*.jar backend/app.jar 2>/dev/null || true
             if [ "$(docker compose ps -q 2>/dev/null)" = "" ]; then
               echo "==> First deploy: starting all containers..."
