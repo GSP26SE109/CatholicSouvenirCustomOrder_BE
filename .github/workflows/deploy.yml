@@ -29,7 +29,7 @@ jobs:
           username: ${{ secrets.AZURE_VM_USER }}
           key: ${{ secrets.AZURE_SSH_KEY }}
           source: "target/*.jar"
-          target: "/home/azureuser/myapp/backend/"
+          target: "/home/azureuser/catholic-souvenir-custom-order/backend/"
           strip_components: 1
 
       - name: Deploy on VM
