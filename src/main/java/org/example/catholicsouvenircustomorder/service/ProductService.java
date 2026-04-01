@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 
 public interface ProductService {
-    List<ProductResponse> findAll();
+    Page<ProductResponse> findAll(Pageable pageable);
 
     Page<ProductResponse> findAllByArtisanId(
             UUID artisanId,
@@ -25,7 +25,7 @@ public interface ProductService {
 
     ProductResponse create(CreateProductRequest request, UUID artisanId);
 
-    ProductResponse update(UUID productId, UpdateProductRequest product);
+    ProductResponse update(UUID artisanId,UUID productId, UpdateProductRequest dto);
 
     void delete(UUID productId);
 

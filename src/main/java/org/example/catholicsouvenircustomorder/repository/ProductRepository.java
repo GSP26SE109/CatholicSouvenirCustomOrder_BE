@@ -31,4 +31,5 @@ public interface ProductRepository extends JpaRepository<Product,UUID> {
     AND p.quantity <= 10
 """)
     List<ShortStockProduct> findShortStockProduct(UUID artisanId);
+    Optional<Product> findProductByProductIdAndArtisan_ArtisanUuid(UUID artisanId, UUID productId);
 }

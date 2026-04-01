@@ -5,7 +5,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.example.catholicsouvenircustomorder.dto.common.TokenClaims;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.service.JwtService;
@@ -32,6 +31,13 @@ public class CustomSecurityFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        // Skip filter cho WebSocket endpoints
+        String path = request.getRequestURI();
+        if (path.startsWith("/ws")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String authenHeader = request.getHeader("Authorization");
         if (authenHeader != null && authenHeader.startsWith("Bearer ")) {
             String token = authenHeader.substring(7);

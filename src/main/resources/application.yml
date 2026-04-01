@@ -22,6 +22,45 @@ data:
 jwt:
   key: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
   expiration: 86400000
+
 payos:
   return-url: https://your-frontend.com/payment-success
   cancel-url: https://your-frontend.com/payment-cancel
+
+# AI Configuration
+ai:
+  image:
+    # Using Hugging Face Stable Diffusion (FREE)
+    provider: huggingface
+
+# Hugging Face (FREE - 1000 requests/month)
+# Model: stabilityai/stable-diffusion-2-1
+# Get free API key at: https://huggingface.co/settings/tokens
+huggingface:
+  api:
+    key: ${HUGGINGFACE_API_KEY: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}
+
+
+zalopay:
+  app-id: ${ZALOPAY_APP_ID:554}
+  key1: ${ZALOPAY_KEY1:8NdU5pG5R2spGHGhyO99HN1OhD8IQJBn}
+  key2: ${ZALOPAY_KEY2:uUfsWgfLkRLzq6W2uNXTCxrfxs51auny}
+  endpoint: https://sb-openapi.zalopay.vn/v2/create
+  callback-url: ${ZALOPAY_CALLBACK_URL:http://localhost:8080/api/payments/zalopay/callback}
+
+
+vnpay:
+  tmn-code: ${VNPAY_TMN_CODE:A1F15ZBS}
+  hash-secret: ${VNPAY_HASH_SECRET:I8GJ3NOJ5A6X74QB41YUKWCWAB17A90R}
+  url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/payments/vnpay/callback}
+  version: 2.1.0
+  command: pay
+  order-type: other
+
+# Supabase Storage Configuration
+supabase:
+  url: ${SUPABASE_URL:https://ukglqatwjgokrcdvvysl.supabase.co}
+  key: ${SUPABASE_KEY:sb_secret_kgQY8_2OQDKUzkv1d13_oA_rA9eKu7U}
+  storage:
+    bucket: ai-images

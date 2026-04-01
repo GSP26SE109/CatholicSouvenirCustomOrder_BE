@@ -7,7 +7,12 @@ import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.CreateOrderR
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
 import org.example.catholicsouvenircustomorder.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,8 +26,14 @@ public class OrderController {
     private OrderService orderService;
 
     @GetMapping()
-    public ResponseEntity<BaseResponse> getAllOrders() {
-        List<OrderResponseDTO> orderList = orderService.findAll();
+    public ResponseEntity<BaseResponse> getAllOrders(
+          @RequestParam(defaultValue = "0") int page,
+          @RequestParam(defaultValue = "10") int size,
+          @RequestParam(defaultValue = "createAt") String sortBy,
+          @RequestParam(defaultValue = "DESC") String sortDirection) {
+        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Page<OrderResponseDTO> orderList = orderService.findAll(pageable);
         return ResponseEntity.ok(BaseResponse.success("Lấy danh sách order thành công",orderList));
     }
 
@@ -33,13 +44,27 @@ public class OrderController {
     }
 
     @GetMapping("/account/{accountId}")
-    public ResponseEntity<BaseResponse> getAllOrdersByAccountId(@PathVariable String accountId) {
-        List<OrderResponseDTO> orderList = orderService.findAllByAccountId(UUID.fromString(accountId));
+    public ResponseEntity<BaseResponse> getAllOrdersByAccountId(
+            @AuthenticationPrincipal String accountId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection) {
+        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Page<OrderResponseDTO> orderList = orderService.findAllByAccountId(UUID.fromString(accountId),pageable);
         return ResponseEntity.ok(BaseResponse.success("Lấy danh sách order thành công",orderList));
     }
     @GetMapping("/artisan/{artisanId}")
-    public ResponseEntity<BaseResponse> getAllOrdersByArtisanId(@PathVariable String artisanId) {
-        List<OrderResponseDTO> orderList = orderService.findAllOrderByArtisanId(UUID.fromString(artisanId));
+    public ResponseEntity<BaseResponse> getAllOrdersByArtisanId(
+            @PathVariable String artisanId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection) {
+        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Page<OrderResponseDTO> orderList = orderService.findAllOrderByArtisanId(UUID.fromString(artisanId),pageable);
         return ResponseEntity.ok(BaseResponse.success("Lấy danh sách order thành công",orderList));
     }
     @PostMapping()

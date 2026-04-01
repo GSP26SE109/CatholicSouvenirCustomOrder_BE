@@ -8,29 +8,55 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "payments")
 @Data
+@Table(name = "payments")
 public class Payment {
-
+    
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID paymentId;
-
-    @ManyToOne(optional = false)
+    
+    @ManyToOne
     @JoinColumn(name = "order_id")
     private Order order;
-
-    @ManyToOne(optional = true)
+    
+    @ManyToOne
+    @JoinColumn(name = "custom_order_id")
+    private CustomOrder customOrder;
+    
+    @ManyToOne
     @JoinColumn(name = "stage_id")
-    private Stage stage;
-
+    private CustomOrderStage stage;
+    
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;
-
-    private String status;
-
+    
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String providerTransactionId;
-
-    private LocalDateTime createdAt;
+    private PaymentStatus status = PaymentStatus.PENDING;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentMethod method;
+    
+    @Column(unique = true, length = 100)
+    private String transactionId;
+    
+    @Column(length = 1000)
+    private String paymentUrl;
+    
+    @Column(nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+    
+    private LocalDateTime paidAt;
+    
+    @Column(columnDefinition = "TEXT")
+    private String failureReason;
+    
+    @PreUpdate
+    public void preUpdate() {
+        if (this.status == PaymentStatus.SUCCESS && this.paidAt == null) {
+            this.paidAt = LocalDateTime.now();
+        }
+    }
 }

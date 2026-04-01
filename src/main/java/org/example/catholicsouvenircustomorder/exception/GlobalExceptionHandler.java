@@ -56,14 +56,44 @@ public class GlobalExceptionHandler {
     }
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<BaseResponse> handleNotFound(ResourceNotFoundException ex) {
-
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(BaseResponse.error(404, ex.getMessage()));
     }
+    
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<BaseResponse> handleNotFoundException(NotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(BaseResponse.error(404, ex.getMessage()));
+    }
+    
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<BaseResponse> handleBadRequestException(BadRequestException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(BaseResponse.error(400, ex.getMessage()));
+    }
+    
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<BaseResponse> handleRuntimeException(RuntimeException ex) {
         return ResponseEntity.badRequest()
                 .body(BaseResponse.error(400, ex.getMessage()));
+    }
+    
+    @ExceptionHandler(ZoneValidationException.class)
+    public ResponseEntity<BaseResponse> handleZoneValidationException(ZoneValidationException ex) {
+        return ResponseEntity.badRequest()
+                .body(BaseResponse.error(400, ex.getMessage()));
+    }
+    
+    @ExceptionHandler(ImageGenerationLimitExceededException.class)
+    public ResponseEntity<BaseResponse> handleImageGenerationLimitExceeded(ImageGenerationLimitExceededException ex) {
+        return ResponseEntity.badRequest()
+                .body(BaseResponse.error(400, ex.getMessage()));
+    }
+    
+    @ExceptionHandler(UnauthorizedTemplateAccessException.class)
+    public ResponseEntity<BaseResponse> handleUnauthorizedTemplateAccess(UnauthorizedTemplateAccessException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(BaseResponse.error(403, ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
