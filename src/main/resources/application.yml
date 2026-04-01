@@ -2,7 +2,7 @@ spring:
   application:
     name: CatholicSouvenirCustomOrder
   datasource:
-    url: jdbc:postgresql://localhost:54321/catholic_souvenir
+    url: jdbc:postgresql://localhost:5432/catholic_souvenir
     username: postgres
     password: 123456
     driver-class-name: org.postgresql.Driver
