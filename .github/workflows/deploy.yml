@@ -124,6 +124,8 @@ jobs:
               echo "==> Cap nhat: chi restart backend..."
               docker compose --env-file .env stop backend
               docker compose --env-file .env start backend
+              echo "==> Reload Nginx config..."
+              docker compose --env-file .env exec -T nginx nginx -s reload
             fi
 
             # Cho backend khoi dong
