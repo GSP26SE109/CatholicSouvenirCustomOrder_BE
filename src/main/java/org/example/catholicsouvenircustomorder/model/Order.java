@@ -35,5 +35,4 @@ public class Order {
             cascade = CascadeType.ALL,
             orphanRemoval = true)
     private List<OrderDetail> orderDetails = new ArrayList<>();
-    ;
 }

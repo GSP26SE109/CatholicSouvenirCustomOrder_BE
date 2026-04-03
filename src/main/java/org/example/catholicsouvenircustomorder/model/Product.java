@@ -15,16 +15,15 @@ public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID productId;
-    
+
     @ManyToOne
-    @JoinColumn(name="artisan_id")
+    @JoinColumn(name = "artisan_id")
     private Artisan artisan;
 
-    
+
     private String productName;
     private BigDecimal productPrice;
     private String productDescription;
-    private String material;
     private String size;
     private int quantity;
     private String status;
@@ -36,6 +35,17 @@ public class Product {
     @OneToMany(mappedBy = "product")
     private List<OrderDetail> orderDetails;
 
+    @ManyToOne
+    @JoinColumn(name = "category_id")
+    private Category category;
+
+    @ManyToMany
+    @JoinTable(
+            name = "product_tags",
+            joinColumns = @JoinColumn(name = "product_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private List<Tag> tags = new ArrayList<>();
     @Version
     private int version;
 }

@@ -6,24 +6,26 @@ import org.example.catholicsouvenircustomorder.dto.response.Product.ProductImage
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.model.Product;
 import org.example.catholicsouvenircustomorder.model.ProductImage;
+import org.example.catholicsouvenircustomorder.model.Tag;
 import org.mapstruct.*;
 
 import java.util.List;
 import java.util.UUID;
-
 @Mapper(componentModel = "spring")
 public interface ProductMapper {
+
     @Mapping(target = "images", source = "images")
     @Mapping(target = "artisanId", source = "artisan.artisanUuid")
     @Mapping(target = "artisanName", source = "artisan.artisanName")
+    @Mapping(target = "categoryId", source = "category.categoryId")
+    @Mapping(target = "categoryName", source = "category.categoryName")
+    @Mapping(target = "tags", source = "tags")
     ProductResponse toResponse(Product product);
-
-    @Mapping(target = "artisanId", source = "artisan.artisanUuid")
-    @Mapping(target = "artisanName", source = "artisan.artisanName")
-    List<ProductResponse> toResponseList(List<Product> products);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "images", ignore = true)
+    @Mapping(target = "tags", ignore = true)        // ✅ handled manually
+    @Mapping(target = "category", ignore = true)    // ✅ handled in service
     void updateProductFromDto(UpdateProductRequest dto,
                               @MappingTarget Product entity);
 
@@ -31,4 +33,10 @@ public interface ProductMapper {
 
     List<ProductImageResponse> toImageResponseList(List<ProductImage> images);
 
+    default List<String> map(List<Tag> tags) {
+        if (tags == null) return null;
+        return tags.stream()
+                .map(Tag::getName)
+                .toList();
+    }
 }

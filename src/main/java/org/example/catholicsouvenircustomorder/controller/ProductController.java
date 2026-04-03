@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.ApproveProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
+import org.example.catholicsouvenircustomorder.dto.request.Product.ProductFilterRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.service.ProductService;
@@ -19,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,16 +31,30 @@ public class ProductController {
 
     private final ProductService productService;
 
-    @GetMapping()
-    public ResponseEntity<BaseResponse> getAll(
-           @RequestParam(defaultValue = "0") int page,
-           @RequestParam(defaultValue = "10") int size,
-           @RequestParam(defaultValue = "createdAt") String sortBy,
-           @RequestParam(defaultValue = "DESC") String sortDirection) {
-        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-        Page<ProductResponse> products = productService.findAll(pageable);
-        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách sản phẩm thành công", products));
+    @GetMapping("")
+    public ResponseEntity<BaseResponse> getProducts(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) List<String> tags,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "productPrice") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir
+    ) {
+
+        ProductFilterRequest request = new ProductFilterRequest();
+        request.setCategory(category);
+        request.setTags(tags);
+        request.setMinPrice(minPrice);
+        request.setMaxPrice(maxPrice);
+
+        Page<ProductResponse> listProducts= productService.filterProducts(
+                request, page, size, sortBy, sortDir
+        );
+        return ResponseEntity.ok(
+                BaseResponse.success("Lấy danh sách sản phẩm thành công", listProducts)
+        );
     }
 
     @GetMapping("/artisan/{artisanId}")

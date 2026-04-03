@@ -2,6 +2,7 @@ package org.example.catholicsouvenircustomorder.service;
 
 import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
+import org.example.catholicsouvenircustomorder.dto.request.Product.ProductFilterRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.model.Product;
@@ -25,11 +26,19 @@ public interface ProductService {
 
     ProductResponse create(CreateProductRequest request, UUID artisanId);
 
-    ProductResponse update(UUID artisanId,UUID productId, UpdateProductRequest dto);
+    ProductResponse update(UUID artisanId, UUID productId, UpdateProductRequest dto);
 
     void delete(UUID productId);
 
     Map<UUID, Product> loadAndValidateQuantity(List<OrderItemRequest> items);
 
     ProductResponse ApproveProduct(UUID productId, org.example.catholicsouvenircustomorder.dto.request.ApproveProductRequest request);
+
+    Page<ProductResponse> filterProducts(
+            ProductFilterRequest request,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir
+    );
 }
