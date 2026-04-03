@@ -109,6 +109,8 @@ jobs:
           script: |
             cd ~/catholic-souvenir-custom-order
 
+            find backend/ -name "*.jar" ! -name "app.jar" -delete
+        
             # Doi ten jar
             mv backend/*.jar backend/app.jar 2>/dev/null || true
 
