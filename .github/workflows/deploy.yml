@@ -108,27 +108,28 @@ jobs:
           key: ${{ secrets.AZURE_SSH_KEY }}
           script: |
             cd ~/catholic-souvenir-custom-order
+  
+            echo "==> Clean old jar..."
+            find backend/ -name "*.jar" ! -name "app.jar" -delete
             
-            # 1. Dọn dẹp và chuẩn bị file JAR
-            mkdir -p backend
-            # Tìm file jar trong target vừa scp lên và chuyển vào folder backend
-            mv target/*.jar backend/app.jar 2>/dev/null || true
-            rm -rf target/
-
-            # 2. Thực hiện cập nhật
-            # Dùng 'up --build' là cách chuẩn nhất để Docker nhận diện file JAR mới và build lại Image
-            echo "==> Đang build lại image và restart backend..."
-            docker compose --env-file .env up -d --build backend
-
-            # 3. Reload Nginx để đảm bảo kết nối không bị ngắt
-            echo "==> Reloading Nginx..."
-            docker compose --env-file .env exec -T nginx nginx -s reload 2>/dev/null || true
-
-            # 4. Dọn dẹp các image cũ (dangling images) để tiết kiệm ổ cứng Azure
+            echo "==> Rename jar..."
+            mv backend/*.jar backend/app.jar 2>/dev/null || true
+            
+            echo "==> Build new backend image..."
+            docker compose --env-file .env build --no-cache backend
+            
+            echo "==> Restart backend..."
+            docker compose --env-file .env up -d backend
+            
+            echo "==> Reload nginx..."
+            docker compose --env-file .env exec -T nginx nginx -s reload || true
+            
+            echo "==> Remove old images..."
             docker image prune -f
-
-            # 5. Kiểm tra trạng thái
-            echo "==> Chờ backend khởi động (20s)..."
-            sleep 20
+            
+            echo "==> Waiting 30s..."
+            sleep 30
+            
             docker compose --env-file .env ps
-            echo "==> Deploy hoàn tất code mới!"
+  
+            echo "==> Deploy done!"
