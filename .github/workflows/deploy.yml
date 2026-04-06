@@ -108,30 +108,27 @@ jobs:
           key: ${{ secrets.AZURE_SSH_KEY }}
           script: |
             cd ~/catholic-souvenir-custom-order
+            
+            # 1. Dọn dẹp và chuẩn bị file JAR
+            mkdir -p backend
+            # Tìm file jar trong target vừa scp lên và chuyển vào folder backend
+            mv target/*.jar backend/app.jar 2>/dev/null || true
+            rm -rf target/
 
-            find backend/ -name "*.jar" ! -name "app.jar" -delete
-        
-            # Doi ten jar
-            mv backend/*.jar backend/app.jar 2>/dev/null || true
+            # 2. Thực hiện cập nhật
+            # Dùng 'up --build' là cách chuẩn nhất để Docker nhận diện file JAR mới và build lại Image
+            echo "==> Đang build lại image và restart backend..."
+            docker compose --env-file .env up -d --build backend
 
-            # Kiem tra lan dau hay khong
-            RUNNING=$(docker compose --env-file .env ps -q 2>/dev/null | wc -l)
+            # 3. Reload Nginx để đảm bảo kết nối không bị ngắt
+            echo "==> Reloading Nginx..."
+            docker compose --env-file .env exec -T nginx nginx -s reload 2>/dev/null || true
 
-            if [ "$RUNNING" -eq "0" ]; then
-              echo "==> Lan dau: khoi dong tat ca containers..."
-              docker compose --env-file .env up -d
-            else
-              echo "==> Cap nhat: chi restart backend..."
-              docker compose --env-file .env stop backend
-              docker compose --env-file .env start backend
-              echo "==> Reload Nginx config..."
-              docker compose --env-file .env exec -T nginx nginx -s reload
-            fi
+            # 4. Dọn dẹp các image cũ (dangling images) để tiết kiệm ổ cứng Azure
+            docker image prune -f
 
-            # Cho backend khoi dong
-            echo "==> Waiting 30s for backend..."
-            sleep 30
-
-            # Kiem tra trang thai
+            # 5. Kiểm tra trạng thái
+            echo "==> Chờ backend khởi động (20s)..."
+            sleep 20
             docker compose --env-file .env ps
-            echo "==> Deploy done!"
+            echo "==> Deploy hoàn tất code mới!"
