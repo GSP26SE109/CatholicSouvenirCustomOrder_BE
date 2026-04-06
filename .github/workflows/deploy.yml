@@ -81,16 +81,6 @@ jobs:
       - name: Build JAR
         run: ./mvnw clean package -DskipTests
 
-#      - name: Copy Files to VM
-#        uses: appleboy/scp-action@v0.1.7
-#        with:
-#            host: ${{ secrets.AZURE_VM_IP }}
-#            username: ${{ secrets.AZURE_VM_USER }}
-#            key: ${{ secrets.AZURE_SSH_KEY }}
-#            source: "target/*.jar,docker-compose.yml,Dockerfile,nginx/nginx.conf"
-#            target: "/home/azureuser/catholic-souvenir-custom-order/"
-#            strip_components: 0
-
       - name: Copy JAR to VM
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -132,11 +122,10 @@ jobs:
               docker compose --env-file .env up -d
             else
               echo "==> Cap nhat: chi restart backend..."
-              docker compose --env-file .env build --no-cache backend
-              docker compose --env-file .env up -d --force-recreate backend
+              docker compose --env-file .env stop backend
+              docker compose --env-file .env start backend
               echo "==> Reload Nginx config..."
               docker compose --env-file .env exec -T nginx nginx -s reload
-              docker image prune -f
             fi
 
             # Cho backend khoi dong
