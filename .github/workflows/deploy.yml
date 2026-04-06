@@ -109,30 +109,24 @@ jobs:
           script: |
             cd ~/catholic-souvenir-custom-order
 
+            # 1. Dọn dẹp các bản jar cũ để tránh nhầm lẫn
             find backend/ -name "*.jar" ! -name "app.jar" -delete
-            
-            # Doi ten jar
             mv backend/*.jar backend/app.jar 2>/dev/null || true
 
-            # Kiem tra lan dau hay khong
-            RUNNING=$(docker compose --env-file .env ps -q 2>/dev/null | wc -l)
+            # 2. Lệnh CẬP NHẬT quan trọng nhất:
+            # --build: Ép Docker build lại Image mới từ file app.jar vừa copy lên
+            # --force-recreate: Ép tạo lại container mới hoàn toàn
+            # --no-deps: Chỉ tác động đến backend, không làm phiền Postgres/Redis
+            echo "==> Đang build lại Image và cập nhật Backend..."
+            docker compose --env-file .env up -d --build --force-recreate backend
 
-            if [ "$RUNNING" -eq "0" ]; then
-              echo "==> Lan dau: khoi dong tat ca containers..."
-              docker compose --env-file .env up -d
-            else
-              echo "==> Cap nhat: chi restart backend..."
-              docker compose --env-file .env up -d --build --force-recreate backend
-              echo "==> Reload Nginx config..."
-              docker compose --env-file .env exec -T nginx nginx -s reload || true
-            fi
-            
+            # 3. Reload Nginx (nếu cần)
+            echo "==> Reload Nginx..."
+            docker compose --env-file .env exec -T nginx nginx -s reload || true
+
+            # 4. Xóa Image rác để tiết kiệm bộ nhớ Azure VM (Cực kỳ quan trọng)
             docker image prune -f
-            
-            # Cho backend khoi dong
-            echo "==> Waiting 30s for backend..."
-            sleep 30
 
-            # Kiem tra trang thai
+            echo "==> Chờ 30s check health..."
+            sleep 30
             docker compose --env-file .env ps
-            echo "==> Deploy done!"
