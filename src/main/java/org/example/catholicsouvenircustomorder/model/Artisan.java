@@ -45,4 +45,7 @@ public class Artisan {
             cascade = CascadeType.ALL,
             orphanRemoval = true)
     private List<Product> products = new ArrayList<>();
+
+    @OneToMany(mappedBy = "artisan")
+    private List<CustomOrder> customOrders = new ArrayList<>();
 }
