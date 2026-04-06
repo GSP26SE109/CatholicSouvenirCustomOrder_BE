@@ -81,34 +81,34 @@ jobs:
       - name: Build JAR
         run: ./mvnw clean package -DskipTests
 
-      - name: Copy Files to VM
+#      - name: Copy Files to VM
+#        uses: appleboy/scp-action@v0.1.7
+#        with:
+#            host: ${{ secrets.AZURE_VM_IP }}
+#            username: ${{ secrets.AZURE_VM_USER }}
+#            key: ${{ secrets.AZURE_SSH_KEY }}
+#            source: "target/*.jar,docker-compose.yml,Dockerfile,nginx/nginx.conf"
+#            target: "/home/azureuser/catholic-souvenir-custom-order/"
+#            strip_components: 0
+
+      - name: Copy JAR to VM
         uses: appleboy/scp-action@v0.1.7
         with:
-            host: ${{ secrets.AZURE_VM_IP }}
-            username: ${{ secrets.AZURE_VM_USER }}
-            key: ${{ secrets.AZURE_SSH_KEY }}
-            source: "target/*.jar,docker-compose.yml,Dockerfile,nginx/nginx.conf"
-            target: "/home/azureuser/catholic-souvenir-custom-order/"
-            strip_components: 0
+          host: ${{ secrets.AZURE_VM_IP }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          source: "target/*.jar"
+          target: "/home/azureuser/catholic-souvenir-custom-order/backend/"
+          strip_components: 1
 
-#      - name: Copy JAR to VM
-#        uses: appleboy/scp-action@v0.1.7
-#        with:
-#          host: ${{ secrets.AZURE_VM_IP }}
-#          username: ${{ secrets.AZURE_VM_USER }}
-#          key: ${{ secrets.AZURE_SSH_KEY }}
-#          source: "target/*.jar"
-#          target: "/home/azureuser/catholic-souvenir-custom-order/backend/"
-#          strip_components: 1
-#
-#      - name: Copy docker-compose and nginx to VM
-#        uses: appleboy/scp-action@v0.1.7
-#        with:
-#          host: ${{ secrets.AZURE_VM_IP }}
-#          username: ${{ secrets.AZURE_VM_USER }}
-#          key: ${{ secrets.AZURE_SSH_KEY }}
-#          source: "docker-compose.yml,nginx/nginx.conf"
-#          target: "/home/azureuser/catholic-souvenir-custom-order/"
+      - name: Copy docker-compose and nginx to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AZURE_VM_IP }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          source: "docker-compose.yml,nginx/nginx.conf"
+          target: "/home/azureuser/catholic-souvenir-custom-order/"
 
       - name: Deploy on VM
         uses: appleboy/ssh-action@v1.0.3
