@@ -32,12 +32,12 @@
 ## Run application
 #ENTRYPOINT ["java", "-jar", "app.jar"]
 
-FROM eclipse-temurin:17-jre-alpine
-
-WORKDIR /app
-
-COPY backend/app.jar app.jar
-
-EXPOSE 8080
-
-ENTRYPOINT ["java","-Xms256m","-Xmx768m","-jar","app.jar"]
+#FROM eclipse-temurin:17-jre-alpine
+#
+#WORKDIR /app
+#
+#COPY backend/app.jar app.jar
+#
+#EXPOSE 8080
+#
+#ENTRYPOINT ["java","-Xms256m","-Xmx768m","-jar","app.jar"]
