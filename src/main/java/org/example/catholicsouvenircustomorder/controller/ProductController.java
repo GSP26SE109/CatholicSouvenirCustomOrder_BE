@@ -57,7 +57,7 @@ public class ProductController {
         );
     }
 
-    @GetMapping("")
+    @GetMapping("/approved")
     public ResponseEntity<BaseResponse> getApprovedProducts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
