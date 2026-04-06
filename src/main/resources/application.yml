@@ -1,129 +1,43 @@
-#spring:
-#  application:
-#    name: CatholicSouvenirCustomOrder
-#
-#  datasource:
-#    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/catholic_souvenir}
-#    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-#    password: ${SPRING_DATASOURCE_PASSWORD:123456}
-#    driver-class-name: org.postgresql.Driver
-#
-#  jpa:
-#    hibernate:
-#      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
-#    show-sql: ${SPRING_JPA_SHOW_SQL:true}
-#    properties:
-#      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
-#      hibernate.format_sql: true
-#
-#  data:
-#    redis:
-#      host: ${SPRING_DATA_REDIS_HOST:localhost}
-#      port: ${SPRING_DATA_REDIS_PORT:6379}
-#      password: ${SPRING_DATA_REDIS_PASSWORD:}
-#      timeout: 60000
-#
-#jwt:
-#  key: ${JWT_KEY:+N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=}
-#  expiration: ${JWT_EXPIRATION:86400000}
-#
-#payos:
-#  return-url: https://your-frontend.com/payment-success
-#  cancel-url: https://your-frontend.com/payment-cancel
-#
-#ai:
-#  image:
-#    provider: ${AI_IMAGE_PROVIDER:huggingface}
-#
-#huggingface:
-#  api:
-#    key: ${HUGGINGFACE_API_KEY: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}
-#
-#zalopay:
-#  app-id: ${ZALOPAY_APP_ID:554}
-#  key1: ${ZALOPAY_KEY1:8NdU5pG5R2spGHGhyO99HN1OhD8IQJBn}
-#  key2: ${ZALOPAY_KEY2:uUfsWgfLkRLzq6W2uNXTCxrfxs51auny}
-#  endpoint: https://sb-openapi.zalopay.vn/v2/create
-#  callback-url: ${ZALOPAY_CALLBACK_URL:http://localhost:8080/api/payments/zalopay/callback}
-#
-#vnpay:
-#  tmn-code: ${VNPAY_TMN_CODE:A1F15ZBS}
-#  hash-secret: ${VNPAY_HASH_SECRET:I8GJ3NOJ5A6X74QB41YUKWCWAB17A90R}
-#  url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-#  return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/payments/vnpay/callback}
-#  version: ${VNPAY_VERSION:2.1.0}
-#  command: ${VNPAY_COMMAND:pay}
-#  order-type: ${VNPAY_ORDER_TYPE:other}
-#
-#supabase:
-#  url: ${SUPABASE_URL:https://ukglqatwjgokrcdvvysl.supabase.co}
-#  key: ${SUPABASE_KEY:sb_secret_kgQY8_2OQDKUzkv1d13_oA_rA9eKu7U}
-#  storage:
-#    bucket: ${SUPABASE_STORAGE_BUCKET:ai-images}
-#
-#cloudinary:
-#  cloud-name: ${CLOUDINARY_CLOUD_NAME:daiwsshlm}
-#  api-key: ${CLOUDINARY_API_KEY:931731612755631}
-#  api-secret: ${CLOUDINARY_API_SECRET:gCO38ygVl0ZeEUR8CFdjTNXbu8M}
-
-
-
-
-
-
-##########################LOCAL HOST#################################
-
 spring:
   application:
     name: CatholicSouvenirCustomOrder
+
   datasource:
-    url: jdbc:postgresql://localhost:54321/catholic-souvenir
-    username: root
-    password: 123456
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:54321/catholic_souvenir}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SPRING_JPA_SHOW_SQL:true}
     properties:
       hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
       hibernate.format_sql: true
+
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
       timeout: 60000
-  elasticsearch:
-    uris: http://localhost:9200
-    api-key: ${ELASTIC_API_KEY}
-    connection-timeout: 5s
-    socket-timeout: 30s
+
 jwt:
-  key: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
-  expiration: 86400000
+  key: ${JWT_KEY:+N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=}
+  expiration: ${JWT_EXPIRATION:86400000}
 
 payos:
   return-url: https://your-frontend.com/payment-success
   cancel-url: https://your-frontend.com/payment-cancel
 
-cloudinary:
-  cloud-name: daiwsshlm
-  api-key: 931731612755631
-  api-secret: gCO38ygVl0ZeEUR8CFdjTNXbu8M
-# AI Configuration
 ai:
   image:
-    # Using Hugging Face Stable Diffusion (FREE)
-    provider: huggingface
+    provider: ${AI_IMAGE_PROVIDER:huggingface}
 
-# Hugging Face (FREE - 1000 requests/month)
-# Model: stabilityai/stable-diffusion-2-1
-# Get free API key at: https://huggingface.co/settings/tokens
 huggingface:
   api:
     key: ${HUGGINGFACE_API_KEY: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}
-
 
 zalopay:
   app-id: ${ZALOPAY_APP_ID:554}
@@ -132,23 +46,109 @@ zalopay:
   endpoint: https://sb-openapi.zalopay.vn/v2/create
   callback-url: ${ZALOPAY_CALLBACK_URL:http://localhost:8080/api/payments/zalopay/callback}
 
-
 vnpay:
   tmn-code: ${VNPAY_TMN_CODE:A1F15ZBS}
   hash-secret: ${VNPAY_HASH_SECRET:I8GJ3NOJ5A6X74QB41YUKWCWAB17A90R}
   url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
   return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/payments/vnpay/callback}
-  version: 2.1.0
-  command: pay
-  order-type: other
+  version: ${VNPAY_VERSION:2.1.0}
+  command: ${VNPAY_COMMAND:pay}
+  order-type: ${VNPAY_ORDER_TYPE:other}
 
-# Supabase Storage Configuration
 supabase:
   url: ${SUPABASE_URL:https://ukglqatwjgokrcdvvysl.supabase.co}
   key: ${SUPABASE_KEY:sb_secret_kgQY8_2OQDKUzkv1d13_oA_rA9eKu7U}
   storage:
-    bucket: ai-images
+    bucket: ${SUPABASE_STORAGE_BUCKET:ai-images}
+
 cloudinary:
-  cloud-name: daiwsshlm
-  api-key: 931731612755631
-  api-secret: gCO38ygVl0ZeEUR8CFdjTNXbu8M
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:daiwsshlm}
+  api-key: ${CLOUDINARY_API_KEY:931731612755631}
+  api-secret: ${CLOUDINARY_API_SECRET:gCO38ygVl0ZeEUR8CFdjTNXbu8M}
+
+
+
+
+
+
+##########################LOCAL HOST#################################
+
+#spring:
+#  application:
+#    name: CatholicSouvenirCustomOrder
+#  datasource:
+#    url: jdbc:postgresql://localhost:54321/catholic-souvenir
+#    username: root
+#    password: 123456
+#    driver-class-name: org.postgresql.Driver
+#
+#  jpa:
+#    hibernate:
+#      ddl-auto: update
+#    show-sql: true
+#    properties:
+#      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+#      hibernate.format_sql: true
+#  data:
+#    redis:
+#      host: localhost
+#      port: 6379
+#      timeout: 60000
+#  elasticsearch:
+#    uris: http://localhost:9200
+#    api-key: ${ELASTIC_API_KEY}
+#    connection-timeout: 5s
+#    socket-timeout: 30s
+#jwt:
+#  key: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
+#  expiration: 86400000
+#
+#payos:
+#  return-url: https://your-frontend.com/payment-success
+#  cancel-url: https://your-frontend.com/payment-cancel
+#
+#cloudinary:
+#  cloud-name: daiwsshlm
+#  api-key: 931731612755631
+#  api-secret: gCO38ygVl0ZeEUR8CFdjTNXbu8M
+## AI Configuration
+#ai:
+#  image:
+#    # Using Hugging Face Stable Diffusion (FREE)
+#    provider: huggingface
+#
+## Hugging Face (FREE - 1000 requests/month)
+## Model: stabilityai/stable-diffusion-2-1
+## Get free API key at: https://huggingface.co/settings/tokens
+#huggingface:
+#  api:
+#    key: ${HUGGINGFACE_API_KEY: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}
+#
+#
+#zalopay:
+#  app-id: ${ZALOPAY_APP_ID:554}
+#  key1: ${ZALOPAY_KEY1:8NdU5pG5R2spGHGhyO99HN1OhD8IQJBn}
+#  key2: ${ZALOPAY_KEY2:uUfsWgfLkRLzq6W2uNXTCxrfxs51auny}
+#  endpoint: https://sb-openapi.zalopay.vn/v2/create
+#  callback-url: ${ZALOPAY_CALLBACK_URL:http://localhost:8080/api/payments/zalopay/callback}
+#
+#
+#vnpay:
+#  tmn-code: ${VNPAY_TMN_CODE:A1F15ZBS}
+#  hash-secret: ${VNPAY_HASH_SECRET:I8GJ3NOJ5A6X74QB41YUKWCWAB17A90R}
+#  url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+#  return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/payments/vnpay/callback}
+#  version: 2.1.0
+#  command: pay
+#  order-type: other
+#
+## Supabase Storage Configuration
+#supabase:
+#  url: ${SUPABASE_URL:https://ukglqatwjgokrcdvvysl.supabase.co}
+#  key: ${SUPABASE_KEY:sb_secret_kgQY8_2OQDKUzkv1d13_oA_rA9eKu7U}
+#  storage:
+#    bucket: ai-images
+#cloudinary:
+#  cloud-name: daiwsshlm
+#  api-key: 931731612755631
+#  api-secret: gCO38ygVl0ZeEUR8CFdjTNXbu8M
