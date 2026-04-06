@@ -42,6 +42,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: catholic-souvenir-backend:latest
     container_name: catholic-souvenir-backend
     restart: unless-stopped
 #    working_dir: /app
