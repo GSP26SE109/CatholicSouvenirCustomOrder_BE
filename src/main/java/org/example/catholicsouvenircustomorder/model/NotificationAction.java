@@ -4,6 +4,7 @@ public enum NotificationAction {
     NONE,                    // Just informational
     ACCEPT_REQUEST,          // Artisan accepts custom request
     REJECT_REQUEST,          // Artisan rejects custom request
+    VIEW_REQUEST,            // View custom request details
     VIEW_QUOTATION,          // Customer views quotation
     PAY_STAGE,              // Customer pays stage
     COMPLETE_STAGE,         // Artisan completes stage

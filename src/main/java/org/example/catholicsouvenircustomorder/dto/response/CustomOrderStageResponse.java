@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.example.catholicsouvenircustomorder.model.PaymentStatus;
+import org.example.catholicsouvenircustomorder.model.StageStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,7 +22,7 @@ public class CustomOrderStageResponse {
     private String description;
     private BigDecimal amount;
     private Integer percentage;
-    private PaymentStatus paymentStatus;
+    private StageStatus status;
     private LocalDateTime dueDate;
     private LocalDateTime paidAt;
     private LocalDateTime completedAt;

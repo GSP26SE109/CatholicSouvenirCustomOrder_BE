@@ -5,7 +5,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.example.catholicsouvenircustomorder.dto.common.TokenClaims;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.service.JwtService;

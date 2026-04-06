@@ -3,16 +3,13 @@ package org.example.catholicsouvenircustomorder.service.imp;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.request.SendMessageRequest;
 import org.example.catholicsouvenircustomorder.dto.response.ChatMessageResponse;
-import org.example.catholicsouvenircustomorder.dto.response.QuotationResponse;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.ChatMessage;
 import org.example.catholicsouvenircustomorder.model.CustomRequest;
-import org.example.catholicsouvenircustomorder.model.Quotation;
 import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.ChatMessageRepository;
 import org.example.catholicsouvenircustomorder.repository.CustomRequestRepository;
-import org.example.catholicsouvenircustomorder.repository.QuotationRepository;
 import org.example.catholicsouvenircustomorder.service.ChatService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -29,7 +26,6 @@ public class ChatServiceImp implements ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final CustomRequestRepository customRequestRepository;
     private final AccountRepository accountRepository;
-    private final QuotationRepository quotationRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Override
@@ -41,17 +37,14 @@ public class ChatServiceImp implements ChatService {
         Account sender = accountRepository.findById(senderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sender not found"));
 
+        // Validate sender is customer or selected artisan
+        validateSenderAuthorization(customRequest, senderId);
+
         ChatMessage message = new ChatMessage();
         message.setCustomRequest(customRequest);
         message.setSender(sender);
         message.setContent(request.getContent());
         message.setMessageType(request.getMessageType());
-
-        if (request.getRelatedQuotationId() != null) {
-            Quotation quotation = quotationRepository.findById(request.getRelatedQuotationId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Quotation not found"));
-            message.setRelatedQuotation(quotation);
-        }
 
         message = chatMessageRepository.save(message);
 
@@ -77,6 +70,9 @@ public class ChatServiceImp implements ChatService {
         Account artisan = accountRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artisan not found"));
 
+        // Validate sender is customer or selected artisan
+        validateSenderAuthorization(customRequest, senderId);
+
         // Determine receiver based on sender
         UUID receiverId = sender.getAccountId().equals(artisanId) 
             ? customRequest.getCustomer().getAccountId() 
@@ -93,12 +89,6 @@ public class ChatServiceImp implements ChatService {
                 .orElseThrow(() -> new ResourceNotFoundException("Receiver not found"));
         message.setReceiver(receiver);
 
-        if (request.getRelatedQuotationId() != null) {
-            Quotation quotation = quotationRepository.findById(request.getRelatedQuotationId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Quotation not found"));
-            message.setRelatedQuotation(quotation);
-        }
-
         message = chatMessageRepository.save(message);
 
         // Broadcast to PRIVATE channel: /topic/chat/{requestId}/{artisanId}
@@ -113,6 +103,9 @@ public class ChatServiceImp implements ChatService {
 
     @Override
     public List<ChatMessageResponse> getPrivateMessages(UUID requestId, UUID artisanId) {
+        CustomRequest customRequest = customRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Custom request not found"));
+        
         // Get messages where either:
         // - Sender is artisan OR receiver is artisan
         // - For this specific request
@@ -138,8 +131,25 @@ public class ChatServiceImp implements ChatService {
     }
 
     @Override
+    public List<ChatMessageResponse> getChatHistory(UUID requestId, UUID userId) {
+        CustomRequest customRequest = customRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Custom request not found"));
+        
+        // Validate user is participant (customer or selected artisan)
+        validateParticipantAuthorization(customRequest, userId);
+        
+        return getMessagesByRequest(requestId);
+    }
+
+    @Override
     @Transactional
     public void markMessagesAsRead(UUID requestId, UUID userId) {
+        CustomRequest customRequest = customRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Custom request not found"));
+        
+        // Validate user is participant (customer or selected artisan)
+        validateParticipantAuthorization(customRequest, userId);
+        
         List<ChatMessage> unreadMessages = chatMessageRepository
                 .findByCustomRequest_RequestIdAndIsRead(requestId, false);
         
@@ -152,6 +162,42 @@ public class ChatServiceImp implements ChatService {
         chatMessageRepository.saveAll(unreadMessages);
     }
 
+    /**
+     * Validates that the sender is authorized to send messages in this request
+     * (must be customer or selected artisan)
+     */
+    private void validateSenderAuthorization(CustomRequest customRequest, UUID senderId) {
+        boolean isCustomer = customRequest.getCustomer().getAccountId().equals(senderId);
+        boolean isSelectedArtisan = customRequest.getSelectedArtisan() != null 
+            && customRequest.getSelectedArtisan().getArtisanUuid().equals(senderId);
+        
+        // For template-based requests, check if sender is the template owner
+        boolean isTemplateOwner = customRequest.getTemplate() != null 
+            && customRequest.getTemplate().getArtisan().getArtisanUuid().equals(senderId);
+        
+        if (!isCustomer && !isSelectedArtisan && !isTemplateOwner) {
+            throw new ResourceNotFoundException("Unauthorized: You are not a participant in this conversation");
+        }
+    }
+
+    /**
+     * Validates that the user is authorized to view/interact with messages
+     * (must be customer or selected artisan)
+     */
+    private void validateParticipantAuthorization(CustomRequest customRequest, UUID userId) {
+        boolean isCustomer = customRequest.getCustomer().getAccountId().equals(userId);
+        boolean isSelectedArtisan = customRequest.getSelectedArtisan() != null 
+            && customRequest.getSelectedArtisan().getArtisanUuid().equals(userId);
+        
+        // For template-based requests, check if user is the template owner
+        boolean isTemplateOwner = customRequest.getTemplate() != null 
+            && customRequest.getTemplate().getArtisan().getArtisanUuid().equals(userId);
+        
+        if (!isCustomer && !isSelectedArtisan && !isTemplateOwner) {
+            throw new ResourceNotFoundException("Unauthorized: You are not a participant in this conversation");
+        }
+    }
+
     private ChatMessageResponse mapToResponse(ChatMessage message) {
         ChatMessageResponse response = new ChatMessageResponse();
         response.setMessageId(message.getMessageId());
@@ -162,14 +208,6 @@ public class ChatServiceImp implements ChatService {
         response.setMessageType(message.getMessageType());
         response.setSentAt(message.getSentAt());
         response.setIsRead(message.getIsRead());
-
-        if (message.getRelatedQuotation() != null) {
-            QuotationResponse quotationResponse = new QuotationResponse();
-            quotationResponse.setQuotationId(message.getRelatedQuotation().getQuotationId());
-            quotationResponse.setPrice(message.getRelatedQuotation().getPrice());
-            quotationResponse.setNotes(message.getRelatedQuotation().getNotes());
-            response.setRelatedQuotation(quotationResponse);
-        }
 
         return response;
     }

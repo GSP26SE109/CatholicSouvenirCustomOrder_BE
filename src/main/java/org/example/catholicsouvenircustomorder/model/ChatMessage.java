@@ -34,10 +34,6 @@ public class ChatMessage {
     @Column(nullable = false)
     private MessageType messageType = MessageType.TEXT;
     
-    @ManyToOne
-    @JoinColumn(name = "quotation_id")
-    private Quotation relatedQuotation;
-    
     @Column(nullable = false)
     private LocalDateTime sentAt = LocalDateTime.now();
     

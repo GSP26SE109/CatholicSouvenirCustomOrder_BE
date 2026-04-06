@@ -17,13 +17,20 @@ import java.util.UUID;
 @AllArgsConstructor
 public class PaymentResponse {
     private UUID paymentId;
+    
+    // Related entity IDs
+    private UUID orderId;
+    private UUID customOrderId;
     private UUID stageId;
     private String stageName;
+    
     private PaymentMethod paymentMethod;
     private BigDecimal amount;
     private PaymentStatus status;
     private String transactionId;
-    private String gatewayOrderId;
     private String paymentUrl;
+    private String failureReason;
+    
     private LocalDateTime createdAt;
+    private LocalDateTime paidAt;
 }

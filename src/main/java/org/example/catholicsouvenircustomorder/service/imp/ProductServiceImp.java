@@ -7,6 +7,7 @@ import org.example.catholicsouvenircustomorder.dto.Event.ProductChangeEvent;
 import org.example.catholicsouvenircustomorder.dto.Event.ProductDeleteEvent;
 import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
+import org.example.catholicsouvenircustomorder.dto.request.Product.ProductFilterRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
@@ -23,6 +24,15 @@ import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
 import org.springframework.scheduling.annotation.Async;
+import org.example.catholicsouvenircustomorder.model.*;
+import org.example.catholicsouvenircustomorder.repository.*;
+import org.example.catholicsouvenircustomorder.Utils.Helper.ProductMapper;
+import org.example.catholicsouvenircustomorder.service.ProductImageService;
+import org.example.catholicsouvenircustomorder.service.ProductService;
+import org.example.catholicsouvenircustomorder.service.TagService;
+import org.example.catholicsouvenircustomorder.specification.ProductSpecification;
+import org.springframework.data.domain.*;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,9 +53,17 @@ public class ProductServiceImp implements ProductService {
     private final ProductImageService productImageService;
     private final ArtisanRepository artisanRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final CategoryRepository categoryRepository;
+    private final TagService tagService;
+
     @Override
     public Page<ProductResponse> findAll(Pageable pageable) {
         Page<Product> productPage = productRepository.findAll(pageable);
+        return productPage.map(productMapper::toResponse);
+    }
+    @Override
+    public Page<ProductResponse> findApprovedProduct(Pageable pageable) {
+        Page<Product> productPage = productRepository.findProductByStatus("APPROVED",pageable);
         return productPage.map(productMapper::toResponse);
     }
 
@@ -69,31 +87,42 @@ public class ProductServiceImp implements ProductService {
     @Override
     @Transactional
     public ProductResponse create(CreateProductRequest request, UUID artisanId) {
-        // Validate artisan exists và có role ARTISAN
-        Account artisan = accountRepository.findById(artisanId)
+
+        // Validate artisan
+        Account artisanAccount = accountRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artisan không tồn tại"));
-        
-        if (!"ARTISAN".equals(artisan.getRole().getName())) {
+
+        if (!"ARTISAN".equals(artisanAccount.getRole().getName())) {
             throw new RuntimeException("Chỉ artisan mới có thể tạo sản phẩm");
         }
 
-        // Tạo product
+        Artisan artisan = artisanRepository.findById(artisanId)
+                .orElseThrow(() -> new ResourceNotFoundException("Artisan này không tồn tại"));
+
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Category không tồn tại"));
+
+        List<Tag> tags = tagService.resolveTags(request.getTags());
+
+        // Create product
         Product product = new Product();
-        product.setArtisan(artisanRepository.findById(artisanId).orElseThrow(() -> new ResourceNotFoundException("Artisan này không tồn tại")));
+        product.setArtisan(artisan);
+        product.setCategory(category);
+        product.setTags(tags);
         product.setProductName(request.getProductName());
         product.setProductDescription(request.getProductDescription());
         product.setProductPrice(request.getProductPrice());
         product.setQuantity(request.getQuantity());
-        product.setMaterial(request.getMaterial());
         product.setSize(request.getSize());
         product.setStatus("PENDING");
         product.setCreatedAt(LocalDateTime.now());
-        
+
         Product savedProduct = productRepository.save(product);
 
+        // Images
         if (request.getImages() != null && !request.getImages().isEmpty()) {
             try {
-                productImageService.addNewImage(product.getProductId(), request.getImages());
+                productImageService.addNewImage(savedProduct.getProductId(), request.getImages());
             } catch (IOException e) {
                 throw new RuntimeException("Upload hình ảnh thất bại: " + e.getMessage());
             }
@@ -103,13 +132,26 @@ public class ProductServiceImp implements ProductService {
     }
 
     @Override
-    public ProductResponse update(UUID artisanId,UUID productId, UpdateProductRequest dto) {
+    @Transactional
+    public ProductResponse update(UUID artisanId, UUID productId, UpdateProductRequest dto) {
 
-        Product existingProduct = productRepository.findProductByProductIdAndArtisan_ArtisanUuid(artisanId, productId)
+        Product existingProduct = productRepository
+                .findProductByProductIdAndArtisan_ArtisanUuid(artisanId, productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
 
         productMapper.updateProductFromDto(dto, existingProduct);
+
+        if (dto.getCategoryId() != null) {
+            Category category = categoryRepository.findById(dto.getCategoryId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Category không tồn tại"));
+            existingProduct.setCategory(category);
+        }
+        if (dto.getTags() != null) {
+            List<Tag> tags = tagService.resolveTags(dto.getTags());
+            existingProduct.setTags(tags);
+        }
         productImageService.updateImages(productId, dto.getImages());
+
         Product saved = productRepository.save(existingProduct);
         eventPublisher.publishEvent(new ProductChangeEvent(saved));
         return productMapper.toResponse(saved);
@@ -165,18 +207,54 @@ public class ProductServiceImp implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
 
         // Validate: nếu REJECTED thì phải có lý do
-        if ("REJECTED".equals(request.getStatus()) && 
-            (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty())) {
+        if ("REJECTED".equals(request.getStatus()) &&
+                (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty())) {
             throw new RuntimeException("Lý do từ chối không được để trống khi từ chối sản phẩm");
         }
 
         existingProduct.setStatus(request.getStatus());
-        
+
         // Lưu lý do từ chối nếu có (cần thêm field rejectionReason vào Product model)
         // existingProduct.setRejectionReason(request.getRejectionReason());
 
         Product saved = productRepository.save(existingProduct);
 
         return productMapper.toResponse(saved);
+    }
+
+    public Page<ProductResponse> filterProducts(
+            ProductFilterRequest request,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir
+    ) {
+
+        Specification<Product> spec = (root, query, cb) -> cb.conjunction();
+
+        if (request.getCategory() != null) {
+            spec = spec.and(ProductSpecification.hasCategory(request.getCategory()));
+        }
+
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            spec = spec.and(ProductSpecification.hasTags(request.getTags()));
+        }
+
+        if (request.getMinPrice() != null || request.getMaxPrice() != null) {
+            spec = spec.and(ProductSpecification.priceBetween(
+                    request.getMinPrice(),
+                    request.getMaxPrice()
+            ));
+        }
+
+        Sort sort = sortDir.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<Product> productPage = productRepository.findAll(spec, pageable);
+
+        return productPage.map(productMapper::toResponse);
     }
 }

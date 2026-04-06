@@ -38,7 +38,7 @@ public class CustomOrderStage {
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
+    private StageStatus status = StageStatus.PENDING;
     
     private LocalDateTime dueDate;
     private LocalDateTime paidAt;

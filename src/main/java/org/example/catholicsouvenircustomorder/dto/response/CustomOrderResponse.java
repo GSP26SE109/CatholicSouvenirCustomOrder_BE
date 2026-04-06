@@ -1,41 +1,72 @@
 package org.example.catholicsouvenircustomorder.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.example.catholicsouvenircustomorder.model.CustomOrderStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
+/**
+ * Response DTO for custom order information.
+ * Contains order summary with request info, artisan, status, and total price.
+ */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class CustomOrderResponse {
-    private UUID orderId;
+    
+    // Order identification
+    private UUID customOrderId;
+    private CustomOrderStatus status;
+    
+    // Request reference
     private UUID requestId;
+    
+    // Customer information
     private UUID customerId;
     private String customerName;
+    
+    // Artisan information
     private UUID artisanId;
     private String artisanName;
-    private BigDecimal totalAmount;
-    private CustomOrderStatus status;
-    private List<StageInfo> stages;
-    private String shippingAddress;
-    private String trackingNumber;
+    
+    // Template information
+    private UUID templateId;
+    private String templateName;
+    
+    // Pricing
+    private BigDecimal totalPrice;
+    
+    // Timestamps
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
-    @Data
-    public static class StageInfo {
-        private UUID stageId;
-        private String name;
-        private String description;
-        private Integer stageOrder;
-        private Integer paymentPercentage;
-        private BigDecimal amount;
-        private String status;
-        private String completionImageUrl;
-        private LocalDateTime completedAt;
-        private LocalDateTime paidAt;
-        private Boolean canPay; // Helper field for frontend
+    /**
+     * Check if order can be cancelled
+     */
+    public boolean canBeCancelled() {
+        return status != CustomOrderStatus.COMPLETED 
+            && status != CustomOrderStatus.CANCELLED;
+    }
+    
+    /**
+     * Check if order is in production
+     */
+    public boolean isInProduction() {
+        return status == CustomOrderStatus.IN_PRODUCTION;
+    }
+    
+    /**
+     * Check if order is completed
+     */
+    public boolean isCompleted() {
+        return status == CustomOrderStatus.COMPLETED;
     }
 }

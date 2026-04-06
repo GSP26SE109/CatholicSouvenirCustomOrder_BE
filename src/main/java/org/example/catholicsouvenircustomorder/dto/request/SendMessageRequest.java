@@ -17,6 +17,4 @@ public class SendMessageRequest {
     private String content;
     
     private MessageType messageType = MessageType.TEXT;
-    
-    private UUID relatedQuotationId;
 }

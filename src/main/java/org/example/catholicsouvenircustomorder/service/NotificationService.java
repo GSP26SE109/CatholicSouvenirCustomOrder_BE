@@ -11,11 +11,22 @@ public interface NotificationService {
     // ========== Universal Notification methods ==========
     // Create notifications
     void notifyArtisanOfNewCustomRequest(UUID artisanId, UUID requestId, String customerName, String description);
+    void notifyCustomerOfRequestAcceptance(UUID customerId, UUID requestId, String artisanName);
+    void notifyCustomerOfRequestRejection(UUID customerId, UUID requestId, String artisanName, String reason);
     void notifyCustomerOfNewQuotation(UUID customerId, UUID quotationId, String artisanName, Long price);
     void notifyCustomerOfOrderCreated(UUID customerId, UUID orderId, Long totalAmount, Integer stagesCount);
     void notifyArtisanOfPayment(UUID artisanId, UUID stageId, String stageName, Long amount);
     void notifyCustomerOfStageCompletion(UUID customerId, UUID stageId, String stageName, 
                                         UUID nextStageId, String nextStageName, Long nextAmount);
+    
+    // Template-Based flow notifications
+    void notifyArtisanOfPaymentSuccess(UUID artisanId, UUID customOrderId, String customerName, Long amount);
+    void notifyCustomerOfOrderCompletion(UUID customerId, UUID customOrderId, String artisanName);
+    
+    // Request-Based flow notifications
+    void notifyArtisanOfSelection(UUID artisanId, UUID requestId, String customerName, String description);
+    void notifyCustomerOfOrderCreatedWithStages(UUID customerId, UUID orderId, Long totalAmount, Integer stagesCount);
+    void notifyCustomerOfStagePaymentRequired(UUID customerId, UUID stageId, String stageName, Long amount);
     
     // Query notifications
     Page<NotificationResponse> getUserNotifications(UUID userId, Pageable pageable);

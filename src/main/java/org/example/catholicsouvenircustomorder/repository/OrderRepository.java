@@ -23,6 +23,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     WHERE p.artisan.artisanUuid = :artisanId
 """)
     Page<Order> findOrdersByArtisanId(UUID artisanId, Pageable pageable);
+    
+    List<Order> findByCustomer_AccountId(UUID customerId);
 
     @Query("""
     SELECT COUNT(DISTINCT o.orderId) AS totalOrders,
@@ -58,4 +60,12 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     GROUP BY o.status
 """)
     List<Object[]> getOrderStatusRaw(UUID artisanId);
+    @Query("""
+    SELECT o.status, COUNT(DISTINCT o.orderId)
+    FROM Order o
+    JOIN o.orderDetails od
+    JOIN od.product p
+    WHERE p.artisan.artisanUuid = :artisanId
+""")
+    Page<Order> findOrdersByArtisanId(UUID artisanId,Pageable pageable);
 }
