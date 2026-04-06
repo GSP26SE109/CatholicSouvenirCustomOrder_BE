@@ -19,7 +19,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProductImageController {
     private final ProductImageService productImageService;
-    @PostMapping("/{productId}")
+    @PostMapping(value = "/{productId}",consumes =  MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<BaseResponse> addProductImage(
             @PathVariable UUID productId,
             @ModelAttribute List<MultipartFile> images) throws IOException {
@@ -28,7 +28,7 @@ public class ProductImageController {
 
         return ResponseEntity.ok(BaseResponse.success("Upload hình ảnh thành công"));
     }
-    @PutMapping("/{productId}")
+    @PutMapping(value = "/{productId}",consumes =  MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<BaseResponse> updateProductImage(
             @PathVariable UUID productId,
             @ModelAttribute UpdateProductImagesRequest request) throws IOException {

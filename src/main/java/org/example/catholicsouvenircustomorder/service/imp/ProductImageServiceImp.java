@@ -77,7 +77,6 @@ public class ProductImageServiceImp implements ProductImageService {
                 } catch (IOException e) {
                     throw new RuntimeException("Upload hình ảnh thất bại");
                 }
-
             }
         }
     }
