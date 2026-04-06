@@ -8,6 +8,7 @@ import org.example.catholicsouvenircustomorder.dto.Event.ProductDeleteEvent;
 import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.ProductFilterRequest;
+import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductImagesRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.UpdateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
@@ -16,7 +17,6 @@ import org.example.catholicsouvenircustomorder.model.Product;
 import org.example.catholicsouvenircustomorder.model.ProductImage;
 import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.ArtisanRepository;
-import org.example.catholicsouvenircustomorder.repository.ProductImageRepository;
 import org.example.catholicsouvenircustomorder.repository.ProductRepository;
 import org.example.catholicsouvenircustomorder.util.ProductMapper;
 import org.example.catholicsouvenircustomorder.service.ProductImageService;
@@ -26,9 +26,6 @@ import org.springframework.data.domain.*;
 import org.springframework.scheduling.annotation.Async;
 import org.example.catholicsouvenircustomorder.model.*;
 import org.example.catholicsouvenircustomorder.repository.*;
-import org.example.catholicsouvenircustomorder.Utils.Helper.ProductMapper;
-import org.example.catholicsouvenircustomorder.service.ProductImageService;
-import org.example.catholicsouvenircustomorder.service.ProductService;
 import org.example.catholicsouvenircustomorder.service.TagService;
 import org.example.catholicsouvenircustomorder.specification.ProductSpecification;
 import org.springframework.data.domain.*;
@@ -136,7 +133,7 @@ public class ProductServiceImp implements ProductService {
     public ProductResponse update(UUID artisanId, UUID productId, UpdateProductRequest dto) {
 
         Product existingProduct = productRepository
-                .findProductByProductIdAndArtisan_ArtisanUuid(artisanId, productId)
+                .findProductByProductIdAndArtisan_ArtisanUuid(productId, artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
 
         productMapper.updateProductFromDto(dto, existingProduct);
@@ -150,7 +147,13 @@ public class ProductServiceImp implements ProductService {
             List<Tag> tags = tagService.resolveTags(dto.getTags());
             existingProduct.setTags(tags);
         }
-        productImageService.updateImages(productId, dto.getImages());
+        if (dto.getDeleteImageIds() != null || dto.getNewImages() != null) {
+            UpdateProductImagesRequest imagesRequest = new UpdateProductImagesRequest();
+            imagesRequest.setDeleteImageIds(dto.getDeleteImageIds());
+            imagesRequest.setNewImages(dto.getNewImages());
+
+            productImageService.updateImages(productId, imagesRequest);
+        }
 
         Product saved = productRepository.save(existingProduct);
         eventPublisher.publishEvent(new ProductChangeEvent(saved));

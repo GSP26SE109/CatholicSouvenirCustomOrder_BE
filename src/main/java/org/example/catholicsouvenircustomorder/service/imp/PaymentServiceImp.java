@@ -268,7 +268,7 @@ public class PaymentServiceImp implements PaymentService {
     private void updateRelatedEntity(Payment payment) {
         if (payment.getOrder() != null) {
             Order order = payment.getOrder();
-            order.setStatus("PAID");
+            order.setStatus(OrderStatus.COMPLETED);
             orderRepository.save(order);
             
         } else if (payment.getCustomOrder() != null) {

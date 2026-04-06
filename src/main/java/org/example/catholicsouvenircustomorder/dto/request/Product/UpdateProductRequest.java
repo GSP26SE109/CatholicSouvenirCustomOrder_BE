@@ -2,6 +2,7 @@ package org.example.catholicsouvenircustomorder.dto.request.Product;
 
 import jakarta.validation.constraints.Min;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -21,5 +22,6 @@ public class UpdateProductRequest {
     private String size;
     private UUID categoryId;
     private List<String> tags;
-    private UpdateProductImagesRequest images;
+    private List<UUID> deleteImageIds;
+    private List<MultipartFile> newImages;
 }

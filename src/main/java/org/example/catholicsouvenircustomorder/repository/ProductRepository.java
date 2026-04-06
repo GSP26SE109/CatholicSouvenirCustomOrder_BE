@@ -24,7 +24,7 @@ public interface ProductRepository extends JpaRepository<Product,UUID>, JpaSpeci
             @Param("status") String status,
             Pageable pageable
     );
-    Optional<Product> findProductByProductIdAndArtisan_ArtisanUuid(UUID artisanId, UUID productId);
+    Optional<Product> findProductByProductIdAndArtisan_ArtisanUuid(UUID productId, UUID artisanUuid);
     @Query("""
     SELECT p.productId AS productId,
            p.productName AS productName,
@@ -34,8 +34,5 @@ public interface ProductRepository extends JpaRepository<Product,UUID>, JpaSpeci
     AND p.quantity <= 10
 """)
     List<ShortStockProduct> findShortStockProduct(UUID artisanId);
-
-    Optional<Product> findProductByProductIdAndArtisan_ArtisanUuid(UUID artisanId, UUID productId);
-
     Page<Product> findProductByStatus(String status, Pageable pageable);
 }

@@ -107,11 +107,11 @@ public class ProductController {
         return ResponseEntity.ok(BaseResponse.success("Tạo sản phẩm thành công", product));
     }
 
-    @PutMapping("/{productId}")
+    @PutMapping(path = "/{productId}",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<BaseResponse> update(
             @AuthenticationPrincipal UUID artisanId,
             @PathVariable String productId,
-            @RequestBody UpdateProductRequest dto) {
+            @ModelAttribute UpdateProductRequest dto) {
         ProductResponse product = productService.update(artisanId, UUID.fromString(productId), dto);
         return ResponseEntity.ok(BaseResponse.success("Sửa product thành công", product));
     }
