@@ -118,6 +118,7 @@ jobs:
             # --force-recreate: Ép tạo lại container mới hoàn toàn
             # --no-deps: Chỉ tác động đến backend, không làm phiền Postgres/Redis
             echo "==> Đang build lại Image và cập nhật Backend..."
+            docker compose --env-file .env build --no-cache backend
             docker compose --env-file .env up -d --build --force-recreate backend
 
             # 3. Reload Nginx (nếu cần)
