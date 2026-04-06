@@ -108,28 +108,31 @@ jobs:
           key: ${{ secrets.AZURE_SSH_KEY }}
           script: |
             cd ~/catholic-souvenir-custom-order
-  
-            echo "==> Clean old jar..."
+
             find backend/ -name "*.jar" ! -name "app.jar" -delete
             
-            echo "==> Rename jar..."
+            # Doi ten jar
             mv backend/*.jar backend/app.jar 2>/dev/null || true
+
+            # Kiem tra lan dau hay khong
+            RUNNING=$(docker compose --env-file .env ps -q 2>/dev/null | wc -l)
+
+            if [ "$RUNNING" -eq "0" ]; then
+              echo "==> Lan dau: khoi dong tat ca containers..."
+              docker compose --env-file .env up -d
+            else
+              echo "==> Cap nhat: chi restart backend..."
+              docker compose --env-file .env up -d --build --force-recreate backend
+              echo "==> Reload Nginx config..."
+              docker compose --env-file .env exec -T nginx nginx -s reload || true
+            fi
             
-            echo "==> Build new backend image..."
-            docker compose --env-file .env build --no-cache backend
-            
-            echo "==> Restart backend..."
-            docker compose --env-file .env up -d backend
-            
-            echo "==> Reload nginx..."
-            docker compose --env-file .env exec -T nginx nginx -s reload || true
-            
-            echo "==> Remove old images..."
             docker image prune -f
             
-            echo "==> Waiting 30s..."
+            # Cho backend khoi dong
+            echo "==> Waiting 30s for backend..."
             sleep 30
-            
+
+            # Kiem tra trang thai
             docker compose --env-file .env ps
-  
             echo "==> Deploy done!"

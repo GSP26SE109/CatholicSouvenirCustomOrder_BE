@@ -1,12 +1,12 @@
-
-
-
-
-
-
-
-
-#####################################Build Local Host For Docker##################################
+#
+#
+#
+#
+#
+#
+#
+#
+######################################Build Local Host For Docker##################################
 ## Build stage
 #FROM maven:3.9-eclipse-temurin-17 AS build
 #WORKDIR /app
@@ -31,3 +31,13 @@
 #
 ## Run application
 #ENTRYPOINT ["java", "-jar", "app.jar"]
+
+FROM eclipse-temurin:17-jre-alpine
+
+WORKDIR /app
+
+COPY backend/app.jar app.jar
+
+EXPOSE 8080
+
+ENTRYPOINT ["java","-Xms256m","-Xmx768m","-jar","app.jar"]
