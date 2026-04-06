@@ -20,12 +20,14 @@ public class ProductResponse {
     private String productName;
     private BigDecimal productPrice;
     private String productDescription;
-    private String material;
     private String size;
     private int quantity;
     private UUID artisanId;
     private String artisanName;
     private String status;
+    private UUID categoryId;
+    private String categoryName;
+    private List<String> tags;
     private LocalDateTime createdAt;
     private List<ProductImageResponse> images;
 }

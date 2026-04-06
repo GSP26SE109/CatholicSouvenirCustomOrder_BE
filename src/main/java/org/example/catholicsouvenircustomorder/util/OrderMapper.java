@@ -1,4 +1,4 @@
-package org.example.catholicsouvenircustomorder.Utils.Helper;
+package org.example.catholicsouvenircustomorder.util;
 
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.CreateOrderRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;

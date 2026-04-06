@@ -8,12 +8,13 @@ import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseD
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.model.Order;
 import org.example.catholicsouvenircustomorder.model.OrderDetail;
+import org.example.catholicsouvenircustomorder.model.OrderStatus;
 import org.example.catholicsouvenircustomorder.model.Product;
 import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.service.AccountService;
 import org.example.catholicsouvenircustomorder.service.OrderService;
 import org.example.catholicsouvenircustomorder.service.ProductService;
-import org.example.catholicsouvenircustomorder.Utils.Helper.OrderMapper;
+import org.example.catholicsouvenircustomorder.util.OrderMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -87,7 +88,7 @@ public class OrderServiceImp implements OrderService {
 
         Order order = orderMapper.toEntity(request);
         order.setTotal(total);
-        order.setStatus("PENDING");
+        order.setStatus(OrderStatus.PENDING);
         order.setCreateAt(LocalDateTime.now());
         order.setCustomer(accountService.findAccountById(request.getAccountId()));
         for (OrderDetail detail : orderDetails) {
@@ -100,9 +101,10 @@ public class OrderServiceImp implements OrderService {
     }
 
     @Override
-    public OrderResponseDTO update(UUID orderId, String status) {
+    public OrderResponseDTO update(UUID orderId, OrderStatus status) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order không tồn tại"));
+
         order.setStatus(status);
         orderRepository.save(order);
         return orderMapper.toResponse(order);

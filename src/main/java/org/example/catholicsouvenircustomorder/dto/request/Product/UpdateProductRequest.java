@@ -2,8 +2,10 @@ package org.example.catholicsouvenircustomorder.dto.request.Product;
 
 import jakarta.validation.constraints.Min;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -17,7 +19,9 @@ public class UpdateProductRequest {
 
     @Min(value = 0, message = "Quantity must be >= 0")
     private Integer quantity;
-    private String material;
     private String size;
-    private UpdateProductImagesRequest images;
+    private UUID categoryId;
+    private List<String> tags;
+    private List<UUID> deleteImageIds;
+    private List<MultipartFile> newImages;
 }
