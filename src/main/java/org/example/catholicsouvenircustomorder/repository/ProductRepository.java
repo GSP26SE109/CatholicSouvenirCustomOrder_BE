@@ -35,4 +35,6 @@ public interface ProductRepository extends JpaRepository<Product,UUID>, JpaSpeci
     List<ShortStockProduct> findShortStockProduct(UUID artisanId);
 
     Optional<Product> findProductByProductIdAndArtisan_ArtisanUuid(UUID artisanId, UUID productId);
+
+    Page<Product> findProductByStatus(String status, Pageable pageable);
 }

@@ -41,4 +41,5 @@ public interface ProductService {
             String sortBy,
             String sortDir
     );
+    Page<ProductResponse> findApprovedProduct(Pageable pageable);
 }

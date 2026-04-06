@@ -49,11 +49,27 @@ public class ProductController {
         request.setMinPrice(minPrice);
         request.setMaxPrice(maxPrice);
 
-        Page<ProductResponse> listProducts= productService.filterProducts(
+        Page<ProductResponse> listProducts = productService.filterProducts(
                 request, page, size, sortBy, sortDir
         );
         return ResponseEntity.ok(
                 BaseResponse.success("Lấy danh sách sản phẩm thành công", listProducts)
+        );
+    }
+
+    @GetMapping("")
+    public ResponseEntity<BaseResponse> getApprovedProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection) {
+        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Page<ProductResponse> products =
+                productService.findApprovedProduct(pageable);
+
+        return ResponseEntity.ok(
+                BaseResponse.success("Lấy danh sách sản phẩm thành công", products)
         );
     }
 
@@ -88,7 +104,7 @@ public class ProductController {
 
         ProductResponse product = productService.create(request, accountId);
 
-        return ResponseEntity.ok(BaseResponse.success("Tạo sản phẩm thành công",product));
+        return ResponseEntity.ok(BaseResponse.success("Tạo sản phẩm thành công", product));
     }
 
     @PutMapping("/{productId}")
@@ -96,8 +112,8 @@ public class ProductController {
             @AuthenticationPrincipal UUID artisanId,
             @PathVariable String productId,
             @RequestBody UpdateProductRequest dto) {
-        ProductResponse product = productService.update(artisanId,UUID.fromString(productId), dto);
-        return ResponseEntity.ok(BaseResponse.success("Sửa product thành công",product));
+        ProductResponse product = productService.update(artisanId, UUID.fromString(productId), dto);
+        return ResponseEntity.ok(BaseResponse.success("Sửa product thành công", product));
     }
 
     @DeleteMapping("/{productId}")

@@ -39,9 +39,15 @@ public class ProductServiceImp implements ProductService {
     private final ArtisanRepository artisanRepository;
     private final CategoryRepository categoryRepository;
     private final TagService tagService;
+
     @Override
     public Page<ProductResponse> findAll(Pageable pageable) {
         Page<Product> productPage = productRepository.findAll(pageable);
+        return productPage.map(productMapper::toResponse);
+    }
+    @Override
+    public Page<ProductResponse> findApprovedProduct(Pageable pageable) {
+        Page<Product> productPage = productRepository.findProductByStatus("APPROVED",pageable);
         return productPage.map(productMapper::toResponse);
     }
 
@@ -80,7 +86,7 @@ public class ProductServiceImp implements ProductService {
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category không tồn tại"));
 
-        List<Tag> tags =tagService.resolveTags(request.getTags());
+        List<Tag> tags = tagService.resolveTags(request.getTags());
 
         // Create product
         Product product = new Product();
@@ -183,13 +189,13 @@ public class ProductServiceImp implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
 
         // Validate: nếu REJECTED thì phải có lý do
-        if ("REJECTED".equals(request.getStatus()) && 
-            (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty())) {
+        if ("REJECTED".equals(request.getStatus()) &&
+                (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty())) {
             throw new RuntimeException("Lý do từ chối không được để trống khi từ chối sản phẩm");
         }
 
         existingProduct.setStatus(request.getStatus());
-        
+
         // Lưu lý do từ chối nếu có (cần thêm field rejectionReason vào Product model)
         // existingProduct.setRejectionReason(request.getRejectionReason());
 
