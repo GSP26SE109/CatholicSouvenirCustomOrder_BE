@@ -81,7 +81,9 @@ spring:
     username: root
     password: 123456
     driver-class-name: org.postgresql.Driver
-
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
   jpa:
     hibernate:
       ddl-auto: update
@@ -94,11 +96,6 @@ spring:
       host: localhost
       port: 6379
       timeout: 60000
-  elasticsearch:
-    uris: http://localhost:9200
-    api-key: ${ELASTIC_API_KEY}
-    connection-timeout: 5s
-    socket-timeout: 30s
 jwt:
   key: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
   expiration: 86400000
@@ -148,7 +145,3 @@ supabase:
   key: ${SUPABASE_KEY:sb_secret_kgQY8_2OQDKUzkv1d13_oA_rA9eKu7U}
   storage:
     bucket: ai-images
-cloudinary:
-  cloud-name: daiwsshlm
-  api-key: 931731612755631
-  api-secret: gCO38ygVl0ZeEUR8CFdjTNXbu8M
