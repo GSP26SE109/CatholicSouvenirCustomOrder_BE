@@ -72,7 +72,18 @@ public class ProductController {
                 BaseResponse.success("Lấy danh sách sản phẩm thành công", products)
         );
     }
+    @GetMapping("/search")
+    public ResponseEntity<BaseResponse> search(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ProductResponse> products =
+                productService.search(keyword,pageable);
 
+        return ResponseEntity.ok(
+                BaseResponse.success("Tìm thành công", products));
+    }
     @GetMapping("/artisan/{artisanId}")
     public ResponseEntity<BaseResponse> getMyProducts(
             @RequestParam UUID artisanId,
@@ -134,4 +145,5 @@ public class ProductController {
 
         return ResponseEntity.ok(BaseResponse.success(message, product));
     }
+
 }

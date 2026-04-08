@@ -3,8 +3,6 @@ package org.example.catholicsouvenircustomorder.service.imp;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
-import org.example.catholicsouvenircustomorder.dto.Event.ProductChangeEvent;
-import org.example.catholicsouvenircustomorder.dto.Event.ProductDeleteEvent;
 import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.ProductFilterRequest;
@@ -21,7 +19,6 @@ import org.example.catholicsouvenircustomorder.repository.ProductRepository;
 import org.example.catholicsouvenircustomorder.util.ProductMapper;
 import org.example.catholicsouvenircustomorder.service.ProductImageService;
 import org.example.catholicsouvenircustomorder.service.ProductService;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
 import org.springframework.scheduling.annotation.Async;
 import org.example.catholicsouvenircustomorder.model.*;
@@ -49,7 +46,6 @@ public class ProductServiceImp implements ProductService {
     private final AccountRepository accountRepository;
     private final ProductImageService productImageService;
     private final ArtisanRepository artisanRepository;
-    private final ApplicationEventPublisher eventPublisher;
     private final CategoryRepository categoryRepository;
     private final TagService tagService;
 
@@ -61,6 +57,15 @@ public class ProductServiceImp implements ProductService {
     @Override
     public Page<ProductResponse> findApprovedProduct(Pageable pageable) {
         Page<Product> productPage = productRepository.findProductByStatus("APPROVED",pageable);
+        return productPage.map(productMapper::toResponse);
+    }
+
+    @Override
+    public Page<ProductResponse> search(String keyword,Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return Page.empty(pageable);
+        }
+        Page<Product> productPage = productRepository.searchWithRanking(keyword,pageable);
         return productPage.map(productMapper::toResponse);
     }
 
@@ -124,7 +129,6 @@ public class ProductServiceImp implements ProductService {
                 throw new RuntimeException("Upload hình ảnh thất bại: " + e.getMessage());
             }
         }
-        eventPublisher.publishEvent(new ProductChangeEvent(savedProduct));
         return productMapper.toResponse(savedProduct);
     }
 
@@ -156,7 +160,6 @@ public class ProductServiceImp implements ProductService {
         }
 
         Product saved = productRepository.save(existingProduct);
-        eventPublisher.publishEvent(new ProductChangeEvent(saved));
         return productMapper.toResponse(saved);
     }
 
@@ -178,7 +181,6 @@ public class ProductServiceImp implements ProductService {
                 throw new RuntimeException("Failed to delete image from Cloudinary");
             }
         }
-        eventPublisher.publishEvent(new ProductDeleteEvent(productId));
         productRepository.delete(product);
     }
 

@@ -42,4 +42,5 @@ public interface ProductService {
             String sortDir
     );
     Page<ProductResponse> findApprovedProduct(Pageable pageable);
+    Page<ProductResponse> search(String keyword,Pageable pageable);
 }

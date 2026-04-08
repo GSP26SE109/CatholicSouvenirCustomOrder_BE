@@ -2,10 +2,13 @@ package org.example.catholicsouvenircustomorder.service.imp;
 
 import lombok.AllArgsConstructor;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
+import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.Tag;
 import org.example.catholicsouvenircustomorder.repository.TagRepository;
+import org.example.catholicsouvenircustomorder.service.AccountService;
 import org.example.catholicsouvenircustomorder.service.TagService;
 import org.springframework.stereotype.Service;
+import vn.payos.exception.UnauthorizedException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,13 +20,22 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class TagServiceImp implements TagService {
     private final TagRepository tagRepository;
+    private final AccountService accountService;
     @Override
-    public Tag create(Tag tag) {
+    public Tag create(UUID accountId,Tag tag) {
+        Account admin = accountService.findAccountById(accountId);
+        if (!admin.getRole().getName().equals("ADMIN")) {
+            throw new UnauthorizedException("Bạn không có quyền sửa dữ liệu");
+        }
         return tagRepository.save(tag);
     }
 
     @Override
-    public void delete(UUID id) {
+    public void delete(UUID accountId,UUID id) {
+        Account admin = accountService.findAccountById(accountId);
+        if (!admin.getRole().getName().equals("ADMIN")) {
+            throw new UnauthorizedException("Bạn không có quyền sửa dữ liệu");
+        }
         Tag tag = findById(id);
         tagRepository.delete(tag);
     }
@@ -55,5 +67,10 @@ public class TagServiceImp implements TagService {
 
         existingTags.addAll(newTags);
         return existingTags;
+    }
+
+    @Override
+    public List<Tag> getAllTags() {
+        return tagRepository.findAll();
     }
 }

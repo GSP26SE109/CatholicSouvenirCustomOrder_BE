@@ -1,6 +1,7 @@
 package org.example.catholicsouvenircustomorder.repository;
 
 import org.example.catholicsouvenircustomorder.dto.response.Dashboard.ShortStockProduct;
+import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.model.Product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,5 +35,21 @@ public interface ProductRepository extends JpaRepository<Product,UUID>, JpaSpeci
     AND p.quantity <= 10
 """)
     List<ShortStockProduct> findShortStockProduct(UUID artisanId);
+
     Page<Product> findProductByStatus(String status, Pageable pageable);
+    @Query(value = """
+    SELECT *,
+           ts_rank(
+               setweight(to_tsvector('simple', coalesce(product_name,'')), 'A') ||
+               setweight(to_tsvector('simple', coalesce(product_description,'')), 'B'),
+               plainto_tsquery('simple', :keyword)
+           ) AS rank
+    FROM product
+    WHERE (
+        setweight(to_tsvector('simple', coalesce(product_name,'')), 'A') ||
+        setweight(to_tsvector('simple', coalesce(product_description,'')), 'B')
+    ) @@ plainto_tsquery('simple', :keyword)
+    ORDER BY rank DESC
+""", nativeQuery = true)
+    Page<Product> searchWithRanking(@Param("keyword") String keyword,Pageable pageable);
 }
