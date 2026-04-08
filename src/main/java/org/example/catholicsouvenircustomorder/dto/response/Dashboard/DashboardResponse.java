@@ -2,6 +2,7 @@ package org.example.catholicsouvenircustomorder.dto.response.Dashboard;
 
 import lombok.Builder;
 import lombok.Data;
+import org.example.catholicsouvenircustomorder.model.OrderStatus;
 
 
 import java.util.List;
@@ -15,7 +16,7 @@ public class DashboardResponse {
 
     private List<DailyRevenue> revenueChart;
 
-    private Map<String, Integer> orderStatus;
+    private Map<OrderStatus, Integer> orderStatus;
 
     private List<TopProductDTO> topProducts;
 

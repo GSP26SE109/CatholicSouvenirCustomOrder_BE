@@ -35,6 +35,7 @@ public interface ProductRepository extends JpaRepository<Product,UUID>, JpaSpeci
     AND p.quantity <= 10
 """)
     List<ShortStockProduct> findShortStockProduct(UUID artisanId);
+
     Page<Product> findProductByStatus(String status, Pageable pageable);
     @Query(value = """
     SELECT *,

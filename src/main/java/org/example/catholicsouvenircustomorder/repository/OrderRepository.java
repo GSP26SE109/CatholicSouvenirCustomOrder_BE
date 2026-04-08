@@ -26,6 +26,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     
     List<Order> findByCustomer_AccountId(UUID customerId);
 
+    //====== artisan Dashboard======//
     @Query("""
     SELECT COUNT(DISTINCT o.orderId) AS totalOrders,
            SUM(od.quantity * p.productPrice) AS totalRevenue
@@ -60,4 +61,34 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     GROUP BY o.status
 """)
     List<Object[]> getOrderStatusRaw(UUID artisanId);
+
+    //====== admin Dashboard======//
+    @Query("""
+    SELECT COUNT(DISTINCT o.orderId) AS totalOrders,
+           SUM(od.quantity * p.productPrice * 0.05) AS totalRevenue
+    FROM Order o
+    JOIN o.orderDetails od
+    JOIN od.product p
+    WHERE o.createAt >= :start
+""")
+
+    DashboardSummary getAdminSummary(LocalDateTime start);
+    @Query("""
+    SELECT CAST(o.createAt AS date) AS date,
+           COUNT(DISTINCT o.orderId) AS orderNumber,
+           SUM(od.quantity * p.productPrice * 0.05) AS revenue
+    FROM Order o
+    JOIN o.orderDetails od
+    JOIN od.product p
+    WHERE o.createAt >= :startDate
+    GROUP BY CAST(o.createAt AS date)
+    ORDER BY CAST(o.createAt AS date)
+""")
+    List<DailyRevenue> getAdminRevenueFromDate(LocalDateTime startDate);
+    @Query("""
+    SELECT o.status, COUNT(DISTINCT o.orderId)
+    FROM Order o
+    GROUP BY o.status
+""")
+    List<Object[]> getAdminOrderStatusRaw();
 }

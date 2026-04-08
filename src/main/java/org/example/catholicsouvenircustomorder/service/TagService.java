@@ -6,8 +6,13 @@ import java.util.List;
 import java.util.UUID;
 
 public interface TagService {
-    Tag create(Tag tag);
-    void delete(UUID id);
+    Tag create(UUID accountID, Tag tag);
+
+    void delete(UUID accountId, UUID id);
+
     Tag findById(UUID id);
+
     List<Tag> resolveTags(List<String> tagNames);
+
+    List<Tag> getAllTags();
 }
