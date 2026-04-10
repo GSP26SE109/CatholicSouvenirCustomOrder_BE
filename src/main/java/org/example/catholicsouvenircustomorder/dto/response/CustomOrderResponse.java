@@ -9,6 +9,7 @@ import org.example.catholicsouvenircustomorder.model.CustomOrderStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -37,12 +38,11 @@ public class CustomOrderResponse {
     private UUID artisanId;
     private String artisanName;
     
-    // Template information
-    private UUID templateId;
-    private String templateName;
-    
     // Pricing
     private BigDecimal totalPrice;
+    
+    // Stages (full details)
+    private List<CustomOrderStageResponse> stages;
     
     // Timestamps
     private LocalDateTime createdAt;

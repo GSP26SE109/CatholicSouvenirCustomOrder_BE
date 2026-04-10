@@ -10,13 +10,11 @@ import org.example.catholicsouvenircustomorder.model.RequestType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.UUID;
 
 /**
- * Response DTO for custom request information.
- * Contains complete request details including template, customer, artisan, and AI image data.
- * Supports both TEMPLATE_BASED and REQUEST_BASED flows.
+ * Response DTO for custom request information (Request-Based flow only).
+ * CustomRequest is only used for request-based custom orders.
  */
 @Data
 @Builder
@@ -34,19 +32,12 @@ public class CustomRequestResponse {
     private UUID customerId;
     private String customerName;
     
-    // Template information (only for TEMPLATE_BASED)
-    private UUID templateId;
-    private String templateName;
-    private String templateDescription;
-    private BigDecimal basePrice;
-    
-    // Artisan information (only for TEMPLATE_BASED)
+    // Selected artisan information (after customer selects)
     private UUID artisanId;
     private String artisanName;
     
-    // Customization details
-    private Map<String, String> zoneInputs;
-    private String additionalDescription;
+    // Request description
+    private String description;
     
     // AI image information
     private String aiConceptImageUrl;
@@ -54,8 +45,7 @@ public class CustomRequestResponse {
     private Integer imageGenCount;
     private Integer maxImageGenCount;
     
-    // Pricing (totalPrice for TEMPLATE_BASED, budget range for REQUEST_BASED)
-    private BigDecimal totalPrice;
+    // Budget range
     private BigDecimal minBudget;
     private BigDecimal maxBudget;
     
@@ -75,6 +65,6 @@ public class CustomRequestResponse {
      * Check if request can be modified by customer
      */
     public boolean canBeModified() {
-        return status == CustomRequestStatus.PENDING;
+        return status == CustomRequestStatus.DRAFT;
     }
 }

@@ -30,5 +30,13 @@ public class Order {
     @OneToMany(mappedBy = "order",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
-    private List<OrderDetail> orderDetails = new ArrayList<>();;
+    private List<OrderDetail> orderDetails = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "order",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true)
+    private List<OrderTemplateDetail> templateDetails = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    private List<Payment> payments = new ArrayList<>();
 }

@@ -7,6 +7,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * StagePayment entity - Payment attempts for CustomOrderStage
+ * A stage can have multiple payment attempts (retry on failure, different methods, etc.)
+ */
 @Entity
 @Data
 @Table(name = "stage_payments")
@@ -20,14 +24,6 @@ public class StagePayment {
     @JoinColumn(name = "stage_id")
     private CustomOrderStage stage;
     
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "customer_id")
-    private Account customer;
-    
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PaymentMethod paymentMethod;
-    
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;
     
@@ -35,25 +31,39 @@ public class StagePayment {
     @Column(nullable = false)
     private PaymentStatus status = PaymentStatus.PENDING;
     
-    @Column(unique = true, length = 500)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentMethod method;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentType paymentType;
+    
+    // Reference ID for internal tracking (used to create payment URL)
+    @Column(unique = true, length = 100, nullable = false)
+    private String referenceId;
+    
+    // Transaction ID from payment gateway (VNPay/ZaloPay returns this in callback)
+    @Column(unique = true, length = 100)
     private String transactionId;
     
-    @Column(unique = true, length = 500)
-    private String gatewayOrderId;
-    
-    @Column(length = 2000)
+    @Column(length = 1000)
     private String paymentUrl;
-    
-    @Column(columnDefinition = "TEXT")
-    private String gatewayResponse;
     
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime paidAt;
+    
+    @Column(columnDefinition = "TEXT")
+    private String failureReason;
+    
+    // Transaction relationship (1:1)
     
     @PreUpdate
     public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        if (this.status == PaymentStatus.SUCCESS && this.paidAt == null) {
+            this.paidAt = LocalDateTime.now();
+        }
     }
 }

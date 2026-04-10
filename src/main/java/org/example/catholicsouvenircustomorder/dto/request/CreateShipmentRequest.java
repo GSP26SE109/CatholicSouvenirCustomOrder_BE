@@ -37,13 +37,19 @@ public class CreateShipmentRequest {
     @NotNull(message = "Giá trị đơn hàng không được để trống")
     private BigDecimal orderValue;
     
+    @Builder.Default
     private Integer weight = 1000;
+    @Builder.Default
     private Integer length = 20;
+    @Builder.Default
     private Integer width = 20;
+    @Builder.Default
     private Integer height = 10;
     
     private String note;
     
+    @Builder.Default
     private Integer serviceTypeId = 2;
+    @Builder.Default
     private Integer paymentTypeId = 1;
 }

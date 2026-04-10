@@ -26,5 +26,6 @@ public class OrderResponseDTO {
     private UUID customerId;
     private String fullName;
     private List<OrderDetailResponseDTO> orderDetails;
+    private List<OrderTemplateDetailResponseDTO> templateDetails;
 }
 

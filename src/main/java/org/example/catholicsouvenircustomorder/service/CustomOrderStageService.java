@@ -2,6 +2,7 @@ package org.example.catholicsouvenircustomorder.service;
 
 import org.example.catholicsouvenircustomorder.dto.request.CompleteStageRequest;
 import org.example.catholicsouvenircustomorder.dto.request.InitiatePaymentDTO;
+import org.example.catholicsouvenircustomorder.dto.request.InitiateStagePaymentRequest;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderStageResponse;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentInitiationResponse;
 
@@ -13,6 +14,6 @@ public interface CustomOrderStageService {
     List<CustomOrderStageResponse> getStagesByOrderId(UUID orderId, UUID userId);
     CustomOrderStageResponse completeStage(UUID stageId, CompleteStageRequest request, UUID artisanId);
     CustomOrderStageResponse uploadProofImage(UUID stageId, String imageUrl, UUID artisanId);
-    PaymentInitiationResponse initiateStagePayment(UUID stageId, InitiatePaymentDTO paymentRequest, UUID customerId);
+    PaymentInitiationResponse initiateStagePayment(UUID stageId, InitiateStagePaymentRequest paymentRequest, UUID customerId);
     boolean canPayStage(UUID stageId);
 }

@@ -457,7 +457,7 @@ public class NotificationServiceImp implements NotificationService {
         CustomRequest request = customRequestRepository.findById(requestId)
                 .orElseThrow(() -> new NotFoundException("Request not found"));
         
-        request.setStatus(CustomRequestStatus.ACCEPTED);
+        request.setStatus(CustomRequestStatus.ARTISAN_SELECTED);
         customRequestRepository.save(request);
     }
     

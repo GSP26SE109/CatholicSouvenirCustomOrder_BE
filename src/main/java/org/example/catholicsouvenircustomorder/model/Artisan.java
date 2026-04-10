@@ -48,4 +48,7 @@ public class Artisan {
 
     @OneToMany(mappedBy = "artisan")
     private List<CustomOrder> customOrders = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "selectedArtisan")
+    private List<CustomRequest> selectedRequests = new ArrayList<>();
 }

@@ -4,8 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.dto.request.CompleteStageRequest;
 import org.example.catholicsouvenircustomorder.dto.request.InitiatePaymentDTO;
+import org.example.catholicsouvenircustomorder.dto.request.InitiateStagePaymentRequest;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderStageResponse;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentInitiationResponse;
+import org.example.catholicsouvenircustomorder.dto.response.StagePaymentResponse;
 import org.example.catholicsouvenircustomorder.exception.BadRequestException;
 import org.example.catholicsouvenircustomorder.exception.NotFoundException;
 import org.example.catholicsouvenircustomorder.model.*;
@@ -13,7 +15,7 @@ import org.example.catholicsouvenircustomorder.repository.CustomOrderRepository;
 import org.example.catholicsouvenircustomorder.repository.CustomOrderStageRepository;
 import org.example.catholicsouvenircustomorder.service.CustomOrderStageService;
 import org.example.catholicsouvenircustomorder.service.NotificationService;
-import org.example.catholicsouvenircustomorder.service.PaymentService;
+import org.example.catholicsouvenircustomorder.service.StagePaymentService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +32,7 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
     private final CustomOrderStageRepository stageRepository;
     private final CustomOrderRepository customOrderRepository;
     private final NotificationService notificationService;
-    private final PaymentService paymentService;
+    private final StagePaymentService paymentService;
     
     @Override
     public CustomOrderStageResponse getStageById(UUID stageId, UUID userId) {
@@ -203,7 +205,7 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
     
     @Override
     @Transactional
-    public PaymentInitiationResponse initiateStagePayment(UUID stageId, InitiatePaymentDTO paymentRequest, UUID customerId) {
+    public PaymentInitiationResponse initiateStagePayment(UUID stageId, InitiateStagePaymentRequest paymentRequest, UUID customerId) {
         CustomOrderStage stage = stageRepository.findById(stageId)
                 .orElseThrow(() -> new NotFoundException("Không tìm thấy giai đoạn"));
         
@@ -222,11 +224,23 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
             throw new BadRequestException("Giai đoạn trước phải được hoàn thành và thanh toán trước");
         }
         
-        // Set stageId in payment request
-        paymentRequest.setStageId(stageId);
+        // Use StagePaymentService to create payment
+        String paymentMethodStr = paymentRequest.getPaymentMethod() != null ? 
+                paymentRequest.getPaymentMethod().name() : "VNPAY";
         
-        // Initiate payment through payment service
-        PaymentInitiationResponse response = paymentService.initiatePayment(paymentRequest);
+        StagePaymentResponse paymentResponse = paymentService.createStagePayment(
+                stageId, 
+                customerId, 
+                paymentMethodStr
+        );
+        
+        // Convert StagePaymentResponse to PaymentInitiationResponse
+        PaymentInitiationResponse response = PaymentInitiationResponse.builder()
+                .paymentId(paymentResponse.getPaymentId())
+                .paymentUrl(paymentResponse.getPaymentUrl())
+                .transactionId(paymentResponse.getTransactionId())
+                .amount(paymentResponse.getAmount())
+                .build();
         
         log.info("Customer {} initiated payment for stage {}", customerId, stageId);
         

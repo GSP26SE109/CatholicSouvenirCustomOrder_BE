@@ -4,34 +4,49 @@ import org.example.catholicsouvenircustomorder.dto.request.InitiatePaymentDTO;
 import org.example.catholicsouvenircustomorder.dto.request.PaymentCallbackRequest;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentInitiationResponse;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentResponse;
-import org.example.catholicsouvenircustomorder.model.CustomOrder;
-import org.example.catholicsouvenircustomorder.model.CustomOrderStage;
-import org.example.catholicsouvenircustomorder.model.Order;
 import org.example.catholicsouvenircustomorder.model.Payment;
 
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Service for handling Order payments (template/product orders)
+ * For custom order stage payments, use StagePaymentService
+ */
 public interface PaymentService {
     
-    // New unified payment methods
+    /**
+     * Khởi tạo payment cho Order
+     */
     PaymentInitiationResponse initiatePayment(InitiatePaymentDTO dto);
     
+    /**
+     * Xử lý callback từ payment gateway
+     */
     PaymentResponse handlePaymentCallback(PaymentCallbackRequest request);
     
+    /**
+     * Lấy danh sách payments của một order
+     */
     List<PaymentResponse> getOrderPayments(UUID orderId);
     
-    List<PaymentResponse> getCustomOrderPayments(UUID customOrderId);
+    /**
+     * Lấy payment theo ID
+     */
+    PaymentResponse getPaymentById(UUID paymentId);
     
-    List<PaymentResponse> getStagePayments(UUID stageId);
-    
+    /**
+     * Kiểm tra xem order đã được thanh toán đầy đủ chưa
+     */
     boolean isOrderFullyPaid(UUID orderId);
     
-    boolean isCustomOrderFullyPaid(UUID customOrderId);
-    
-    boolean isStageFullyPaid(UUID stageId);
-    
+    /**
+     * Hoàn tiền
+     */
     PaymentResponse refundPayment(UUID paymentId, String reason);
     
+    /**
+     * Tìm payment entity theo ID
+     */
     Payment findById(UUID paymentId);
 }

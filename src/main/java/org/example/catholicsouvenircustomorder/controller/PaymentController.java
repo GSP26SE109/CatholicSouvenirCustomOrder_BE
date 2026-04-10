@@ -9,11 +9,7 @@ import org.example.catholicsouvenircustomorder.dto.request.PaymentCallbackReques
 import org.example.catholicsouvenircustomorder.dto.response.PaymentInitiationResponse;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentResponse;
 import org.example.catholicsouvenircustomorder.exception.BadRequestException;
-import org.example.catholicsouvenircustomorder.model.CustomOrder;
-import org.example.catholicsouvenircustomorder.model.CustomOrderStage;
 import org.example.catholicsouvenircustomorder.model.Order;
-import org.example.catholicsouvenircustomorder.repository.CustomOrderRepository;
-import org.example.catholicsouvenircustomorder.repository.CustomOrderStageRepository;
 import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.repository.PaymentRepository;
 import org.example.catholicsouvenircustomorder.service.PaymentService;
@@ -27,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -36,36 +33,29 @@ public class PaymentController {
     
     private final PaymentService paymentService;
     private final OrderRepository orderRepository;
-    private final CustomOrderRepository customOrderRepository;
-    private final CustomOrderStageRepository stageRepository;
     private final PaymentRepository paymentRepository;
     
+    /**
+     * Khởi tạo payment cho Order (template/product order)
+     */
     @PostMapping("/initiate")
     @PreAuthorize("hasAuthority('CUSTOMER')")
     public ResponseEntity<BaseResponse<PaymentInitiationResponse>> initiatePayment(
             @Valid @RequestBody InitiatePaymentDTO dto,
             @AuthenticationPrincipal UUID accountId) {
         
-        // Verify ownership
-
-        if (dto.getOrderId() != null) {
-            Order order = orderRepository.findById(dto.getOrderId())
-                    .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng"));
-            if (!order.getCustomer().getAccountId().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền thanh toán đơn hàng này");
-            }
-        } else if (dto.getCustomOrderId() != null) {
-            CustomOrder customOrder = customOrderRepository.findById(dto.getCustomOrderId())
-                    .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng tùy chỉnh"));
-            if (!customOrder.getRequest().getCustomer().getAccountId().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền thanh toán đơn hàng này");
-            }
-        } else if (dto.getStageId() != null) {
-            CustomOrderStage stage = stageRepository.findById(dto.getStageId())
-                    .orElseThrow(() -> new BadRequestException("Không tìm thấy giai đoạn"));
-            if (!stage.getCustomOrder().getRequest().getCustomer().getAccountId().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền thanh toán giai đoạn này");
-            }
+        log.info("Initiating payment for order: {}", dto.getOrderId());
+        
+        // Validate order exists and belongs to customer
+        if (dto.getOrderId() == null) {
+            throw new BadRequestException("Order ID không được để trống");
+        }
+        
+        Order order = orderRepository.findById(dto.getOrderId())
+                .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng"));
+        
+        if (!order.getCustomer().getAccountId().equals(accountId)) {
+            throw new BadRequestException("Bạn không có quyền thanh toán đơn hàng này");
         }
         
         PaymentInitiationResponse response = paymentService.initiatePayment(dto);
@@ -77,10 +67,15 @@ public class PaymentController {
                 .build());
     }
     
+    /**
+     * Xử lý callback từ payment gateway (VNPay, ZaloPay)
+     */
     @PostMapping("/callback")
     public ResponseEntity<BaseResponse<PaymentResponse>> handlePaymentCallback(
             @RequestBody Map<String, String> params,
             @RequestParam(required = false, defaultValue = "VNPAY") String gateway) {
+        
+        log.info("Received payment callback from gateway: {}", gateway);
         
         PaymentCallbackRequest request = PaymentCallbackRequest.builder()
                 .params(params)
@@ -96,13 +91,64 @@ public class PaymentController {
                 .build());
     }
     
+    /**
+     * VNPay callback endpoint (GET method)
+     */
+    @GetMapping("/vnpay/callback")
+    public ResponseEntity<BaseResponse<PaymentResponse>> handleVNPayCallback(
+            @RequestParam Map<String, String> params) {
+        
+        log.info("Received VNPay callback");
+        
+        PaymentCallbackRequest request = PaymentCallbackRequest.builder()
+                .params(params)
+                .paymentGateway("VNPAY")
+                .build();
+        
+        PaymentResponse response = paymentService.handlePaymentCallback(request);
+        
+        return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
+                .code(200)
+                .message("Xử lý callback VNPay thành công")
+                .data(response)
+                .build());
+    }
+    
+    /**
+     * ZaloPay callback endpoint (POST method)
+     */
+    @PostMapping("/zalopay/callback")
+    public ResponseEntity<BaseResponse<PaymentResponse>> handleZaloPayCallback(
+            @RequestBody Map<String, String> params) {
+        
+        log.info("Received ZaloPay callback");
+        
+        PaymentCallbackRequest request = PaymentCallbackRequest.builder()
+                .params(params)
+                .paymentGateway("ZALOPAY")
+                .build();
+        
+        PaymentResponse response = paymentService.handlePaymentCallback(request);
+        
+        return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
+                .code(200)
+                .message("Xử lý callback ZaloPay thành công")
+                .data(response)
+                .build());
+    }
+    
+    /**
+     * Lấy tất cả payments của user (customer hoặc admin)
+     */
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ADMIN')")
     public ResponseEntity<BaseResponse<List<PaymentResponse>>> getUserPayments(
             @AuthenticationPrincipal UUID accountId,
             Authentication authentication) {
         
-        List<PaymentResponse> payments = new java.util.ArrayList<>();
+        log.info("Getting payments for user: {}", accountId);
+        
+        List<PaymentResponse> payments;
         
         // Get role from authorities
         String role = authentication.getAuthorities().stream()
@@ -112,23 +158,11 @@ public class PaymentController {
                 .replace("ROLE_", "");
         
         if ("CUSTOMER".equals(role)) {
-            // Get all payments for customer's orders and custom orders
+            // Get all payments for customer's orders
             List<Order> orders = orderRepository.findByCustomer_AccountId(accountId);
-            for (Order order : orders) {
-                payments.addAll(paymentService.getOrderPayments(order.getOrderId()));
-            }
-            
-            List<CustomOrder> customOrders = customOrderRepository.findByRequest_Customer_AccountId(accountId);
-            for (CustomOrder customOrder : customOrders) {
-                payments.addAll(paymentService.getCustomOrderPayments(customOrder.getCustomOrderId()));
-            }
-            
-        } else if ("ARTISAN".equals(role)) {
-            // Get all payments for artisan's custom orders
-            List<CustomOrder> customOrders = customOrderRepository.findByArtisan_ArtisanUuid(accountId);
-            for (CustomOrder customOrder : customOrders) {
-                payments.addAll(paymentService.getCustomOrderPayments(customOrder.getCustomOrderId()));
-            }
+            payments = orders.stream()
+                    .flatMap(order -> paymentService.getOrderPayments(order.getOrderId()).stream())
+                    .collect(Collectors.toList());
             
         } else if ("ADMIN".equals(role)) {
             // Admin can see all payments
@@ -138,7 +172,7 @@ public class PaymentController {
                                 .paymentId(payment.getPaymentId())
                                 .paymentMethod(payment.getMethod())
                                 .amount(payment.getAmount())
-                                .status(payment.getStatus())
+                                .paymentStatus(payment.getStatus())
                                 .transactionId(payment.getTransactionId())
                                 .paymentUrl(payment.getPaymentUrl())
                                 .failureReason(payment.getFailureReason())
@@ -148,17 +182,12 @@ public class PaymentController {
                         if (payment.getOrder() != null) {
                             builder.orderId(payment.getOrder().getOrderId());
                         }
-                        if (payment.getCustomOrder() != null) {
-                            builder.customOrderId(payment.getCustomOrder().getCustomOrderId());
-                        }
-                        if (payment.getStage() != null) {
-                            builder.stageId(payment.getStage().getStageId())
-                                   .stageName(payment.getStage().getName());
-                        }
                         
                         return builder.build();
                     })
-                    .collect(java.util.stream.Collectors.toList());
+                    .collect(Collectors.toList());
+        } else {
+            payments = List.of();
         }
         
         return ResponseEntity.ok(BaseResponse.<List<PaymentResponse>>builder()
@@ -168,12 +197,17 @@ public class PaymentController {
                 .build());
     }
     
+    /**
+     * Lấy payments của một order cụ thể
+     */
     @GetMapping("/order/{orderId}")
     @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ADMIN')")
     public ResponseEntity<BaseResponse<List<PaymentResponse>>> getOrderPayments(
             @PathVariable UUID orderId,
             @AuthenticationPrincipal UUID accountId,
             Authentication authentication) {
+        
+        log.info("Getting payments for order: {}", orderId);
         
         // Get role from authorities
         String role = authentication.getAuthorities().stream()
@@ -200,12 +234,19 @@ public class PaymentController {
                 .build());
     }
     
-    @GetMapping("/custom-order/{customOrderId}")
-    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN', 'ADMIN')")
-    public ResponseEntity<BaseResponse<List<PaymentResponse>>> getCustomOrderPayments(
-            @PathVariable UUID customOrderId,
+    /**
+     * Lấy payment theo ID
+     */
+    @GetMapping("/{paymentId}")
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ADMIN')")
+    public ResponseEntity<BaseResponse<PaymentResponse>> getPaymentById(
+            @PathVariable UUID paymentId,
             @AuthenticationPrincipal UUID accountId,
             Authentication authentication) {
+        
+        log.info("Getting payment: {}", paymentId);
+        
+        PaymentResponse payment = paymentService.getPaymentById(paymentId);
         
         // Get role from authorities
         String role = authentication.getAuthorities().stream()
@@ -214,35 +255,33 @@ public class PaymentController {
                 .orElse("")
                 .replace("ROLE_", "");
         
-        // Verify ownership for customers and artisans
-        CustomOrder customOrder = customOrderRepository.findById(customOrderId)
-                .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng tùy chỉnh"));
-        
+        // Verify ownership for customers
         if ("CUSTOMER".equals(role)) {
-            if (!customOrder.getRequest().getCustomer().getAccountId().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền xem thanh toán của đơn hàng này");
-            }
-        } else if ("ARTISAN".equals(role)) {
-            if (!customOrder.getArtisan().getArtisanUuid().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền xem thanh toán của đơn hàng này");
+            Order order = orderRepository.findById(payment.getOrderId())
+                    .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng"));
+            if (!order.getCustomer().getAccountId().equals(accountId)) {
+                throw new BadRequestException("Bạn không có quyền xem thanh toán này");
             }
         }
         
-        List<PaymentResponse> payments = paymentService.getCustomOrderPayments(customOrderId);
-        
-        return ResponseEntity.ok(BaseResponse.<List<PaymentResponse>>builder()
+        return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
                 .code(200)
-                .message("Lấy danh sách thanh toán thành công")
-                .data(payments)
+                .message("Lấy thông tin thanh toán thành công")
+                .data(payment)
                 .build());
     }
     
-    @GetMapping("/stage/{stageId}")
-    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN', 'ADMIN')")
-    public ResponseEntity<BaseResponse<List<PaymentResponse>>> getStagePayments(
-            @PathVariable UUID stageId,
+    /**
+     * Kiểm tra trạng thái thanh toán của order
+     */
+    @GetMapping("/order/{orderId}/status")
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ADMIN')")
+    public ResponseEntity<BaseResponse<Boolean>> checkOrderPaymentStatus(
+            @PathVariable UUID orderId,
             @AuthenticationPrincipal UUID accountId,
             Authentication authentication) {
+        
+        log.info("Checking payment status for order: {}", orderId);
         
         // Get role from authorities
         String role = authentication.getAuthorities().stream()
@@ -251,36 +290,34 @@ public class PaymentController {
                 .orElse("")
                 .replace("ROLE_", "");
         
-        // Verify ownership for customers and artisans
-        CustomOrderStage stage = stageRepository.findById(stageId)
-                .orElseThrow(() -> new BadRequestException("Không tìm thấy giai đoạn"));
-        
-        CustomOrder customOrder = stage.getCustomOrder();
-        
+        // Verify ownership for customers
         if ("CUSTOMER".equals(role)) {
-            if (!customOrder.getRequest().getCustomer().getAccountId().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền xem thanh toán của giai đoạn này");
-            }
-        } else if ("ARTISAN".equals(role)) {
-            if (!customOrder.getArtisan().getArtisanUuid().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền xem thanh toán của giai đoạn này");
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng"));
+            if (!order.getCustomer().getAccountId().equals(accountId)) {
+                throw new BadRequestException("Bạn không có quyền xem trạng thái thanh toán của đơn hàng này");
             }
         }
         
-        List<PaymentResponse> payments = paymentService.getStagePayments(stageId);
+        boolean isPaid = paymentRepository.isOrderFullyPaid(orderId);
         
-        return ResponseEntity.ok(BaseResponse.<List<PaymentResponse>>builder()
+        return ResponseEntity.ok(BaseResponse.<Boolean>builder()
                 .code(200)
-                .message("Lấy danh sách thanh toán thành công")
-                .data(payments)
+                .message(isPaid ? "Đơn hàng đã được thanh toán" : "Đơn hàng chưa được thanh toán")
+                .data(isPaid)
                 .build());
     }
     
-    @PostMapping("/{id}/refund")
+    /**
+     * Hoàn tiền (chỉ admin)
+     */
+    @PostMapping("/{paymentId}/refund")
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<BaseResponse<PaymentResponse>> refundPayment(
-            @PathVariable("id") UUID paymentId,
+            @PathVariable UUID paymentId,
             @RequestParam String reason) {
+        
+        log.info("Refunding payment: {}", paymentId);
         
         PaymentResponse response = paymentService.refundPayment(paymentId, reason);
         

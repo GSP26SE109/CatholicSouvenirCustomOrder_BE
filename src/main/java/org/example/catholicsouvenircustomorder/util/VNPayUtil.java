@@ -1,10 +1,12 @@
 package org.example.catholicsouvenircustomorder.util;
 
 import lombok.extern.slf4j.Slf4j;
+import org.example.catholicsouvenircustomorder.config.VNPayConfig;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -15,6 +17,37 @@ import java.util.*;
 public class VNPayUtil {
     
     private static final String HMAC_SHA512 = "HmacSHA512";
+    
+    private final VNPayConfig vnPayConfig;
+    
+    public VNPayUtil(VNPayConfig vnPayConfig) {
+        this.vnPayConfig = vnPayConfig;
+    }
+    
+    public String createPaymentUrl(String transactionId, BigDecimal amount, String description, String customerEmail) throws Exception {
+        Map<String, String> params = new HashMap<>();
+        params.put("vnp_Version", vnPayConfig.getVersion());
+        params.put("vnp_Command", vnPayConfig.getCommand());
+        params.put("vnp_TmnCode", vnPayConfig.getTmnCode());
+        params.put("vnp_Amount", String.valueOf(amount.multiply(new BigDecimal(100)).longValue())); // VNPay uses smallest unit
+        params.put("vnp_CurrCode", "VND");
+        params.put("vnp_TxnRef", transactionId);
+        params.put("vnp_OrderInfo", description);
+        params.put("vnp_OrderType", vnPayConfig.getOrderType());
+        params.put("vnp_Locale", "vn");
+        params.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl());
+        params.put("vnp_IpAddr", "127.0.0.1");
+        params.put("vnp_CreateDate", getVNPayDate());
+        params.put("vnp_ExpireDate", getExpireDate(15));
+        
+        // Generate secure hash
+        String secureHash = generateSecureHash(params, vnPayConfig.getHashSecret());
+        params.put("vnp_SecureHash", secureHash);
+        
+        // Build URL
+        String queryUrl = buildQueryUrl(params);
+        return vnPayConfig.getUrl() + "?" + queryUrl;
+    }
     
     public String generateSecureHash(Map<String, String> params, String secretKey) throws Exception {
         String data = buildHashData(params);

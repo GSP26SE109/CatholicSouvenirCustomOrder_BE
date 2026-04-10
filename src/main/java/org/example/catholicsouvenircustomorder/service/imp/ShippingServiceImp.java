@@ -12,6 +12,7 @@ import org.example.catholicsouvenircustomorder.repository.ArtisanRepository;
 import org.example.catholicsouvenircustomorder.repository.CustomOrderRepository;
 import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.repository.ShipmentRepository;
+import org.example.catholicsouvenircustomorder.service.GHNAddressService;
 import org.example.catholicsouvenircustomorder.service.ShippingService;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class ShippingServiceImp implements ShippingService {
     private final GHNConfig ghnConfig;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ArtisanRepository artisanRepository;
+    private final GHNAddressService ghnAddressService;
 
     @Override
     @Transactional
@@ -200,14 +202,29 @@ public class ShippingServiceImp implements ShippingService {
     private Map<String, Object> buildGHNRequest(CreateShipmentRequest request) {
         Map<String, Object> ghnRequest = new HashMap<>();
 
-        Artisan artisan = artisanRepository.findByCustomOrderId(request.getCustomOrderId()).orElseThrow(() -> new RuntimeException("Artisan không tồn tại"));
-
+        // Get artisan info if this is a custom order
+        String fromName = "Catholic Souvenir Shop";
+        String fromPhone = "0901234567";
+        
+        if (request.getCustomOrderId() != null) {
+            CustomOrder customOrder = customOrderRepository.findById(request.getCustomOrderId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy custom order"));
+            
+            if (customOrder.getArtisan() != null) {
+                fromName = customOrder.getArtisan().getArtisanName();
+                // Get phone from artisan's account
+                if (customOrder.getArtisan().getAccount() != null && 
+                    customOrder.getArtisan().getAccount().getPhone() != null) {
+                    fromPhone = customOrder.getArtisan().getAccount().getPhone();
+                }
+            }
+        }
         
         ghnRequest.put("payment_type_id", request.getPaymentTypeId());
         ghnRequest.put("note", request.getNote());
         ghnRequest.put("required_note", "KHONGCHOXEMHANG");
-        ghnRequest.put("from_name", artisan.getArtisanName());
-        ghnRequest.put("from_phone", "0901234567");
+        ghnRequest.put("from_name", fromName);
+        ghnRequest.put("from_phone", fromPhone);
         ghnRequest.put("from_address", "123 Nguyen Hue");
         ghnRequest.put("from_ward_name", "Phường Bến Nghé");
         ghnRequest.put("from_district_name", "Quận 1");
@@ -457,5 +474,32 @@ public class ShippingServiceImp implements ShippingService {
                 .createdAt(shipment.getCreatedAt())
                 .updatedAt(shipment.getUpdatedAt())
                 .build();
+    }
+    
+    // ==================== GHN Master Data APIs ====================
+    
+    @Override
+    public List<Map<String, Object>> getProvinces() {
+        return ghnAddressService.getProvinces();
+    }
+    
+    @Override
+    public List<Map<String, Object>> getDistricts(Integer provinceId) {
+        return ghnAddressService.getDistricts(provinceId);
+    }
+    
+    @Override
+    public List<Map<String, Object>> getWards(Integer districtId) {
+        return ghnAddressService.getWards(districtId);
+    }
+    
+    @Override
+    public Map<String, Object> searchDistrict(Integer provinceId, String districtName) {
+        return ghnAddressService.searchDistrict(provinceId, districtName);
+    }
+    
+    @Override
+    public Map<String, Object> searchWard(Integer districtId, String wardName) {
+        return ghnAddressService.searchWard(districtId, wardName);
     }
 }

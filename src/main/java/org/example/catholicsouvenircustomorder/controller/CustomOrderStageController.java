@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.CompleteStageRequest;
 import org.example.catholicsouvenircustomorder.dto.request.InitiatePaymentDTO;
+import org.example.catholicsouvenircustomorder.dto.request.InitiateStagePaymentRequest;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderStageResponse;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentInitiationResponse;
 import org.example.catholicsouvenircustomorder.service.CustomOrderStageService;
@@ -114,7 +115,7 @@ public class CustomOrderStageController {
     @PreAuthorize("hasAuthority('CUSTOMER')")
     public ResponseEntity<BaseResponse<PaymentInitiationResponse>> initiateStagePayment(
             @PathVariable UUID stageId,
-            @Valid @RequestBody InitiatePaymentDTO request,
+            @Valid @RequestBody InitiateStagePaymentRequest request,
             @AuthenticationPrincipal UUID customerId) {
         
         log.info("POST /api/stages/{}/payment/initiate - Customer: {}", stageId, customerId);

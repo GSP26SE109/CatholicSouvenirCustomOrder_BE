@@ -3,9 +3,9 @@ spring:
     name: CatholicSouvenirCustomOrder
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:54321/catholic_souvenir}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/catholic_souvenir}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:123456}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -27,9 +27,7 @@ jwt:
   key: ${JWT_KEY:+N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=}
   expiration: ${JWT_EXPIRATION:86400000}
 
-payos:
-  return-url: https://your-frontend.com/payment-success
-  cancel-url: https://your-frontend.com/payment-cancel
+# Payment Gateway Configuration (VNPay & ZaloPay only)
 
 ai:
   image:

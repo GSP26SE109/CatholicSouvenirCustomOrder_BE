@@ -44,24 +44,17 @@ public class CustomOrderDetailResponse {
     private String artisanEmail;
     private String artisanPhone;
     
-    // Template information
-    private UUID templateId;
-    private String templateName;
-    private String templateDescription;
-    private BigDecimal basePrice;
-    
-    // Customization details
-    private Map<String, String> zoneInputs;
-    private String additionalDescription;
-    
-    // AI concept image
+    // Request description and AI image
+    private String description;
     private String aiConceptImageUrl;
     
     // Pricing
     private BigDecimal totalPrice;
     
-    // Payment information
-    private List<PaymentResponse> payments;
+    // Stages (for Request-Based orders)
+    private List<CustomOrderStageResponse> stages;
+    
+    // Payment status
     private boolean fullyPaid;
     
     // Timestamps
