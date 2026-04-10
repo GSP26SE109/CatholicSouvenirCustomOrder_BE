@@ -18,7 +18,7 @@ public class Order {
     private UUID orderId;
     private LocalDateTime orderDate;
     private BigDecimal total;
-    private OrderStatus status;
+    private String status;
     private String paymentMethod;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;

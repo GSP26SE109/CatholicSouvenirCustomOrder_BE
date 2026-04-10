@@ -148,7 +148,7 @@ public class PaymentServiceImp implements PaymentService {
                 payment.setStatus(PaymentStatus.FAILED);
                 payment.setFailureReason("No order associated with payment");
             } else {
-                order.setStatus(OrderStatus.PAID);
+                order.setStatus(String.valueOf(OrderStatus.PAID));
                 order.setUpdateAt(LocalDateTime.now());
                 orderRepository.save(order);
                 
@@ -223,7 +223,7 @@ public class PaymentServiceImp implements PaymentService {
         payment.setFailureReason("Refunded: " + reason);
         
         Order order = payment.getOrder();
-        order.setStatus(OrderStatus.CANCELED);
+        order.setStatus(String.valueOf(OrderStatus.CANCELED));
         order.setUpdateAt(LocalDateTime.now());
         orderRepository.save(order);
         

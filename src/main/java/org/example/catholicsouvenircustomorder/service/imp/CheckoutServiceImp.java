@@ -128,7 +128,7 @@ public class CheckoutServiceImp implements CheckoutService {
         order.setCustomer(cart.getCustomer());
         order.setOrderDate(LocalDateTime.now());
         order.setTotal(total);
-        order.setStatus(OrderStatus.PENDING);
+        order.setStatus(String.valueOf(OrderStatus.PENDING));
         order.setPaymentMethod(request.getPaymentMethod());
         order.setCreateAt(LocalDateTime.now());
         order.setUpdateAt(LocalDateTime.now());
@@ -186,7 +186,7 @@ public class CheckoutServiceImp implements CheckoutService {
         order.setCustomer(cart.getCustomer());
         order.setOrderDate(LocalDateTime.now());
         order.setTotal(total);
-        order.setStatus(OrderStatus.PENDING);
+        order.setStatus(String.valueOf(OrderStatus.PENDING));
         order.setPaymentMethod(request.getPaymentMethod());
         order.setCreateAt(LocalDateTime.now());
         order.setUpdateAt(LocalDateTime.now());
