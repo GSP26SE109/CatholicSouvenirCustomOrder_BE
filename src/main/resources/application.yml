@@ -23,7 +23,7 @@ spring:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
       password: ${SPRING_DATA_REDIS_PASSWORD:}
-      timeout: 60s
+      timeout: 60000
 
 jwt:
   key: ${JWT_KEY:+N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=}
