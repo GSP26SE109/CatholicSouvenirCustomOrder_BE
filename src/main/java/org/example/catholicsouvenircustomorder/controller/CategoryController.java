@@ -96,7 +96,7 @@ public class CategoryController {
      * POST /api/categories
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ARTISAN')")
     public ResponseEntity<BaseResponse> createCategory(@Valid @RequestBody CreateCategoryRequest request) {
         log.info("Admin creating category: {}", request.getCategoryName());
         

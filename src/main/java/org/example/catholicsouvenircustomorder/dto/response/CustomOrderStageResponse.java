@@ -27,6 +27,13 @@ public class CustomOrderStageResponse {
     private LocalDateTime paidAt;
     private LocalDateTime completedAt;
     private String completionImageUrl;
+    
+    // Payment information
+    private String paymentMethod;
+    private String transactionId;
+    private String paymentUrl;
+    
+    // Helper flags
     private Boolean canPay;
     private Boolean canComplete;
     private LocalDateTime createdAt;

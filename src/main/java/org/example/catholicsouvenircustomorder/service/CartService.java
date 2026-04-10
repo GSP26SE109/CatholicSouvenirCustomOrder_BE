@@ -1,16 +1,27 @@
 package org.example.catholicsouvenircustomorder.service;
 
-import org.example.catholicsouvenircustomorder.dto.response.Cart.CartResponse;
-import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
+import org.example.catholicsouvenircustomorder.dto.request.AddToCartRequest;
+import org.example.catholicsouvenircustomorder.dto.request.UpdateCartItemRequest;
+import org.example.catholicsouvenircustomorder.dto.response.CartResponse;
 
-import java.util.List;
 import java.util.UUID;
 
 public interface CartService {
-    void addToCart(UUID accountId, UUID productId, int quantity) ;
-    CartResponse getCart(UUID accountId);
-    void clearCart(UUID accountId);
-    void removeFromCart(UUID accountId, UUID productId);
-    void updateCart(UUID accountId, UUID productId, int quantity);
-    List<OrderResponseDTO> checkout(UUID accountId, List<UUID> selectedProductIds);
+    
+    CartResponse getCart(UUID customerId);
+    
+    CartResponse addToCart(UUID customerId, AddToCartRequest request);
+    
+    CartResponse updateCartItem(UUID customerId, UUID cartItemId, UpdateCartItemRequest request);
+    
+    CartResponse removeCartItem(UUID customerId, UUID cartItemId);
+    
+    CartResponse clearCart(UUID customerId);
+    
+    Integer getCartItemCount(UUID customerId);
+    
+    /**
+     * Invalidate cart cache after checkout
+     */
+    void invalidateCartCache(UUID customerId);
 }

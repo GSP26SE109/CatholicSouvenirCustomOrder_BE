@@ -11,26 +11,32 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Response DTO for order payments (Template-Based Flow & Product Orders)
+ * Used for Payment entity
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class PaymentResponse {
+    
     private UUID paymentId;
     
-    // Related entity IDs
+    // Order reference
     private UUID orderId;
-    private UUID customOrderId;
-    private UUID stageId;
-    private String stageName;
     
+    // Payment details
     private PaymentMethod paymentMethod;
     private BigDecimal amount;
-    private PaymentStatus status;
+    private PaymentStatus paymentStatus;
+    
+    // Transaction details
     private String transactionId;
     private String paymentUrl;
     private String failureReason;
     
+    // Timestamps
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
 }

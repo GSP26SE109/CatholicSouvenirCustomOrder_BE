@@ -1,65 +1,114 @@
 package org.example.catholicsouvenircustomorder.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
-import org.example.catholicsouvenircustomorder.dto.request.CartItemRequest;
-import org.example.catholicsouvenircustomorder.dto.response.Cart.CartResponse;
-import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
+import org.example.catholicsouvenircustomorder.dto.request.AddToCartRequest;
+import org.example.catholicsouvenircustomorder.dto.request.UpdateCartItemRequest;
+import org.example.catholicsouvenircustomorder.dto.response.CartResponse;
 import org.example.catholicsouvenircustomorder.service.CartService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/cart")
 @RequiredArgsConstructor
 public class CartController {
-
+    
     private final CartService cartService;
-
-    @GetMapping()
-    public ResponseEntity<BaseResponse> getCart(@AuthenticationPrincipal UUID accountId) {
-        CartResponse responses = cartService.getCart(accountId);
-        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách sản phẩm thành công", responses));
+    
+    @GetMapping
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse<CartResponse>> getCart(
+            @AuthenticationPrincipal UUID customerId) {
+        
+        CartResponse cart = cartService.getCart(customerId);
+        
+        return ResponseEntity.ok(BaseResponse.<CartResponse>builder()
+                .code(200)
+                .message("Lấy giỏ hàng thành công")
+                .data(cart)
+                .build());
     }
-
-    @PostMapping()
-    public ResponseEntity<BaseResponse> addToCart(
-            @AuthenticationPrincipal UUID accountId,
-            @RequestBody CartItemRequest request) {
-        cartService.addToCart(accountId, request.getProductId(), request.getQuantity());
-        return ResponseEntity.ok(BaseResponse.success("Thêm sản phẩm thành công", null));
+    
+    @PostMapping("/items")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse<CartResponse>> addToCart(
+            @AuthenticationPrincipal UUID customerId,
+            @Valid @RequestBody AddToCartRequest request) {
+        
+        CartResponse cart = cartService.addToCart(customerId, request);
+        
+        return ResponseEntity.ok(BaseResponse.<CartResponse>builder()
+                .code(200)
+                .message("Thêm vào giỏ hàng thành công")
+                .data(cart)
+                .build());
     }
-
-    @PutMapping()
-    public ResponseEntity<BaseResponse> updateCart(
-            @AuthenticationPrincipal UUID accountId,
-            @RequestBody CartItemRequest request) {
-        cartService.updateCart(accountId, request.getProductId(), request.getQuantity());
-        return ResponseEntity.ok(BaseResponse.success("Cập nhật giỏ hàng thành công", null));
+    
+    @PutMapping("/items/{cartItemId}")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse<CartResponse>> updateCartItem(
+            @AuthenticationPrincipal UUID customerId,
+            @PathVariable UUID cartItemId,
+            @Valid @RequestBody UpdateCartItemRequest request) {
+        
+        CartResponse cart = cartService.updateCartItem(customerId, cartItemId, request);
+        
+        return ResponseEntity.ok(BaseResponse.<CartResponse>builder()
+                .code(200)
+                .message("Cập nhật giỏ hàng thành công")
+                .data(cart)
+                .build());
     }
-
-    @DeleteMapping("/{productId}")
-    public ResponseEntity<BaseResponse> removeFromCart(
-            @AuthenticationPrincipal UUID accountId,
-            @PathVariable UUID productId) {
-        cartService.removeFromCart(accountId, productId);
-        return ResponseEntity.ok(BaseResponse.success("Xóa sản phẩm thành công", null));
+    
+    @DeleteMapping("/items/{cartItemId}")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse<CartResponse>> removeCartItem(
+            @AuthenticationPrincipal UUID customerId,
+            @PathVariable UUID cartItemId) {
+        
+        CartResponse cart = cartService.removeCartItem(customerId, cartItemId);
+        
+        return ResponseEntity.ok(BaseResponse.<CartResponse>builder()
+                .code(200)
+                .message("Xóa sản phẩm khỏi giỏ hàng thành công")
+                .data(cart)
+                .build());
     }
-
-    @DeleteMapping()
-    public ResponseEntity<BaseResponse> clearCart(@AuthenticationPrincipal UUID accountId) {
-        cartService.clearCart(accountId);
-        return ResponseEntity.ok(BaseResponse.success("Xóa giỏ hàng thành công", null));
+    
+    @DeleteMapping
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse<CartResponse>> clearCart(
+            @AuthenticationPrincipal UUID customerId) {
+        
+        CartResponse cart = cartService.clearCart(customerId);
+        
+        return ResponseEntity.ok(BaseResponse.<CartResponse>builder()
+                .code(200)
+                .message("Xóa toàn bộ giỏ hàng thành công")
+                .data(cart)
+                .build());
     }
-    @PostMapping("/check_out")
-    public ResponseEntity<BaseResponse> checkout(
-            @AuthenticationPrincipal UUID accountId,
-            @RequestBody List<UUID> selectedProductIds){
-        List<OrderResponseDTO> orders= cartService.checkout(accountId, selectedProductIds);
-        return ResponseEntity.ok(BaseResponse.success("Check out thành công", orders));
+    
+    @GetMapping("/count")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse<Integer>> getCartItemCount(
+            @AuthenticationPrincipal UUID customerId) {
+        
+        Integer count = cartService.getCartItemCount(customerId);
+        
+        return ResponseEntity.ok(BaseResponse.<Integer>builder()
+                .code(200)
+                .message("Lấy số lượng sản phẩm thành công")
+                .data(count)
+                .build());
     }
 }
-

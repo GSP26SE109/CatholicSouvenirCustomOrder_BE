@@ -33,4 +33,7 @@ public class StageDTO {
     @NotNull(message = "Số tiền không được để trống")
     @DecimalMin(value = "0.01", message = "Số tiền phải lớn hơn 0")
     private BigDecimal amount;
+    
+    @Min(value = 1, message = "Số ngày ước tính phải lớn hơn 0")
+    private Integer estimatedDays;
 }

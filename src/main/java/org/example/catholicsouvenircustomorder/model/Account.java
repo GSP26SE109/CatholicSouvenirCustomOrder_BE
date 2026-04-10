@@ -44,10 +44,13 @@ public class Account {
     @OneToMany(mappedBy = "customer")
     private List<Order> orders;
 
+    @OneToMany(mappedBy = "customer")
+    private List<CustomRequest> customRequests;
+
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     private Artisan artisanProfile;
 
-    @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL)
     private Cart cart;
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL)
     private List<Report> report;

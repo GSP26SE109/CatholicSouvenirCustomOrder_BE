@@ -6,6 +6,8 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -36,6 +38,8 @@ public class CustomOrderStage {
     @Column(nullable = false)
     private Integer paymentPercentage;
     
+    private Integer estimatedDays;  // Estimated days to complete this stage
+    
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StageStatus status = StageStatus.PENDING;
@@ -45,6 +49,10 @@ public class CustomOrderStage {
     private LocalDateTime completedAt;
     
     private String completionImageUrl;
+    
+    // 1:N relationship with StagePayment
+    @OneToMany(mappedBy = "stage", cascade = CascadeType.ALL)
+    private List<StagePayment> payments = new ArrayList<>();
     
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

@@ -16,8 +16,8 @@ public class ChatMessage {
     private UUID messageId;
     
     @ManyToOne(optional = false)
-    @JoinColumn(name = "request_id")
-    private CustomRequest customRequest;
+    @JoinColumn(name = "conversation_id")
+    private Conversation conversation;
     
     @ManyToOne(optional = false)
     @JoinColumn(name = "sender_id")
@@ -25,9 +25,9 @@ public class ChatMessage {
     
     @ManyToOne
     @JoinColumn(name = "receiver_id")
-    private Account receiver;
+    private Account receiver; // Nullable for public messages
     
-    @Column(nullable = false, length = 2000)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
     
     @Enumerated(EnumType.STRING)
@@ -37,5 +37,16 @@ public class ChatMessage {
     @Column(nullable = false)
     private LocalDateTime sentAt = LocalDateTime.now();
     
-    private Boolean isRead = false;
+    @Column(nullable = false)
+    private boolean isRead = false;
+    
+    // Lombok @Data tự động tạo isRead() và setRead()
+    // Nhưng một số code có thể dùng getIsRead() và setIsRead()
+    public boolean getIsRead() {
+        return isRead;
+    }
+    
+    public void setIsRead(boolean isRead) {
+        this.isRead = isRead;
+    }
 }

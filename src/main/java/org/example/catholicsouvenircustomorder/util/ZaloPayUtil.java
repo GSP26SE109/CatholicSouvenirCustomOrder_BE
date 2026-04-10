@@ -2,10 +2,12 @@ package org.example.catholicsouvenircustomorder.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.example.catholicsouvenircustomorder.config.ZaloPayConfig;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -15,6 +17,36 @@ import java.util.*;
 public class ZaloPayUtil {
     
     private static final String HMAC_SHA256 = "HmacSHA256";
+    
+    private final ZaloPayConfig zaloPayConfig;
+    
+    public ZaloPayUtil(ZaloPayConfig zaloPayConfig) {
+        this.zaloPayConfig = zaloPayConfig;
+    }
+    
+    public String createPaymentUrl(String transactionId, BigDecimal amount, String description) throws Exception {
+        Map<String, Object> order = new HashMap<>();
+        order.put("app_id", zaloPayConfig.getAppId());
+        order.put("app_trans_id", transactionId);
+        order.put("app_user", "user_" + System.currentTimeMillis());
+        order.put("app_time", System.currentTimeMillis());
+        order.put("amount", amount.longValue());
+        order.put("description", description);
+        order.put("bank_code", "");
+        order.put("item", "[]");
+        order.put("embed_data", "{}");
+        order.put("callback_url", zaloPayConfig.getCallbackUrl());
+        
+        // Generate MAC
+        String data = zaloPayConfig.getAppId() + "|" + transactionId + "|" + 
+                     "user_" + System.currentTimeMillis() + "|" + amount.longValue() + "|" +
+                     System.currentTimeMillis() + "|" + "{}" + "|" + "[]";
+        String mac = generateMac(data, zaloPayConfig.getKey1());
+        order.put("mac", mac);
+        
+        // Build URL (simplified - in production, you'd POST to ZaloPay API)
+        return zaloPayConfig.getEndpoint() + "?data=" + new ObjectMapper().writeValueAsString(order);
+    }
     
     public String generateMac(String data, String key) throws Exception {
         Mac hmac = Mac.getInstance(HMAC_SHA256);
