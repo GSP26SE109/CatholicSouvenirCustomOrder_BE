@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/wallet")
 @RequiredArgsConstructor
-@Tag(name = "Wallet", description = "Wallet management APIs")
 public class WalletController {
     
     private final WalletService walletService;
