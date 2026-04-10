@@ -88,7 +88,7 @@ public class OrderServiceImp implements OrderService {
 
         Order order = orderMapper.toEntity(request);
         order.setTotal(total);
-        order.setStatus(OrderStatus.PENDING);
+        order.setStatus(String.valueOf(OrderStatus.PENDING));
         order.setCreateAt(LocalDateTime.now());
         order.setCustomer(accountService.findAccountById(request.getAccountId()));
         for (OrderDetail detail : orderDetails) {
@@ -105,7 +105,7 @@ public class OrderServiceImp implements OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order không tồn tại"));
 
-        order.setStatus(status);
+        order.setStatus(String.valueOf(status));
         orderRepository.save(order);
         return orderMapper.toResponse(order);
     }
