@@ -1,5 +1,6 @@
 package org.example.catholicsouvenircustomorder.repository;
 
+import jakarta.persistence.LockModeType;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.CustomRequest;
 import org.example.catholicsouvenircustomorder.model.CustomRequestStatus;
@@ -7,6 +8,7 @@ import org.example.catholicsouvenircustomorder.model.RequestType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -25,11 +27,19 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
     
     // ==================== Legacy Methods ====================
     
+    /**
+     * Find all requests by customer (no pagination)
+     */
     List<CustomRequest> findByCustomer_AccountId(UUID customerId);
     
+    /**
+     * Find requests by status (no pagination)
+     */
     List<CustomRequest> findByStatus(CustomRequestStatus status);
     
-    // Fix: Changed from selectedArtisans to selectedArtisan (singular)
+    /**
+     * Find requests by selected artisan (no pagination)
+     */
     List<CustomRequest> findBySelectedArtisan_ArtisanUuid(UUID artisanId);
     
     // ==================== Customer Query Methods ====================
@@ -52,25 +62,33 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
     // ==================== Artisan Query Methods ====================
     
     /**
-     * Find all requests for templates owned by artisan
+     * DEPRECATED: Template field removed from CustomRequest
+     * Use findBySelectedArtisan_ArtisanUuidOrderByCreatedAtDesc instead
      */
-    @Query("SELECT cr FROM CustomRequest cr WHERE cr.template.artisan.artisanUuid = :artisanId")
-    Page<CustomRequest> findByTemplate_Artisan_ArtisanUuid(@Param("artisanId") UUID artisanId, Pageable pageable);
+    @Deprecated
+    default Page<CustomRequest> findByTemplate_Artisan_ArtisanUuid(UUID artisanId, Pageable pageable) {
+        return findBySelectedArtisan_ArtisanUuidOrderByCreatedAtDesc(artisanId, pageable);
+    }
     
     /**
-     * Find requests for templates owned by artisan with status filter
+     * DEPRECATED: Template field removed from CustomRequest
+     * Use findBySelectedArtisan_ArtisanUuidAndStatus instead
      */
-    @Query("SELECT cr FROM CustomRequest cr WHERE cr.template.artisan.artisanUuid = :artisanId AND cr.status = :status")
-    Page<CustomRequest> findByTemplate_Artisan_ArtisanUuidAndStatus(
-        @Param("artisanId") UUID artisanId, 
-        @Param("status") CustomRequestStatus status, 
+    @Deprecated
+    default Page<CustomRequest> findByTemplate_Artisan_ArtisanUuidAndStatus(
+        UUID artisanId, 
+        CustomRequestStatus status, 
         Pageable pageable
-    );
+    ) {
+        return findBySelectedArtisan_ArtisanUuidAndStatus(artisanId, status, pageable);
+    }
     
     /**
-     * Find pending requests for artisan ordered by creation date
+     * DEPRECATED: Template field removed from CustomRequest
+     * Use findBySelectedArtisan_ArtisanUuidAndStatus with PENDING status instead
      */
-    @Query("SELECT cr FROM CustomRequest cr WHERE cr.template.artisan.artisanUuid = :artisanId " +
+    @Deprecated
+    @Query("SELECT cr FROM CustomRequest cr WHERE cr.selectedArtisan.artisanUuid = :artisanId " +
            "AND cr.status = 'PENDING' ORDER BY cr.createdAt DESC")
     List<CustomRequest> findPendingRequestsByArtisan(@Param("artisanId") UUID artisanId);
     
@@ -79,7 +97,7 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
     /**
      * Find requests by status with pagination
      */
-    Page<CustomRequest> findByStatus(CustomRequestStatus status, Pageable pageable);
+    Page<CustomRequest> findByStatusOrderByCreatedAtDesc(CustomRequestStatus status, Pageable pageable);
     
     /**
      * Count requests by status
@@ -87,29 +105,43 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
     long countByStatus(CustomRequestStatus status);
     
     /**
-     * Count pending requests for artisan
+     * DEPRECATED: Template field removed from CustomRequest
+     * Use countBySelectedArtisanAndStatus instead
      */
-    @Query("SELECT COUNT(cr) FROM CustomRequest cr WHERE cr.template.artisan.artisanUuid = :artisanId " +
+    @Deprecated
+    @Query("SELECT COUNT(cr) FROM CustomRequest cr WHERE cr.selectedArtisan.artisanUuid = :artisanId " +
            "AND cr.status = 'PENDING'")
     long countPendingRequestsByArtisan(@Param("artisanId") UUID artisanId);
+    
+    /**
+     * Count requests by selected artisan and status
+     */
+    @Query("SELECT COUNT(cr) FROM CustomRequest cr WHERE cr.selectedArtisan.artisanUuid = :artisanId " +
+           "AND cr.status = :status")
+    long countBySelectedArtisanAndStatus(@Param("artisanId") UUID artisanId, @Param("status") CustomRequestStatus status);
     
     // ==================== Template Query Methods ====================
     
     /**
-     * Find requests by template ID
+     * DEPRECATED: Template field removed from CustomRequest
+     * This method is no longer applicable for request-based flow
      */
-    @Query("SELECT cr FROM CustomRequest cr WHERE cr.template.templateId = :templateId")
-    Page<CustomRequest> findByTemplateId(@Param("templateId") UUID templateId, Pageable pageable);
+    @Deprecated
+    default Page<CustomRequest> findByTemplateId(UUID templateId, Pageable pageable) {
+        return Page.empty();
+    }
     
     /**
-     * Check if customer has existing request for template
+     * DEPRECATED: Template field removed from CustomRequest
+     * This method is no longer applicable for request-based flow
      */
-    @Query("SELECT cr FROM CustomRequest cr WHERE cr.customer.accountId = :customerId " +
-           "AND cr.template.templateId = :templateId AND cr.status IN ('PENDING', 'ACCEPTED')")
-    Optional<CustomRequest> findActiveRequestByCustomerAndTemplate(
-        @Param("customerId") UUID customerId,
-        @Param("templateId") UUID templateId
-    );
+    @Deprecated
+    default Optional<CustomRequest> findActiveRequestByCustomerAndTemplate(
+        UUID customerId,
+        UUID templateId
+    ) {
+        return Optional.empty();
+    }
     
     // ==================== Analytics Query Methods ====================
     
@@ -128,10 +160,18 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
     long countByCustomer(Account customer);
     
     /**
-     * Count requests for artisan's templates
+     * DEPRECATED: Template field removed from CustomRequest
+     * Use countBySelectedArtisan instead
      */
-    @Query("SELECT COUNT(cr) FROM CustomRequest cr WHERE cr.template.artisan.artisanUuid = :artisanId")
+    @Deprecated
+    @Query("SELECT COUNT(cr) FROM CustomRequest cr WHERE cr.selectedArtisan.artisanUuid = :artisanId")
     long countByArtisan(@Param("artisanId") UUID artisanId);
+    
+    /**
+     * Count requests where artisan is selected
+     */
+    @Query("SELECT COUNT(cr) FROM CustomRequest cr WHERE cr.selectedArtisan.artisanUuid = :artisanId")
+    long countBySelectedArtisan(@Param("artisanId") UUID artisanId);
     
     // ==================== Request Type Query Methods ====================
     
@@ -162,10 +202,13 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
     Page<CustomRequest> findOpenRequestsForBidding(Pageable pageable);
     
     /**
-     * Find requests where artisan is selected (Request-Based flow)
+     * Find requests where artisan is selected (Request-Based flow) with pagination
      */
-    Page<CustomRequest> findBySelectedArtisan_ArtisanUuid(UUID artisanId, Pageable pageable);
+    Page<CustomRequest> findBySelectedArtisan_ArtisanUuidOrderByCreatedAtDesc(UUID artisanId, Pageable pageable);
     
+    /**
+     * Find requests where artisan is selected with status filter
+     */
     Page<CustomRequest> findBySelectedArtisan_ArtisanUuidAndStatus(
         UUID artisanId, 
         CustomRequestStatus status, 
@@ -173,19 +216,20 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
     );
     
     /**
-     * Find all requests for an artisan (both Template-Based and Request-Based)
-     * Template-Based: where artisan owns the template
-     * Request-Based: where artisan is selected
+     * Find all requests for an artisan (Request-Based flow only)
+     * Returns requests where artisan is selected
      */
     @Query("SELECT cr FROM CustomRequest cr WHERE " +
-           "(cr.template.artisan.artisanUuid = :artisanId) OR " +
-           "(cr.selectedArtisan.artisanUuid = :artisanId) " +
+           "cr.selectedArtisan.artisanUuid = :artisanId " +
            "ORDER BY cr.createdAt DESC")
     Page<CustomRequest> findAllByArtisan(@Param("artisanId") UUID artisanId, Pageable pageable);
     
+    /**
+     * Find all requests for an artisan with status filter (Request-Based flow only)
+     * Returns requests where artisan is selected with specific status
+     */
     @Query("SELECT cr FROM CustomRequest cr WHERE " +
-           "((cr.template.artisan.artisanUuid = :artisanId) OR " +
-           "(cr.selectedArtisan.artisanUuid = :artisanId)) AND " +
+           "cr.selectedArtisan.artisanUuid = :artisanId AND " +
            "cr.status = :status " +
            "ORDER BY cr.createdAt DESC")
     Page<CustomRequest> findAllByArtisanAndStatus(
@@ -194,8 +238,20 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
         Pageable pageable
     );
     
+    // ==================== Pessimistic Locking for Race Condition Prevention ====================
+    
     /**
-     * Find requests by customer
+     * Find request by ID with pessimistic write lock
+     * Used when creating CustomOrder to prevent race conditions
      */
-    List<CustomRequest> findByCustomer(Account customer);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cr FROM CustomRequest cr WHERE cr.requestId = :id")
+    Optional<CustomRequest> findByIdWithLock(@Param("id") UUID id);
+    
+    /**
+     * Check if customer has active request (DRAFT, OPEN, ARTISAN_SELECTED, IN_PROGRESS)
+     */
+    @Query("SELECT COUNT(cr) > 0 FROM CustomRequest cr WHERE cr.customer.accountId = :customerId " +
+           "AND cr.status IN ('DRAFT', 'OPEN', 'ARTISAN_SELECTED', 'IN_PROGRESS')")
+    boolean hasActiveRequest(@Param("customerId") UUID customerId);
 }

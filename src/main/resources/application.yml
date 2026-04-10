@@ -3,11 +3,13 @@ spring:
     name: CatholicSouvenirCustomOrder
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:54321/catholic_souvenir}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/catholic_souvenir}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:123456}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
-
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
   jpa:
     hibernate:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
@@ -27,9 +29,7 @@ jwt:
   key: ${JWT_KEY:+N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=}
   expiration: ${JWT_EXPIRATION:86400000}
 
-payos:
-  return-url: https://your-frontend.com/payment-success
-  cancel-url: https://your-frontend.com/payment-cancel
+# Payment Gateway Configuration (VNPay & ZaloPay only)
 
 ai:
   image:
@@ -66,7 +66,12 @@ cloudinary:
   api-key: ${CLOUDINARY_API_KEY:931731612755631}
   api-secret: ${CLOUDINARY_API_SECRET:gCO38ygVl0ZeEUR8CFdjTNXbu8M}
 
-
+ghn:
+  api-url: ${GHN_API_URL:https://dev-online-gateway.ghn.vn}
+  token: ${GHN_TOKEN:7c59e98a-310f-11f1-a973-aee5264794df}
+  shop-id: ${GHN_SHOP_ID:199863}
+  from-district-id: ${GHN_FROM_DISTRICT_ID:1442}
+  from-ward-code: ${GHN_FROM_WARD_CODE:21211}
 
 
 
@@ -77,8 +82,8 @@ cloudinary:
 #  application:
 #    name: CatholicSouvenirCustomOrder
 #  datasource:
-#    url: jdbc:postgresql://localhost:54321/catholic-souvenir
-#    username: root
+#    url: jdbc:postgresql://localhost:54321/catholic_souvenir
+#    username: postgres
 #    password: 123456
 #    driver-class-name: org.postgresql.Driver
 #
@@ -89,16 +94,11 @@ cloudinary:
 #    properties:
 #      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
 #      hibernate.format_sql: true
-#  data:
-#    redis:
-#      host: localhost
-#      port: 6379
-#      timeout: 60000
-#  elasticsearch:
-#    uris: http://localhost:9200
-#    api-key: ${ELASTIC_API_KEY}
-#    connection-timeout: 5s
-#    socket-timeout: 30s
+#data:
+#  redis:
+#    host: localhost
+#    port: 6379
+#    timeout: 60000
 #jwt:
 #  key: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
 #  expiration: 86400000
@@ -107,10 +107,6 @@ cloudinary:
 #  return-url: https://your-frontend.com/payment-success
 #  cancel-url: https://your-frontend.com/payment-cancel
 #
-#cloudinary:
-#  cloud-name: daiwsshlm
-#  api-key: 931731612755631
-#  api-secret: gCO38ygVl0ZeEUR8CFdjTNXbu8M
 ## AI Configuration
 #ai:
 #  image:
@@ -148,7 +144,6 @@ cloudinary:
 #  key: ${SUPABASE_KEY:sb_secret_kgQY8_2OQDKUzkv1d13_oA_rA9eKu7U}
 #  storage:
 #    bucket: ai-images
-#cloudinary:
-#  cloud-name: daiwsshlm
-#  api-key: 931731612755631
-#  api-secret: gCO38ygVl0ZeEUR8CFdjTNXbu8M
+
+# GHN Shipping Configuration (Sandbox)
+

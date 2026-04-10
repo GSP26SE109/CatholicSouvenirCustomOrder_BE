@@ -44,9 +44,6 @@ public class ProductTemplate {
     @Column(length = 100)
     private String style;
     
-    @Column(columnDefinition = "TEXT")
-    private String basePromptHint;
-    
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<String> baseImages = new ArrayList<>();
@@ -57,6 +54,9 @@ public class ProductTemplate {
     @OneToMany(mappedBy = "template", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder ASC")
     private List<TemplateCustomZone> customZones = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "template", cascade = CascadeType.ALL)
+    private List<OrderTemplateDetail> orderTemplateDetails = new ArrayList<>();
     
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

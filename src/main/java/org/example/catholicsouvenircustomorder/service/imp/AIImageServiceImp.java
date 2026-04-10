@@ -118,11 +118,11 @@ public class AIImageServiceImp implements AIImageService {
     public String buildPromptFromTemplate(ProductTemplate template, Map<String, String> zoneInputs, String additionalDescription) {
         StringBuilder promptBuilder = new StringBuilder();
         
-        // Start with base prompt hint from template
-        if (template.getBasePromptHint() != null && !template.getBasePromptHint().isEmpty()) {
-            promptBuilder.append(template.getBasePromptHint());
-        } else {
-            promptBuilder.append("Catholic religious souvenir");
+        // Start with template name and description
+        promptBuilder.append("Catholic religious souvenir: ");
+        promptBuilder.append(template.getName());
+        if (template.getDescription() != null && !template.getDescription().isEmpty()) {
+            promptBuilder.append(". ").append(template.getDescription());
         }
         
         // Add zone inputs
@@ -144,15 +144,6 @@ public class AIImageServiceImp implements AIImageService {
             promptBuilder.append(". Additional details: ").append(additionalDescription);
         }
         
-        // Add material and style if available
-        if (template.getMaterial() != null && !template.getMaterial().isEmpty()) {
-            promptBuilder.append(". Material: ").append(template.getMaterial());
-        }
-        
-        if (template.getStyle() != null && !template.getStyle().isEmpty()) {
-            promptBuilder.append(". Style: ").append(template.getStyle());
-        }
-        
         return promptBuilder.toString();
     }
     
@@ -162,9 +153,7 @@ public class AIImageServiceImp implements AIImageService {
             // Build the prompt
             StringBuilder promptBuilder = new StringBuilder();
             
-            if (request.getBasePromptHint() != null && !request.getBasePromptHint().isEmpty()) {
-                promptBuilder.append(request.getBasePromptHint());
-            }
+            promptBuilder.append("Catholic religious souvenir");
             
             if (request.getZoneInputs() != null && !request.getZoneInputs().isEmpty()) {
                 promptBuilder.append(". Customizations: ");

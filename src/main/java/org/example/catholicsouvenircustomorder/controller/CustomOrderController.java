@@ -128,20 +128,19 @@ public class CustomOrderController {
     
     /**
      * Create order from negotiation with stages (Artisan only, Request-Based flow)
-     * POST /api/custom-orders/from-request/{requestId}
+     * POST /api/custom-orders
      * Requirements: RB-3
      */
-    @PostMapping("/from-request/{requestId}")
+    @PostMapping
     @PreAuthorize("hasAuthority('ARTISAN')")
-    public ResponseEntity<BaseResponse> createOrderFromNegotiation(
-            @PathVariable UUID requestId,
+    public ResponseEntity<BaseResponse> createOrder(
             @Valid @RequestBody CreateOrderWithStagesDTO request,
             Authentication authentication) {
         UUID artisanId = (UUID) authentication.getPrincipal();
         log.info("Artisan {} creating order from negotiation for request {} with {} stages", 
-            artisanId, requestId, request.getStages().size());
+            artisanId, request.getRequestId(), request.getStages().size());
         
-        CustomOrderResponse response = customOrderService.createFromNegotiation(requestId, artisanId, request);
+        CustomOrderResponse response = customOrderService.createFromNegotiation(request.getRequestId(), artisanId, request);
         return ResponseEntity.ok(BaseResponse.success("Tạo đơn hàng thành công", response));
     }
     
@@ -164,43 +163,8 @@ public class CustomOrderController {
     }
     
     /**
-     * Initiate payment for custom order (Customer only)
-     * POST /api/custom-orders/{id}/payment/initiate
-     * Requirements: Payment flow for template-based custom orders
+     * NOTE: CustomOrder uses STAGE-BASED payment flow
+     * This endpoint is REMOVED - use /api/stages/{stageId}/payment/initiate instead
+     * CustomOrder payments are handled per stage, not for the entire order
      */
-    @PostMapping("/{id}/payment/initiate")
-    @PreAuthorize("hasAuthority('CUSTOMER')")
-    public ResponseEntity<BaseResponse> initiatePayment(
-            @PathVariable UUID id,
-            @RequestParam PaymentMethod method,
-            @RequestParam(required = false) String returnUrl,
-            @RequestParam(required = false) String cancelUrl,
-            Authentication authentication) {
-        UUID customerId = (UUID) authentication.getPrincipal();
-        log.info("Customer {} initiating payment for custom order {} with method {}", customerId, id, method);
-        
-        // Verify order exists and belongs to customer
-        CustomOrderDetailResponse orderDetail = customOrderService.getOrderDetail(id);
-        if (!orderDetail.getCustomerId().equals(customerId)) {
-            return ResponseEntity.status(403)
-                    .body(BaseResponse.error(403, "Bạn không có quyền thanh toán đơn hàng này"));
-        }
-        
-        // Check if order is in PENDING_PAYMENT status
-        if (orderDetail.getStatus() != CustomOrderStatus.PENDING_PAYMENT) {
-            return ResponseEntity.status(400)
-                    .body(BaseResponse.error(400, "Đơn hàng không ở trạng thái chờ thanh toán"));
-        }
-        
-        // Create payment initiation DTO
-        InitiatePaymentDTO paymentDTO = InitiatePaymentDTO.builder()
-                .customOrderId(id)
-                .method(method)
-                .returnUrl(returnUrl)
-                .cancelUrl(cancelUrl)
-                .build();
-        
-        PaymentInitiationResponse response = paymentService.initiatePayment(paymentDTO);
-        return ResponseEntity.ok(BaseResponse.success("Khởi tạo thanh toán thành công", response));
-    }
 }

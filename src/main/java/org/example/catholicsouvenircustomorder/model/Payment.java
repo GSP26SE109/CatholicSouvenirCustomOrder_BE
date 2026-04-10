@@ -16,17 +16,9 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID paymentId;
     
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "order_id")
     private Order order;
-    
-    @ManyToOne
-    @JoinColumn(name = "custom_order_id")
-    private CustomOrder customOrder;
-    
-    @ManyToOne
-    @JoinColumn(name = "stage_id")
-    private CustomOrderStage stage;
     
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;
@@ -39,6 +31,11 @@ public class Payment {
     @Column(nullable = false)
     private PaymentMethod method;
     
+    // Reference ID for internal tracking (used to create payment URL)
+    @Column(unique = true, length = 100, nullable = false)
+    private String referenceId;
+    
+    // Transaction ID from payment gateway (VNPay/ZaloPay returns this in callback)
     @Column(unique = true, length = 100)
     private String transactionId;
     
@@ -52,6 +49,8 @@ public class Payment {
     
     @Column(columnDefinition = "TEXT")
     private String failureReason;
+    
+    // Transaction relationship (1:1)
     
     @PreUpdate
     public void preUpdate() {

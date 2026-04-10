@@ -7,6 +7,8 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -23,17 +25,11 @@ public class CustomRequest {
     @JoinColumn(name = "customer_id")
     private Account customer;
     
-    @ManyToOne
-    @JoinColumn(name = "template_id")
-    private ProductTemplate template;
+    // ProductTemplate relationship removed - template-based uses separate Order flow
     
     @ManyToOne
     @JoinColumn(name = "selected_artisan_id")
     private Artisan selectedArtisan;
-    
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
-    private Map<String, String> customizationData;
     
     @Column(columnDefinition = "TEXT")
     private String description;
@@ -49,7 +45,7 @@ public class CustomRequest {
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private CustomRequestStatus status = CustomRequestStatus.PENDING;
+    private CustomRequestStatus status = CustomRequestStatus.DRAFT;
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -63,6 +59,9 @@ public class CustomRequest {
     
     @OneToOne(mappedBy = "request")
     private CustomOrder customOrder;
+    
+    @OneToMany(mappedBy = "request", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Conversation> conversations = new ArrayList<>();
     
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
