@@ -66,7 +66,12 @@ cloudinary:
   api-key: ${CLOUDINARY_API_KEY:931731612755631}
   api-secret: ${CLOUDINARY_API_SECRET:gCO38ygVl0ZeEUR8CFdjTNXbu8M}
 
-
+ghn:
+  api-url: ${GHN_API_URL:https://dev-online-gateway.ghn.vn}
+  token: ${GHN_TOKEN:7c59e98a-310f-11f1-a973-aee5264794df}
+  shop-id: ${GHN_SHOP_ID:199863}
+  from-district-id: ${GHN_FROM_DISTRICT_ID:1442}
+  from-ward-code: ${GHN_FROM_WARD_CODE:21211}
 
 
 
@@ -141,9 +146,4 @@ cloudinary:
 #    bucket: ai-images
 
 # GHN Shipping Configuration (Sandbox)
-ghn:
-  api-url: ${GHN_API_URL:https://dev-online-gateway.ghn.vn}
-  token: ${GHN_TOKEN:7c59e98a-310f-11f1-a973-aee5264794df}
-  shop-id: ${GHN_SHOP_ID:199863}
-  from-district-id: ${GHN_FROM_DISTRICT_ID:1442}
-  from-ward-code: ${GHN_FROM_WARD_CODE:21211}
+

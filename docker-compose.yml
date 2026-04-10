@@ -76,6 +76,11 @@ services:
       VNPAY_VERSION: ${VNPAY_VERSION}
       VNPAY_COMMAND: ${VNPAY_COMMAND}
       VNPAY_ORDER_TYPE: ${VNPAY_ORDER_TYPE}
+      GHN_API_URL: ${GHN_API_URL}
+      GHN_TOKEN: ${GHN_TOKEN}
+      GHN_SHOP_ID: ${GHN_SHOP_ID}
+      GHN_FROM_DISTRICT_ID: ${GHN_FROM_DISTRICT_ID}
+      GHN_FROM_WARD_CODE: ${GHN_FROM_WARD_CODE}
     depends_on:
       postgres:
         condition: service_healthy
