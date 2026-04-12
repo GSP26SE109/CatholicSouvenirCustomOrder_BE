@@ -47,6 +47,7 @@ services:
       - ./backend/app.jar:/app/app.jar
     command: java -Xms256m -Xmx768m -jar app.jar
     environment:
+      TZ: Asia/Ho_Chi_Minh
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
