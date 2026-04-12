@@ -1,0 +1,512 @@
+{
+  "info": {
+    "name": "Chat Flow Complete Test",
+    "description": "Test toàn bộ luồng chat từ tạo request đến gửi tin nhắn",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "CUSTOMER_TOKEN",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ARTISAN_TOKEN",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "REQUEST_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "CONVERSATION_ID",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "1. Customer Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.token) {",
+                  "    pm.collectionVariables.set('CUSTOMER_TOKEN', jsonData.data.token);",
+                  "    console.log('✅ Customer token saved');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "2. Artisan Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.token) {",
+                  "    pm.collectionVariables.set('ARTISAN_TOKEN', jsonData.data.token);",
+                  "    console.log('✅ Artisan token saved');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"artisan@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Custom Request Flow",
+      "item": [
+        {
+          "name": "3. Customer Create Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.requestId) {",
+                  "    pm.collectionVariables.set('REQUEST_ID', jsonData.data.requestId);",
+                  "    console.log('✅ Request ID saved:', jsonData.data.requestId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestType\": \"FREE_FORM\",\n  \"title\": \"Tượng Đức Mẹ Maria kích thước lớn\",\n  \"description\": \"Tôi muốn đặt làm tượng Đức Mẹ Maria cao 1m, chất liệu gỗ tốt, phong cách cổ điển\",\n  \"budget\": 5000000,\n  \"deadline\": \"2024-03-01T00:00:00\",\n  \"referenceImages\": [\"https://example.com/image1.jpg\"]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/custom-requests",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "custom-requests"]
+            }
+          }
+        },
+        {
+          "name": "4. Customer Publish Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/custom-requests/{{REQUEST_ID}}/publish",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "custom-requests", "{{REQUEST_ID}}", "publish"]
+            }
+          }
+        },
+        {
+          "name": "5. Artisan View Published Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ARTISAN_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/custom-requests/published?page=0&size=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "custom-requests", "published"],
+              "query": [
+                {"key": "page", "value": "0"},
+                {"key": "size", "value": "10"}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Conversation Flow",
+      "item": [
+        {
+          "name": "6. Artisan Create Conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.conversationId) {",
+                  "    pm.collectionVariables.set('CONVERSATION_ID', jsonData.data.conversationId);",
+                  "    console.log('✅ Conversation ID saved:', jsonData.data.conversationId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ARTISAN_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/conversations/start?requestId={{REQUEST_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "conversations", "start"],
+              "query": [
+                {"key": "requestId", "value": "{{REQUEST_ID}}"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "7. Customer View Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/conversations/request/{{REQUEST_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "conversations", "request", "{{REQUEST_ID}}"]
+            }
+          }
+        },
+        {
+          "name": "8. Artisan View My Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ARTISAN_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/conversations/my-conversations",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "conversations", "my-conversations"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat Messages",
+      "item": [
+        {
+          "name": "9. Artisan Send Message 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ARTISAN_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversationId\": \"{{CONVERSATION_ID}}\",\n  \"content\": \"Chào anh, tôi đã xem yêu cầu của anh. Tôi có thể làm tượng này với giá 4,500,000 VND\",\n  \"messageType\": \"TEXT\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/send",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "send"]
+            }
+          }
+        },
+        {
+          "name": "10. Customer Send Message 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversationId\": \"{{CONVERSATION_ID}}\",\n  \"content\": \"Giá này có bao gồm vận chuyển không? Thời gian hoàn thành bao lâu?\",\n  \"messageType\": \"TEXT\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/send",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "send"]
+            }
+          }
+        },
+        {
+          "name": "11. Artisan Send Message 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ARTISAN_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversationId\": \"{{CONVERSATION_ID}}\",\n  \"content\": \"Giá chưa bao gồm ship. Thời gian khoảng 30 ngày, chia 3 giai đoạn thanh toán: Stage 1 (500k), Stage 2 (2tr), Stage 3 (2tr)\",\n  \"messageType\": \"TEXT\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/send",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "send"]
+            }
+          }
+        },
+        {
+          "name": "12. Customer Send Message 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversationId\": \"{{CONVERSATION_ID}}\",\n  \"content\": \"Được, tôi đồng ý. Anh có thể bắt đầu được không?\",\n  \"messageType\": \"TEXT\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/send",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "send"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Messages",
+      "item": [
+        {
+          "name": "13. Get Chat History (Customer)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/conversation/{{CONVERSATION_ID}}/messages?page=0&size=50",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "conversation", "{{CONVERSATION_ID}}", "messages"],
+              "query": [
+                {"key": "page", "value": "0"},
+                {"key": "size", "value": "50"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "14. Get Chat History (Artisan)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ARTISAN_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/conversation/{{CONVERSATION_ID}}/messages?page=0&size=50",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "conversation", "{{CONVERSATION_ID}}", "messages"],
+              "query": [
+                {"key": "page", "value": "0"},
+                {"key": "size", "value": "50"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "15. Get User Conversations (Customer)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/conversations",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "conversations"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read Status",
+      "item": [
+        {
+          "name": "16. Get Unread Count (Customer)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/unread-count",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "17. Get Unread Count for Conversation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/conversation/{{CONVERSATION_ID}}/unread-count",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "conversation", "{{CONVERSATION_ID}}", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "18. Mark Messages as Read (Customer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/conversation/{{CONVERSATION_ID}}/mark-read",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "conversation", "{{CONVERSATION_ID}}", "mark-read"]
+            }
+          }
+        },
+        {
+          "name": "19. Get Unread Count After Mark Read",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CUSTOMER_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/chat/unread-count",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "chat", "unread-count"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
