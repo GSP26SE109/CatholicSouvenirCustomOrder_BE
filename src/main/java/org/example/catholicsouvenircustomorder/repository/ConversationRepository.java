@@ -28,6 +28,10 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
     @Query("SELECT c FROM Conversation c WHERE c.artisan.artisanUuid = :artisanId ORDER BY c.updatedAt DESC")
     List<Conversation> findByArtisanIdOrderByUpdatedAtDesc(@Param("artisanId") UUID artisanId);
     
+    // Get all conversations where user is participant (customer or artisan)
+    @Query("SELECT c FROM Conversation c WHERE c.customer.accountId = :userId OR c.artisan.account.accountId = :userId ORDER BY c.updatedAt DESC")
+    List<Conversation> findByCustomerAccountIdOrArtisanAccountAccountId(@Param("userId") UUID userId1, @Param("userId") UUID userId2);
+    
     // Count interested artisans for a request
     long countByRequest(CustomRequest request);
 }

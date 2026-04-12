@@ -9,11 +9,15 @@ import java.util.UUID;
 @Data
 public class ChatMessageResponse {
     private UUID messageId;
-    private UUID requestId;
+    private UUID conversationId;
     private UUID senderId;
     private String senderName;
     private String content;
     private MessageType messageType;
     private LocalDateTime sentAt;
     private Boolean isRead;
+    
+    // For conversation list view
+    private UUID otherParticipantId;
+    private String otherParticipantName;
 }
