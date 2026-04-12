@@ -102,7 +102,7 @@ public class ChatServiceImp implements ChatService {
     @Override
     public List<ChatMessageResponse> getUserConversations(UUID userId) {
         // Get all conversations where user is participant
-        List<Conversation> conversations = conversationRepository.findByCustomerAccountIdOrArtisanAccountAccountId(userId, userId);
+        List<Conversation> conversations = conversationRepository.findByCustomerAccountIdOrArtisanAccountAccountId(userId);
         
         return conversations.stream()
                 .map(conversation -> {
@@ -153,7 +153,7 @@ public class ChatServiceImp implements ChatService {
     @Override
     public Long getUnreadMessageCount(UUID userId) {
         // Get all conversations for user
-        List<Conversation> conversations = conversationRepository.findByCustomerAccountIdOrArtisanAccountAccountId(userId, userId);
+        List<Conversation> conversations = conversationRepository.findByCustomerAccountIdOrArtisanAccountAccountId(userId);
         
         return conversations.stream()
                 .mapToLong(conv -> chatMessageRepository.countUnreadByConversationAndUser(conv, userId))
