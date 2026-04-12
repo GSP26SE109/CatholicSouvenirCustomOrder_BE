@@ -6,6 +6,9 @@ import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.SendMessageRequest;
 import org.example.catholicsouvenircustomorder.dto.response.ChatMessageResponse;
 import org.example.catholicsouvenircustomorder.service.ChatService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -21,8 +24,7 @@ import java.util.UUID;
 
 /**
  * Controller for chat messaging between customers and artisans.
- * Handles sending/receiving messages within conversations.
- * For conversation management, see ConversationController.
+ * Supports conversation-based chat with WebSocket real-time messaging.
  */
 @Controller
 @RequiredArgsConstructor
@@ -33,40 +35,36 @@ public class ChatController {
     // ============= WebSocket Endpoints =============
     
     /**
-     * WebSocket endpoint for sending messages in real-time.
-     * Topic: /topic/messages/{requestId}/{artisanId}
+     * WebSocket endpoint for sending messages in conversation.
+     * Client subscribes to: /topic/chat/{conversationId}
+     * Client sends to: /app/chat/{conversationId}
      */
-    @MessageMapping("/messages/{requestId}/{artisanId}")
+    @MessageMapping("/chat/{conversationId}")
     public void sendMessageViaWebSocket(
             @Payload SendMessageRequest request, 
-            @DestinationVariable UUID requestId,
-            @DestinationVariable UUID artisanId,
+            @DestinationVariable UUID conversationId,
             Principal principal) {
         
         UUID senderId = UUID.fromString(principal.getName());
-        request.setRequestId(requestId);
-        chatService.sendPrivateMessage(request, senderId, artisanId);
+        request.setConversationId(conversationId);
+        chatService.sendMessage(request, senderId);
     }
 
     // ============= REST API - Send Messages =============
     
     /**
-     * Send message via REST API (alternative to WebSocket).
-     * Use this for reliability or when WebSocket is not available.
+     * Send message via REST API.
+     * POST /api/chat/send
      */
-    @PostMapping("/api/messages")
+    @PostMapping("/api/chat/send")
     @ResponseBody
     @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
     public ResponseEntity<BaseResponse<ChatMessageResponse>> sendMessage(
-            @RequestParam UUID requestId,
-            @RequestParam UUID artisanId,
             @RequestBody @Valid SendMessageRequest request,
             Authentication authentication) {
         
         UUID senderId = UUID.fromString(authentication.getName());
-        request.setRequestId(requestId);
-        
-        ChatMessageResponse response = chatService.sendPrivateMessage(request, senderId, artisanId);
+        ChatMessageResponse response = chatService.sendMessage(request, senderId);
         
         return ResponseEntity.ok(BaseResponse.success("Gửi tin nhắn thành công", response));
     }
@@ -74,53 +72,90 @@ public class ChatController {
     // ============= REST API - Get Messages =============
     
     /**
-     * Get all messages in a conversation between customer and artisan.
+     * Get messages in a conversation with pagination.
+     * GET /api/chat/conversation/{conversationId}/messages
      */
-    @GetMapping("/api/messages")
+    @GetMapping("/api/chat/conversation/{conversationId}/messages")
     @ResponseBody
     @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
-    public ResponseEntity<BaseResponse<List<ChatMessageResponse>>> getConversationMessages(
-            @RequestParam UUID requestId,
-            @RequestParam UUID artisanId,
+    public ResponseEntity<BaseResponse<Page<ChatMessageResponse>>> getConversationMessages(
+            @PathVariable UUID conversationId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
             Authentication authentication) {
         
-        List<ChatMessageResponse> messages = chatService.getPrivateMessages(requestId, artisanId);
+        UUID userId = UUID.fromString(authentication.getName());
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ChatMessageResponse> messages = chatService.getConversationMessages(conversationId, userId, pageable);
         
         return ResponseEntity.ok(BaseResponse.success("Lấy tin nhắn thành công", messages));
     }
     
     /**
-     * Get all messages for a request (across all conversations).
-     * Useful for customer to see all chats with different artisans.
+     * Get all conversations for a user.
+     * GET /api/chat/conversations
      */
-    @GetMapping("/api/messages/request/{requestId}")
+    @GetMapping("/api/chat/conversations")
     @ResponseBody
-    @PreAuthorize("hasAuthority('CUSTOMER')")
-    public ResponseEntity<BaseResponse<List<ChatMessageResponse>>> getAllRequestMessages(
-            @PathVariable UUID requestId,
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
+    public ResponseEntity<BaseResponse<List<ChatMessageResponse>>> getUserConversations(
             Authentication authentication) {
         
         UUID userId = UUID.fromString(authentication.getName());
-        List<ChatMessageResponse> messages = chatService.getChatHistory(requestId, userId);
+        List<ChatMessageResponse> conversations = chatService.getUserConversations(userId);
         
-        return ResponseEntity.ok(BaseResponse.success("Lấy tin nhắn thành công", messages));
+        return ResponseEntity.ok(BaseResponse.success("Lấy cuộc trò chuyện thành công", conversations));
     }
 
     // ============= Utility Endpoints =============
     
     /**
-     * Mark messages as read for a request.
+     * Mark messages as read in a conversation.
+     * POST /api/chat/conversation/{conversationId}/mark-read
      */
-    @PostMapping("/api/messages/mark-read")
+    @PostMapping("/api/chat/conversation/{conversationId}/mark-read")
     @ResponseBody
     @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
     public ResponseEntity<BaseResponse<Void>> markMessagesAsRead(
-            @RequestParam UUID requestId,
+            @PathVariable UUID conversationId,
             Authentication authentication) {
         
         UUID userId = UUID.fromString(authentication.getName());
-        chatService.markMessagesAsRead(requestId, userId);
+        chatService.markMessagesAsRead(conversationId, userId);
         
         return ResponseEntity.ok(BaseResponse.success("Đánh dấu đã đọc thành công"));
+    }
+    
+    /**
+     * Get unread message count for user.
+     * GET /api/chat/unread-count
+     */
+    @GetMapping("/api/chat/unread-count")
+    @ResponseBody
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
+    public ResponseEntity<BaseResponse<Long>> getUnreadMessageCount(
+            Authentication authentication) {
+        
+        UUID userId = UUID.fromString(authentication.getName());
+        Long count = chatService.getUnreadMessageCount(userId);
+        
+        return ResponseEntity.ok(BaseResponse.success("Lấy số tin nhắn chưa đọc thành công", count));
+    }
+    
+    /**
+     * Get unread message count for specific conversation.
+     * GET /api/chat/conversation/{conversationId}/unread-count
+     */
+    @GetMapping("/api/chat/conversation/{conversationId}/unread-count")
+    @ResponseBody
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
+    public ResponseEntity<BaseResponse<Long>> getConversationUnreadCount(
+            @PathVariable UUID conversationId,
+            Authentication authentication) {
+        
+        UUID userId = UUID.fromString(authentication.getName());
+        Long count = chatService.getUnreadMessageCount(conversationId, userId);
+        
+        return ResponseEntity.ok(BaseResponse.success("Lấy số tin nhắn chưa đọc thành công", count));
     }
 }
