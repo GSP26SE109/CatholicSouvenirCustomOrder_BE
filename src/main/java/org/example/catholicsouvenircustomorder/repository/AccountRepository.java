@@ -18,4 +18,5 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
     Page<Account> findByEmailContainingIgnoreCase(String email, Pageable pageable);
     Page<Account> findByRole(Role role, Pageable pageable);
     List<Account> findByRole_Name(String roleName);
+    Optional<Account> findByVerificationToken(String token);
 }

@@ -1,14 +1,23 @@
 package org.example.catholicsouvenircustomorder.model;
 
 public enum NotificationAction {
-    NONE,                    // Just informational
+    NONE,                    // Just informational, no action required
+    
+    // Custom Request Actions
     ACCEPT_REQUEST,          // Artisan accepts custom request
     REJECT_REQUEST,          // Artisan rejects custom request
     VIEW_REQUEST,            // View custom request details
-    VIEW_QUOTATION,          // Customer views quotation
-    VIEW_CONVERSATION,       // View conversation/chat
-    PAY_STAGE,              // Customer pays stage
-    COMPLETE_STAGE,         // Artisan completes stage
-    CONFIRM_ARTISAN,        // Customer confirms artisan
-    VIEW_ORDER              // View order details
+    CONFIRM_ARTISAN,         // Customer confirms and selects artisan
+    
+    // Custom Order & Stage Actions
+    VIEW_ORDER,              // View custom order details
+    PAY_STAGE,               // Customer pays for custom order stage
+    COMPLETE_STAGE,          // Artisan marks stage as completed
+    APPROVE_STAGE,           // Customer approves completed stage
+    
+    // Communication Actions
+    VIEW_CONVERSATION,       // View conversation/chat messages
+    
+    // General Actions
+    VIEW_NOTIFICATION        // View notification details
 }

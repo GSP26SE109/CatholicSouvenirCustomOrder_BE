@@ -25,9 +25,30 @@ spring:
       password: ${SPRING_DATA_REDIS_PASSWORD:}
       timeout: 60000
 
+  # Email Configuration
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:nhoklideptrai@gmail.com}
+    password: ${MAIL_PASSWORD:amscawbhomhebsat}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
 jwt:
   key: ${JWT_KEY:+N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=}
   expiration: ${JWT_EXPIRATION:86400000}
+
+# Application Configuration
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
 
 # Payment Gateway Configuration (VNPay & ZaloPay only)
 
