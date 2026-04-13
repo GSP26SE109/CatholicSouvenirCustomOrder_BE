@@ -44,4 +44,16 @@ public class AuthenController {
         authenService.logout(token);
         return ResponseEntity.ok(BaseResponse.success("Đăng xuất thành công"));
     }
+    
+    @GetMapping("/verify")
+    public ResponseEntity<BaseResponse> verifyEmail(@RequestParam String token) {
+        authenService.verifyEmail(token);
+        return ResponseEntity.ok(BaseResponse.success("Xác thực email thành công. Bạn có thể đăng nhập ngay bây giờ."));
+    }
+    
+    @PostMapping("/resend-verification")
+    public ResponseEntity<BaseResponse> resendVerificationEmail(@RequestParam String email) {
+        authenService.resendVerificationEmail(email);
+        return ResponseEntity.ok(BaseResponse.success("Email xác thực đã được gửi lại. Vui lòng kiểm tra hộp thư."));
+    }
 }

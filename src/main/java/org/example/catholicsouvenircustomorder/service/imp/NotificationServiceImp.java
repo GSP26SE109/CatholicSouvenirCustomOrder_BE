@@ -46,8 +46,8 @@ public class NotificationServiceImp implements NotificationService {
         Notification notification = new Notification();
         notification.setRecipient(artisan);
         notification.setType(NotificationType.NEW_CUSTOM_REQUEST);
-        notification.setTitle("New Custom Order Request");
-        notification.setMessage("You have a new custom order request from " + customerName);
+        notification.setTitle("Yêu cầu đặt hàng mới");
+        notification.setMessage("Bạn có yêu cầu đặt hàng tùy chỉnh mới từ " + customerName);
         notification.setRelatedEntityId(requestId);
         notification.setRelatedEntityType(RelatedEntityType.CUSTOM_REQUEST);
         notification.setActionType(NotificationAction.ACCEPT_REQUEST);
@@ -71,9 +71,9 @@ public class NotificationServiceImp implements NotificationService {
         Notification notification = new Notification();
         notification.setRecipient(customer);
         notification.setType(NotificationType.REQUEST_ACCEPTED);
-        notification.setTitle("Request Accepted");
+        notification.setTitle("Yêu cầu được chấp nhận");
         notification.setMessage(String.format(
-            "Great news! %s has accepted your custom order request. A custom order will be created.", 
+            "Tin vui! Nghệ nhân %s đã chấp nhận yêu cầu của bạn. Đơn hàng tùy chỉnh sẽ được tạo.", 
             artisanName
         ));
         notification.setRelatedEntityId(requestId);
@@ -96,15 +96,15 @@ public class NotificationServiceImp implements NotificationService {
         
         String metadata = String.format("artisanName=%s;reason=%s", artisanName, reason);
         
-        String message = String.format("%s has declined your custom order request.", artisanName);
+        String message = String.format("Nghệ nhân %s đã từ chối yêu cầu của bạn.", artisanName);
         if (reason != null && !reason.trim().isEmpty()) {
-            message += " Reason: " + reason;
+            message += " Lý do: " + reason;
         }
         
         Notification notification = new Notification();
         notification.setRecipient(customer);
         notification.setType(NotificationType.REQUEST_REJECTED);
-        notification.setTitle("Request Declined");
+        notification.setTitle("Yêu cầu bị từ chối");
         notification.setMessage(message);
         notification.setRelatedEntityId(requestId);
         notification.setRelatedEntityType(RelatedEntityType.CUSTOM_REQUEST);
@@ -129,9 +129,9 @@ public class NotificationServiceImp implements NotificationService {
         Notification notification = new Notification();
         notification.setRecipient(customer);
         notification.setType(NotificationType.ORDER_CREATED);
-        notification.setTitle("Order Created");
+        notification.setTitle("Đơn hàng đã tạo");
         notification.setMessage(String.format(
-            "Your custom order has been created with %d stages. Total: %,d VNĐ. Please pay Stage 1 to start.", 
+            "Đơn hàng tùy chỉnh của bạn đã được tạo với %d giai đoạn. Tổng: %,d VNĐ. Vui lòng thanh toán Giai đoạn 1 để bắt đầu.", 
             stagesCount, totalAmount
         ));
         notification.setRelatedEntityId(orderId);
@@ -156,9 +156,9 @@ public class NotificationServiceImp implements NotificationService {
         Notification notification = new Notification();
         notification.setRecipient(artisan);
         notification.setType(NotificationType.PAYMENT_RECEIVED);
-        notification.setTitle("Payment Received");
+        notification.setTitle("Đã nhận thanh toán");
         notification.setMessage(String.format(
-            "Payment received for %s: %,d VNĐ. You can start working.", 
+            "Đã nhận thanh toán cho %s: %,d VNĐ. Bạn có thể bắt đầu làm việc.", 
             stageName, amount
         ));
         notification.setRelatedEntityId(stageId);
@@ -184,14 +184,14 @@ public class NotificationServiceImp implements NotificationService {
         
         if (nextStageId != null) {
             message = String.format(
-                "%s completed! Please pay %s (%,d VNĐ) to continue.", 
+                "%s đã hoàn thành! Vui lòng thanh toán %s (%,d VNĐ) để tiếp tục.", 
                 stageName, nextStageName, nextAmount
             );
             metadata += String.format(";nextStageId=%s;nextStageName=%s;nextAmount=%d",
                 nextStageId, nextStageName, nextAmount);
         } else {
             message = String.format(
-                "%s completed! Your order is finished and will be shipped soon.", 
+                "%s đã hoàn thành! Đơn hàng của bạn đã xong và sẽ được giao sớm.", 
                 stageName
             );
         }
@@ -199,7 +199,7 @@ public class NotificationServiceImp implements NotificationService {
         Notification notification = new Notification();
         notification.setRecipient(customer);
         notification.setType(NotificationType.STAGE_COMPLETED);
-        notification.setTitle("Stage Completed");
+        notification.setTitle("Giai đoạn hoàn thành");
         notification.setMessage(message);
         notification.setRelatedEntityId(stageId);
         notification.setRelatedEntityType(RelatedEntityType.STAGE);
@@ -225,9 +225,9 @@ public class NotificationServiceImp implements NotificationService {
         Notification notification = new Notification();
         notification.setRecipient(artisan);
         notification.setType(NotificationType.PAYMENT_RECEIVED);
-        notification.setTitle("Payment Received");
+        notification.setTitle("Đã nhận thanh toán");
         notification.setMessage(String.format(
-            "Payment received from %s: %,d VNĐ. You can start production.", 
+            "Đã nhận thanh toán từ %s: %,d VNĐ. Bạn có thể bắt đầu sản xuất.", 
             customerName, amount
         ));
         notification.setRelatedEntityId(customOrderId);
@@ -252,9 +252,9 @@ public class NotificationServiceImp implements NotificationService {
         Notification notification = new Notification();
         notification.setRecipient(customer);
         notification.setType(NotificationType.ORDER_COMPLETED);
-        notification.setTitle("Order Completed");
+        notification.setTitle("Đơn hàng hoàn thành");
         notification.setMessage(String.format(
-            "Great news! %s has completed your custom order. It will be shipped soon.", 
+            "Tin vui! Nghệ nhân %s đã hoàn thành đơn hàng của bạn. Sản phẩm sẽ được giao sớm.", 
             artisanName
         ));
         notification.setRelatedEntityId(customOrderId);
@@ -281,9 +281,9 @@ public class NotificationServiceImp implements NotificationService {
         Notification notification = new Notification();
         notification.setRecipient(artisan);
         notification.setType(NotificationType.REQUEST_CONFIRMED);
-        notification.setTitle("You've Been Selected!");
+        notification.setTitle("Bạn đã được chọn!");
         notification.setMessage(String.format(
-            "%s has selected you for their custom request. Start negotiating to create an order.", 
+            "%s đã chọn bạn cho yêu cầu tùy chỉnh của họ. Bắt đầu thương lượng để tạo đơn hàng.", 
             customerName
         ));
         notification.setRelatedEntityId(requestId);
@@ -407,9 +407,9 @@ public class NotificationServiceImp implements NotificationService {
         Notification notification = new Notification();
         notification.setRecipient(customer);
         notification.setType(NotificationType.ORDER_CREATED);
-        notification.setTitle("Order Created with Stages");
+        notification.setTitle("Đơn hàng đã tạo với các giai đoạn");
         notification.setMessage(String.format(
-            "Your custom order has been created with %d payment stages. Total: %,d VNĐ. Please pay Stage 1 to start production.", 
+            "Đơn hàng tùy chỉnh của bạn đã được tạo với %d giai đoạn thanh toán. Tổng: %,d VNĐ. Vui lòng thanh toán Giai đoạn 1 để bắt đầu sản xuất.", 
             stagesCount, totalAmount
         ));
         notification.setRelatedEntityId(orderId);
@@ -434,9 +434,9 @@ public class NotificationServiceImp implements NotificationService {
         Notification notification = new Notification();
         notification.setRecipient(customer);
         notification.setType(NotificationType.PAYMENT_PENDING);
-        notification.setTitle("Stage Payment Required");
+        notification.setTitle("Cần thanh toán giai đoạn");
         notification.setMessage(String.format(
-            "Please pay for %s (%,d VNĐ) to continue production.", 
+            "Vui lòng thanh toán cho %s (%,d VNĐ) để tiếp tục sản xuất.", 
             stageName, amount
         ));
         notification.setRelatedEntityId(stageId);

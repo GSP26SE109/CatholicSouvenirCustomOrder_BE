@@ -11,11 +11,13 @@ import org.example.catholicsouvenircustomorder.model.Role;
 import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.RoleRepository;
 import org.example.catholicsouvenircustomorder.service.AuthenService;
+import org.example.catholicsouvenircustomorder.service.EmailService;
 import org.example.catholicsouvenircustomorder.service.JwtService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +27,7 @@ public class AuthenServiceImp implements AuthenService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final EmailService emailService;
 
     @Override
     public RegisterResponse register(RegisterRequest request) {
@@ -42,6 +45,9 @@ public class AuthenServiceImp implements AuthenService {
         Role userRole = roleRepository.findByName("CUSTOMER")
                 .orElseThrow(() -> new RuntimeException("Role CUSTOMER không tồn tại"));
 
+        // Generate verification token
+        String verificationToken = UUID.randomUUID().toString();
+
         Account account = new Account();
         account.setFullName(request.getFirstName() + " " + request.getLastName());
         account.setEmail(request.getEmail());
@@ -52,16 +58,25 @@ public class AuthenServiceImp implements AuthenService {
         account.setDateOfBirth(request.getDateOfBirth());
         account.setRole(userRole);
         account.setCreatedDate(LocalDateTime.now());
-        account.setVerified(true);
+        account.setVerificationToken(verificationToken);
+        account.setVerified(false);  // Set to false, require verification
         
         Account savedAccount = accountRepository.save(account);
+        
+        // Send verification email
+        try {
+            emailService.sendVerificationEmail(savedAccount.getEmail(), verificationToken);
+        } catch (Exception e) {
+            // Log error but don't fail registration
+            System.err.println("Failed to send verification email: " + e.getMessage());
+        }
         
         return RegisterResponse.builder()
                 .accountId(savedAccount.getAccountId())
                 .fullName(savedAccount.getFullName())
                 .email(savedAccount.getEmail())
                 .phone(savedAccount.getPhone())
-                .message("Đăng ký thành công")
+                .message("Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.")
                 .build();
     }
 
@@ -75,7 +90,7 @@ public class AuthenServiceImp implements AuthenService {
         }
 
         if (!account.isVerified()) {
-            throw new RuntimeException("Tài khoản chưa được xác thực");
+            throw new RuntimeException("Tài khoản chưa được xác thực. Vui lòng kiểm tra email.");
         }
 
         String token = jwtService.generateToken(account);
@@ -90,5 +105,37 @@ public class AuthenServiceImp implements AuthenService {
     @Override
     public void logout(String token) {
         jwtService.invalidateToken(token);
+    }
+    
+    @Override
+    public void verifyEmail(String token) {
+        Account account = accountRepository.findByVerificationToken(token)
+                .orElseThrow(() -> new RuntimeException("Token xác thực không hợp lệ"));
+        
+        if (account.isVerified()) {
+            throw new RuntimeException("Tài khoản đã được xác thực trước đó");
+        }
+        
+        account.setVerified(true);
+        account.setVerificationToken(null);  // Clear token after verification
+        accountRepository.save(account);
+    }
+    
+    @Override
+    public void resendVerificationEmail(String email) {
+        Account account = accountRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với email này"));
+        
+        if (account.isVerified()) {
+            throw new RuntimeException("Tài khoản đã được xác thực");
+        }
+        
+        // Generate new token
+        String newToken = UUID.randomUUID().toString();
+        account.setVerificationToken(newToken);
+        accountRepository.save(account);
+        
+        // Send email
+        emailService.sendVerificationEmail(account.getEmail(), newToken);
     }
 }

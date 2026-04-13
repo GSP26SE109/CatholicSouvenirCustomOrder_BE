@@ -82,6 +82,8 @@ services:
       GHN_SHOP_ID: ${GHN_SHOP_ID}
       GHN_FROM_DISTRICT_ID: ${GHN_FROM_DISTRICT_ID}
       GHN_FROM_WARD_CODE: ${GHN_FROM_WARD_CODE}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy

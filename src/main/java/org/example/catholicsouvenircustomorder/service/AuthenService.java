@@ -9,4 +9,6 @@ public interface AuthenService {
     RegisterResponse register(RegisterRequest request);
     AuthenResponse login(LoginRequest request);
     void logout(String token);
+    void verifyEmail(String token);
+    void resendVerificationEmail(String email);
 }

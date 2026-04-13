@@ -43,12 +43,12 @@ public class RedisConfig {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
         config.setHostName(redisHost);
         config.setPort(redisPort);
-        
+
         // Only set password if it's not empty
         if (redisPassword != null && !redisPassword.trim().isEmpty()) {
             config.setPassword(redisPassword);
         }
-        
+
         return new LettuceConnectionFactory(config);
     }
 
