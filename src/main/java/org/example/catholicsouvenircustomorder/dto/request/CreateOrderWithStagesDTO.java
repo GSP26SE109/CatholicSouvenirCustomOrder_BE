@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * DTO for creating a Request-Based custom order with payment stages.
@@ -19,6 +20,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateOrderWithStagesDTO {
+    
+    @NotNull(message = "Request ID không được để trống")
+    private UUID requestId;
     
     @NotNull(message = "Tổng giá không được để trống")
     @DecimalMin(value = "0.01", message = "Tổng giá phải lớn hơn 0")

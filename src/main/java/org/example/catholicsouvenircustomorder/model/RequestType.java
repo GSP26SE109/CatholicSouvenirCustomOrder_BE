@@ -1,6 +1,5 @@
 package org.example.catholicsouvenircustomorder.model;
 
 public enum RequestType {
-    TEMPLATE_BASED,
-    REQUEST_BASED
+    REQUEST_BASED  // CustomRequest chỉ dùng cho request-based flow
 }

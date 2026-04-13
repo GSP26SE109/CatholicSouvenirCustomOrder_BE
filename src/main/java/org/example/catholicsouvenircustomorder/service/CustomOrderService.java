@@ -16,12 +16,6 @@ import java.util.UUID;
 public interface CustomOrderService {
     
     /**
-     * Create order from accepted request (Template-Based flow)
-     * Called when artisan accepts a custom request
-     */
-    CustomOrderResponse createFromRequest(UUID requestId, UUID artisanId);
-    
-    /**
      * Create order from negotiation (Request-Based flow)
      * Called by artisan after negotiation with customer
      */

@@ -54,10 +54,6 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         template.setName(request.getName());
         template.setDescription(request.getDescription());
         template.setBasePrice(request.getBasePrice());
-        template.setMaterial(request.getMaterial());
-        template.setStyle(request.getStyle());
-        template.setBasePromptHint(request.getBasePromptHint());
-        template.setBaseImages(request.getBaseImages() != null ? request.getBaseImages() : new ArrayList<>());
         template.setIsActive(true);
         
         ProductTemplate savedTemplate = templateRepository.save(template);
@@ -116,22 +112,6 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
             template.setBasePrice(request.getBasePrice());
         }
         
-        if (request.getMaterial() != null) {
-            template.setMaterial(request.getMaterial());
-        }
-        
-        if (request.getStyle() != null) {
-            template.setStyle(request.getStyle());
-        }
-        
-        if (request.getBasePromptHint() != null) {
-            template.setBasePromptHint(request.getBasePromptHint());
-        }
-        
-        if (request.getBaseImages() != null) {
-            template.setBaseImages(request.getBaseImages());
-        }
-        
         if (request.getIsActive() != null) {
             template.setIsActive(request.getIsActive());
         }
@@ -151,17 +131,9 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
             throw new IllegalArgumentException("You do not have permission to delete this template");
         }
         
-        // Check if there are active requests for this template
-        List<CustomRequest> activeRequests = customRequestRepository.findAll().stream()
-                .filter(req -> req.getTemplate() != null && 
-                              req.getTemplate().getTemplateId().equals(templateId) &&
-                              (req.getStatus() == CustomRequestStatus.PENDING || 
-                               req.getStatus() == CustomRequestStatus.ACCEPTED))
-                .collect(Collectors.toList());
-        
-        if (!activeRequests.isEmpty()) {
-            throw new IllegalArgumentException("Cannot delete template with active custom requests");
-        }
+        // NOTE: Template deletion check removed
+        // Template-based flow now uses Order entity, not CustomRequest
+        // CustomRequest is only for request-based flow (no template reference)
         
         templateRepository.delete(template);
     }
@@ -300,18 +272,9 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         }
         
         // Check if there are active requests using this zone
-        List<CustomRequest> activeRequests = customRequestRepository.findAll().stream()
-                .filter(req -> req.getTemplate() != null && 
-                              req.getTemplate().getTemplateId().equals(templateId) &&
-                              (req.getStatus() == CustomRequestStatus.PENDING || 
-                               req.getStatus() == CustomRequestStatus.ACCEPTED) &&
-                              req.getCustomizationData() != null &&
-                              req.getCustomizationData().containsKey(zoneId.toString()))
-                .collect(Collectors.toList());
-        
-        if (!activeRequests.isEmpty()) {
-            throw new IllegalArgumentException("Cannot delete zone with active custom requests");
-        }
+        // NOTE: Zone deletion check removed
+        // Template-based flow now uses Order entity, not CustomRequest
+        // CustomRequest is only for request-based flow (no template/customization reference)
         
         zoneRepository.delete(zone);
     }
@@ -428,9 +391,6 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         response.setName(template.getName());
         response.setDescription(template.getDescription());
         response.setBasePrice(template.getBasePrice());
-        response.setMaterial(template.getMaterial());
-        response.setStyle(template.getStyle());
-        response.setBaseImages(template.getBaseImages());
         response.setIsActive(template.getIsActive());
         response.setCreatedAt(template.getCreatedAt());
         response.setUpdatedAt(template.getUpdatedAt());
@@ -447,10 +407,6 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         response.setName(template.getName());
         response.setDescription(template.getDescription());
         response.setBasePrice(template.getBasePrice());
-        response.setMaterial(template.getMaterial());
-        response.setStyle(template.getStyle());
-        response.setBasePromptHint(template.getBasePromptHint());
-        response.setBaseImages(template.getBaseImages());
         response.setIsActive(template.getIsActive());
         response.setCreatedAt(template.getCreatedAt());
         response.setUpdatedAt(template.getUpdatedAt());

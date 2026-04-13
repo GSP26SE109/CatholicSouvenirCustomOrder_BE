@@ -1,22 +1,22 @@
 package org.example.catholicsouvenircustomorder.dto.response;
 
 import lombok.Data;
-import org.example.catholicsouvenircustomorder.model.QuotationStatus;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
-public class QuotationResponse {
-    private UUID quotationId;
+public class ConversationResponse {
+    private UUID conversationId;
     private UUID requestId;
+    private String requestTitle;
+    private UUID customerId;
+    private String customerName;
     private UUID artisanId;
     private String artisanName;
-    private BigDecimal price;
-    private String notes;
-    private QuotationStatus status;
-    private Integer version;
+    private String lastMessage;
+    private LocalDateTime lastMessageTime;
+    private Integer unreadCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

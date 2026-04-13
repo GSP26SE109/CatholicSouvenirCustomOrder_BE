@@ -11,19 +11,14 @@ import java.util.UUID;
 
 @Entity
 @Data
-@Table(name = "orders",
-indexes = {
-        @Index(name="idx_orders_status",columnList = "status"),
-        @Index(name="idx_orders_created_at",columnList = "create_at")
-})
+@Table(name = "orders")
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID orderId;
     private LocalDateTime orderDate;
     private BigDecimal total;
-    @Enumerated(EnumType.STRING)
-    private OrderStatus status;
+    private String status;
     private String paymentMethod;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
@@ -36,6 +31,12 @@ public class Order {
             cascade = CascadeType.ALL,
             orphanRemoval = true)
     private List<OrderDetail> orderDetails = new ArrayList<>();
-    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
-    private Complaint complaint;
+    
+    @OneToMany(mappedBy = "order",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true)
+    private List<OrderTemplateDetail> templateDetails = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    private List<Payment> payments = new ArrayList<>();
 }

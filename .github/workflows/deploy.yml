@@ -109,25 +109,41 @@ jobs:
           script: |
             cd ~/catholic-souvenir-custom-order
 
-            # Doi ten jar
-            mv backend/*.jar backend/app.jar 2>/dev/null || true
+            # Xoa app.jar cu truoc
+            rm -f backend/app.jar
 
-            # Kiem tra lan dau hay khong
+            # Tim va doi ten jar moi
+            JAR_FILE=$(find backend/ -name "*.jar" ! -name "app.jar" | head -1)
+            if [ -z "$JAR_FILE" ]; then
+              echo "ERROR: Khong tim thay jar moi!"
+              exit 1
+            fi
+            mv "$JAR_FILE" backend/app.jar
+            echo "==> Da copy jar moi: $(ls -lh backend/app.jar)"
+
             RUNNING=$(docker compose --env-file .env ps -q 2>/dev/null | wc -l)
 
             if [ "$RUNNING" -eq "0" ]; then
-              echo "==> Lan dau: khoi dong tat ca containers..."
+              echo "==> Lan dau: khoi dong tat ca..."
               docker compose --env-file .env up -d
             else
-              echo "==> Cap nhat: chi restart backend..."
+              echo "==> Dung backend..."
               docker compose --env-file .env stop backend
-              docker compose --env-file .env start backend
+
+              echo "==> Xoa container backend cu..."
+              docker compose --env-file .env rm -f backend
+
+              echo "==> Khoi dong backend moi..."
+              docker compose --env-file .env up -d backend
+
+              echo "==> Reload Nginx..."
+              docker compose --env-file .env exec -T nginx nginx -s reload
             fi
 
-            # Cho backend khoi dong
-            echo "==> Waiting 30s for backend..."
-            sleep 30
+            echo "==> Waiting 45s for backend..."
+            sleep 45
 
-            # Kiem tra trang thai
             docker compose --env-file .env ps
+            echo "==> Kiem tra jar dang chay..."
+            docker compose --env-file .env exec -T backend ls -lh /app/app.jar
             echo "==> Deploy done!"

@@ -2,27 +2,45 @@ package org.example.catholicsouvenircustomorder.service;
 
 import org.example.catholicsouvenircustomorder.dto.request.SendMessageRequest;
 import org.example.catholicsouvenircustomorder.dto.response.ChatMessageResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface ChatService {
-    // Legacy method (keep for backward compatibility)
+    
+    /**
+     * Send message in a conversation.
+     * Supports both WebSocket and REST API.
+     */
     ChatMessageResponse sendMessage(SendMessageRequest request, UUID senderId);
     
-    // New private 1-1 chat method
-    ChatMessageResponse sendPrivateMessage(SendMessageRequest request, UUID senderId, UUID artisanId);
+    /**
+     * Get messages in a conversation with pagination.
+     * Validates user is participant in the conversation.
+     */
+    Page<ChatMessageResponse> getConversationMessages(UUID conversationId, UUID userId, Pageable pageable);
     
-    // Get messages for specific conversation (alias for getMessagesByRequest)
-    List<ChatMessageResponse> getMessagesByRequest(UUID requestId);
+    /**
+     * Get all conversations for a user (customer or artisan).
+     * Returns latest message from each conversation.
+     */
+    List<ChatMessageResponse> getUserConversations(UUID userId);
     
-    // Get chat history (for request participants only) - same as getMessagesByRequest but with validation
-    default List<ChatMessageResponse> getChatHistory(UUID requestId, UUID userId) {
-        return getMessagesByRequest(requestId);
-    }
+    /**
+     * Mark messages as read in a conversation.
+     * Only marks messages where user is NOT the sender.
+     */
+    void markMessagesAsRead(UUID conversationId, UUID userId);
     
-    // Get private messages between customer and artisan
-    List<ChatMessageResponse> getPrivateMessages(UUID requestId, UUID artisanId);
+    /**
+     * Get total unread message count for user.
+     */
+    Long getUnreadMessageCount(UUID userId);
     
-    void markMessagesAsRead(UUID requestId, UUID userId);
+    /**
+     * Get unread message count for specific conversation.
+     */
+    Long getUnreadMessageCount(UUID conversationId, UUID userId);
 }

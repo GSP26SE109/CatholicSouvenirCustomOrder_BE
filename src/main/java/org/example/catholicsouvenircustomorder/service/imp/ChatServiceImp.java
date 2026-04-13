@@ -4,18 +4,21 @@ import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.request.SendMessageRequest;
 import org.example.catholicsouvenircustomorder.dto.response.ChatMessageResponse;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
-import org.example.catholicsouvenircustomorder.model.Account;
-import org.example.catholicsouvenircustomorder.model.ChatMessage;
-import org.example.catholicsouvenircustomorder.model.CustomRequest;
+import org.example.catholicsouvenircustomorder.model.*;
 import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.ChatMessageRepository;
-import org.example.catholicsouvenircustomorder.repository.CustomRequestRepository;
+import org.example.catholicsouvenircustomorder.repository.ConversationRepository;
 import org.example.catholicsouvenircustomorder.service.ChatService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -24,191 +27,158 @@ import java.util.stream.Collectors;
 public class ChatServiceImp implements ChatService {
 
     private final ChatMessageRepository chatMessageRepository;
-    private final CustomRequestRepository customRequestRepository;
+    private final ConversationRepository conversationRepository;
     private final AccountRepository accountRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
     public ChatMessageResponse sendMessage(SendMessageRequest request, UUID senderId) {
-        CustomRequest customRequest = customRequestRepository.findById(request.getRequestId())
-                .orElseThrow(() -> new ResourceNotFoundException("Custom request not found"));
-
-        Account sender = accountRepository.findById(senderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Sender not found"));
-
-        // Validate sender is customer or selected artisan
-        validateSenderAuthorization(customRequest, senderId);
-
-        ChatMessage message = new ChatMessage();
-        message.setCustomRequest(customRequest);
-        message.setSender(sender);
-        message.setContent(request.getContent());
-        message.setMessageType(request.getMessageType());
-
-        message = chatMessageRepository.save(message);
-
-        // Broadcast message to all participants via WebSocket
-        ChatMessageResponse response = mapToResponse(message);
-        messagingTemplate.convertAndSend(
-            "/topic/chat/" + customRequest.getRequestId(),
-            response
-        );
-
-        return response;
-    }
-
-    @Override
-    @Transactional
-    public ChatMessageResponse sendPrivateMessage(SendMessageRequest request, UUID senderId, UUID artisanId) {
-        CustomRequest customRequest = customRequestRepository.findById(request.getRequestId())
-                .orElseThrow(() -> new ResourceNotFoundException("Custom request not found"));
-
-        Account sender = accountRepository.findById(senderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Sender not found"));
+        // Validate conversation exists and user is participant
+        Conversation conversation = conversationRepository.findById(request.getConversationId())
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
         
-        Account artisan = accountRepository.findById(artisanId)
-                .orElseThrow(() -> new ResourceNotFoundException("Artisan not found"));
-
-        // Validate sender is customer or selected artisan
-        validateSenderAuthorization(customRequest, senderId);
-
-        // Determine receiver based on sender
-        UUID receiverId = sender.getAccountId().equals(artisanId) 
-            ? customRequest.getCustomer().getAccountId() 
-            : artisanId;
-
-        ChatMessage message = new ChatMessage();
-        message.setCustomRequest(customRequest);
-        message.setSender(sender);
-        message.setContent(request.getContent());
-        message.setMessageType(request.getMessageType());
+        // Verify sender is participant in conversation
+        boolean isParticipant = conversation.getCustomer().getAccountId().equals(senderId) ||
+                               conversation.getArtisan().getAccount().getAccountId().equals(senderId);
         
-        // Set receiver for private chat
-        Account receiver = accountRepository.findById(receiverId)
-                .orElseThrow(() -> new ResourceNotFoundException("Receiver not found"));
-        message.setReceiver(receiver);
-
-        message = chatMessageRepository.save(message);
-
-        // Broadcast to PRIVATE channel: /topic/chat/{requestId}/{artisanId}
-        ChatMessageResponse response = mapToResponse(message);
-        messagingTemplate.convertAndSend(
-            "/topic/chat/" + customRequest.getRequestId() + "/" + artisanId,
-            response
-        );
-
-        return response;
-    }
-
-    @Override
-    public List<ChatMessageResponse> getPrivateMessages(UUID requestId, UUID artisanId) {
-        CustomRequest customRequest = customRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Custom request not found"));
-        
-        // Get messages where either:
-        // - Sender is artisan OR receiver is artisan
-        // - For this specific request
-        return chatMessageRepository.findByCustomRequest_RequestIdOrderBySentAtAsc(requestId)
-                .stream()
-                .filter(msg -> {
-                    UUID senderId = msg.getSender().getAccountId();
-                    UUID receiverId = msg.getReceiver() != null ? msg.getReceiver().getAccountId() : null;
-                    
-                    // Include message if artisan is sender or receiver
-                    return senderId.equals(artisanId) || artisanId.equals(receiverId);
-                })
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ChatMessageResponse> getMessagesByRequest(UUID requestId) {
-        return chatMessageRepository.findByCustomRequest_RequestIdOrderBySentAtAsc(requestId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ChatMessageResponse> getChatHistory(UUID requestId, UUID userId) {
-        CustomRequest customRequest = customRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Custom request not found"));
-        
-        // Validate user is participant (customer or selected artisan)
-        validateParticipantAuthorization(customRequest, userId);
-        
-        return getMessagesByRequest(requestId);
-    }
-
-    @Override
-    @Transactional
-    public void markMessagesAsRead(UUID requestId, UUID userId) {
-        CustomRequest customRequest = customRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Custom request not found"));
-        
-        // Validate user is participant (customer or selected artisan)
-        validateParticipantAuthorization(customRequest, userId);
-        
-        List<ChatMessage> unreadMessages = chatMessageRepository
-                .findByCustomRequest_RequestIdAndIsRead(requestId, false);
-        
-        for (ChatMessage message : unreadMessages) {
-            if (!message.getSender().getAccountId().equals(userId)) {
-                message.setIsRead(true);
-            }
+        if (!isParticipant) {
+            throw new IllegalArgumentException("User is not a participant in this conversation");
         }
         
+        Account sender = accountRepository.findById(senderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Sender not found"));
+        
+        // Create message
+        ChatMessage message = new ChatMessage();
+        message.setConversation(conversation);
+        message.setSender(sender);
+        message.setContent(request.getContent());
+        message.setMessageType(request.getMessageType());
+        message.setSentAt(LocalDateTime.now());
+        message.setIsRead(false);
+        
+        ChatMessage savedMessage = chatMessageRepository.save(message);
+        
+        // Update conversation timestamp
+        conversation.setUpdatedAt(LocalDateTime.now());
+        conversationRepository.save(conversation);
+        
+        // Broadcast to conversation topic via WebSocket
+        ChatMessageResponse response = mapToResponse(savedMessage);
+        String destination = String.format("/topic/chat/%s", request.getConversationId());
+        messagingTemplate.convertAndSend(destination, response);
+        
+        return response;
+    }
+
+    @Override
+    public Page<ChatMessageResponse> getConversationMessages(UUID conversationId, UUID userId, Pageable pageable) {
+        // Validate conversation exists and user is participant
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
+        
+        boolean isParticipant = conversation.getCustomer().getAccountId().equals(userId) ||
+                               conversation.getArtisan().getAccount().getAccountId().equals(userId);
+        
+        if (!isParticipant) {
+            throw new IllegalArgumentException("User is not a participant in this conversation");
+        }
+        
+        // Get messages with pagination (newest first, then reverse for display)
+        List<ChatMessage> allMessages = chatMessageRepository.findByConversationOrderBySentAtAsc(conversation);
+        
+        // Manual pagination
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), allMessages.size());
+        
+        List<ChatMessageResponse> messageResponses = allMessages.subList(start, end).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+        
+        return new PageImpl<>(messageResponses, pageable, allMessages.size());
+    }
+
+    @Override
+    public List<ChatMessageResponse> getUserConversations(UUID userId) {
+        // Get all conversations where user is participant
+        List<Conversation> conversations = conversationRepository.findByCustomerAccountIdOrArtisanAccountAccountId(userId);
+        
+        return conversations.stream()
+                .map(conversation -> {
+                    // Get latest message from each conversation
+                    Optional<ChatMessage> latestMessage = chatMessageRepository
+                            .findByConversationOrderBySentAtAsc(conversation)
+                            .stream()
+                            .reduce((first, second) -> second);
+                    
+                    if (latestMessage.isPresent()) {
+                        ChatMessageResponse response = mapToResponse(latestMessage.get());
+                        
+                        // Add conversation info
+                        if (conversation.getCustomer().getAccountId().equals(userId)) {
+                            // User is customer, show artisan info
+                            response.setOtherParticipantId(conversation.getArtisan().getAccount().getAccountId());
+                            response.setOtherParticipantName(conversation.getArtisan().getAccount().getFullName());
+                        } else {
+                            // User is artisan, show customer info
+                            response.setOtherParticipantId(conversation.getCustomer().getAccountId());
+                            response.setOtherParticipantName(conversation.getCustomer().getFullName());
+                        }
+                        
+                        return response;
+                    }
+                    return null;
+                })
+                .filter(response -> response != null)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void markMessagesAsRead(UUID conversationId, UUID userId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
+        
+        // Mark messages as read where user is NOT the sender
+        List<ChatMessage> unreadMessages = chatMessageRepository
+                .findByConversationAndIsRead(conversation, false).stream()
+                .filter(msg -> !msg.getSender().getAccountId().equals(userId))
+                .collect(Collectors.toList());
+        
+        unreadMessages.forEach(msg -> msg.setIsRead(true));
         chatMessageRepository.saveAll(unreadMessages);
     }
 
-    /**
-     * Validates that the sender is authorized to send messages in this request
-     * (must be customer or selected artisan)
-     */
-    private void validateSenderAuthorization(CustomRequest customRequest, UUID senderId) {
-        boolean isCustomer = customRequest.getCustomer().getAccountId().equals(senderId);
-        boolean isSelectedArtisan = customRequest.getSelectedArtisan() != null 
-            && customRequest.getSelectedArtisan().getArtisanUuid().equals(senderId);
+    @Override
+    public Long getUnreadMessageCount(UUID userId) {
+        // Get all conversations for user
+        List<Conversation> conversations = conversationRepository.findByCustomerAccountIdOrArtisanAccountAccountId(userId);
         
-        // For template-based requests, check if sender is the template owner
-        boolean isTemplateOwner = customRequest.getTemplate() != null 
-            && customRequest.getTemplate().getArtisan().getArtisanUuid().equals(senderId);
-        
-        if (!isCustomer && !isSelectedArtisan && !isTemplateOwner) {
-            throw new ResourceNotFoundException("Unauthorized: You are not a participant in this conversation");
-        }
+        return conversations.stream()
+                .mapToLong(conv -> chatMessageRepository.countUnreadByConversationAndUser(conv, userId))
+                .sum();
     }
 
-    /**
-     * Validates that the user is authorized to view/interact with messages
-     * (must be customer or selected artisan)
-     */
-    private void validateParticipantAuthorization(CustomRequest customRequest, UUID userId) {
-        boolean isCustomer = customRequest.getCustomer().getAccountId().equals(userId);
-        boolean isSelectedArtisan = customRequest.getSelectedArtisan() != null 
-            && customRequest.getSelectedArtisan().getArtisanUuid().equals(userId);
+    @Override
+    public Long getUnreadMessageCount(UUID conversationId, UUID userId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
         
-        // For template-based requests, check if user is the template owner
-        boolean isTemplateOwner = customRequest.getTemplate() != null 
-            && customRequest.getTemplate().getArtisan().getArtisanUuid().equals(userId);
-        
-        if (!isCustomer && !isSelectedArtisan && !isTemplateOwner) {
-            throw new ResourceNotFoundException("Unauthorized: You are not a participant in this conversation");
-        }
+        return chatMessageRepository.countUnreadByConversationAndUser(conversation, userId);
     }
 
     private ChatMessageResponse mapToResponse(ChatMessage message) {
         ChatMessageResponse response = new ChatMessageResponse();
         response.setMessageId(message.getMessageId());
-        response.setRequestId(message.getCustomRequest().getRequestId());
+        response.setConversationId(message.getConversation().getConversationId());
         response.setSenderId(message.getSender().getAccountId());
         response.setSenderName(message.getSender().getFullName());
         response.setContent(message.getContent());
         response.setMessageType(message.getMessageType());
         response.setSentAt(message.getSentAt());
         response.setIsRead(message.getIsRead());
-
+        
         return response;
     }
 }

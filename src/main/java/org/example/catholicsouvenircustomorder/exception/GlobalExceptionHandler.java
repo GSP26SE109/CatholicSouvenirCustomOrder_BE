@@ -95,6 +95,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(BaseResponse.error(403, ex.getMessage()));
     }
+    
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<BaseResponse> handleUnauthorizedException(UnauthorizedException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(BaseResponse.error(401, ex.getMessage()));
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseResponse> handleGenericException(Exception ex) {

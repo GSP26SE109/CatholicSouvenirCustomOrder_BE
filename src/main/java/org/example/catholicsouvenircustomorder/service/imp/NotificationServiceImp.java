@@ -119,34 +119,6 @@ public class NotificationServiceImp implements NotificationService {
     
     @Override
     @Transactional
-    public void notifyCustomerOfNewQuotation(UUID customerId, UUID quotationId, 
-                                            String artisanName, Long price) {
-        Account customer = accountRepository.findById(customerId)
-                .orElseThrow(() -> new NotFoundException("Customer not found"));
-        
-        String metadata = String.format("artisanName=%s;price=%d", artisanName, price);
-        
-        Notification notification = new Notification();
-        notification.setRecipient(customer);
-        notification.setType(NotificationType.NEW_QUOTATION);
-        notification.setTitle("New Quotation Received");
-        notification.setMessage(String.format(
-            "You received a new quotation from %s for %,d VNĐ", 
-            artisanName, price
-        ));
-        notification.setRelatedEntityId(quotationId);
-        notification.setRelatedEntityType(RelatedEntityType.QUOTATION);
-        notification.setActionType(NotificationAction.VIEW_QUOTATION);
-        notification.setActionRequired(false);
-        notification.setPriority(NotificationPriority.NORMAL);
-        notification.setMetadata(metadata);
-        
-        notification = notificationRepository.save(notification);
-        sendRealTimeNotification(customerId, "/quotations", mapToResponse(notification));
-    }
-    
-    @Override
-    @Transactional
     public void notifyCustomerOfOrderCreated(UUID customerId, UUID orderId, 
                                             Long totalAmount, Integer stagesCount) {
         Account customer = accountRepository.findById(customerId)
@@ -322,7 +294,106 @@ public class NotificationServiceImp implements NotificationService {
         notification.setMetadata(metadata);
         
         notification = notificationRepository.save(notification);
-        sendRealTimeNotification(artisanId, "/request-updates", mapToResponse(notification));
+        sendRealTimeNotification(artisanId, "/notifications", mapToResponse(notification));
+    }
+    
+    // ========== Conversation & Chat Notifications ==========
+    
+    @Override
+    @Transactional
+    public void notifyCustomerOfNewConversation(UUID customerId, UUID conversationId, String artisanName, UUID requestId) {
+        Account customer = accountRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+        
+        String metadata = String.format("artisanName=%s;requestId=%s", artisanName, requestId);
+        
+        Notification notification = new Notification();
+        notification.setRecipient(customer);
+        notification.setType(NotificationType.NEW_CONVERSATION);
+        notification.setTitle("Nghệ nhân quan tâm");
+        notification.setMessage(String.format(
+            "Nghệ nhân %s quan tâm đến yêu cầu của bạn", 
+            artisanName
+        ));
+        notification.setRelatedEntityId(conversationId);
+        notification.setRelatedEntityType(RelatedEntityType.CONVERSATION);
+        notification.setActionType(NotificationAction.VIEW_CONVERSATION);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.NORMAL);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(customerId, "/notifications", mapToResponse(notification));
+    }
+    
+    @Override
+    @Transactional
+    public void notifyUserOfNewMessage(UUID recipientId, UUID conversationId, String senderName, String messagePreview) {
+        Account recipient = accountRepository.findById(recipientId)
+                .orElseThrow(() -> new NotFoundException("Recipient not found"));
+        
+        String metadata = String.format("senderName=%s;conversationId=%s", senderName, conversationId);
+        
+        // Truncate message preview to 100 characters
+        String preview = messagePreview.length() > 100 
+            ? messagePreview.substring(0, 100) + "..." 
+            : messagePreview;
+        
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setType(NotificationType.NEW_MESSAGE);
+        notification.setTitle("Tin nhắn mới");
+        notification.setMessage(String.format(
+            "%s: %s", 
+            senderName, preview
+        ));
+        notification.setRelatedEntityId(conversationId);
+        notification.setRelatedEntityType(RelatedEntityType.CONVERSATION);
+        notification.setActionType(NotificationAction.VIEW_CONVERSATION);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.NORMAL);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(recipientId, "/notifications", mapToResponse(notification));
+    }
+    
+    // ========== Core Methods ==========
+    
+    @Override
+    @Transactional
+    public void sendNotification(UUID recipientId, NotificationType type, String title, 
+                                 String message, UUID relatedEntityId) {
+        Account recipient = accountRepository.findById(recipientId)
+                .orElseThrow(() -> new NotFoundException("Recipient not found"));
+        
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setType(type);
+        notification.setTitle(title);
+        notification.setMessage(message);
+        notification.setRelatedEntityId(relatedEntityId);
+        notification.setIsRead(false);
+        notification.setPriority(NotificationPriority.NORMAL);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(recipientId, "/notifications", mapToResponse(notification));
+    }
+    
+    @Override
+    @Transactional
+    public void broadcastToAllArtisans(NotificationType type, String title, String message, 
+                                      UUID relatedEntityId) {
+        // Get all artisans
+        List<Account> artisans = accountRepository.findByRole_Name("ARTISAN");
+        
+        for (Account artisan : artisans) {
+            try {
+                sendNotification(artisan.getAccountId(), type, title, message, relatedEntityId);
+            } catch (Exception e) {
+                // Log and continue with other artisans
+            }
+        }
     }
     
     @Override
@@ -457,7 +528,7 @@ public class NotificationServiceImp implements NotificationService {
         CustomRequest request = customRequestRepository.findById(requestId)
                 .orElseThrow(() -> new NotFoundException("Request not found"));
         
-        request.setStatus(CustomRequestStatus.ACCEPTED);
+        request.setStatus(CustomRequestStatus.ARTISAN_SELECTED);
         customRequestRepository.save(request);
     }
     

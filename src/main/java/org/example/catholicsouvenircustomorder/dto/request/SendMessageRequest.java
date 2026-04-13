@@ -10,11 +10,12 @@ import java.util.UUID;
 @Data
 public class SendMessageRequest {
     
-    @NotNull(message = "Request ID is required")
-    private UUID requestId;
+    @NotNull(message = "Conversation ID is required")
+    private UUID conversationId;
     
-    @NotBlank(message = "Content is required")
+    @NotBlank(message = "Content cannot be empty")
     private String content;
     
+    @NotNull(message = "Message type is required")
     private MessageType messageType = MessageType.TEXT;
 }
