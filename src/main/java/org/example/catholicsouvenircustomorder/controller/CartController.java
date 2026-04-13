@@ -28,7 +28,7 @@ public class CartController {
     @PostMapping()
     public ResponseEntity<BaseResponse> addToCart(
             @AuthenticationPrincipal UUID accountId,
-            @RequestBody CartItemRequest request) {
+            @ModelAttribute CartItemRequest request) {
         cartService.addToCart(accountId, request.getProductId(), request.getQuantity());
         return ResponseEntity.ok(BaseResponse.success("Thêm sản phẩm thành công", null));
     }
@@ -36,7 +36,7 @@ public class CartController {
     @PutMapping()
     public ResponseEntity<BaseResponse> updateCart(
             @AuthenticationPrincipal UUID accountId,
-            @RequestBody CartItemRequest request) {
+            @ModelAttribute CartItemRequest request) {
         cartService.updateCart(accountId, request.getProductId(), request.getQuantity());
         return ResponseEntity.ok(BaseResponse.success("Cập nhật giỏ hàng thành công", null));
     }
