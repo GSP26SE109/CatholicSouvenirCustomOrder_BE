@@ -24,7 +24,6 @@ public class CreateProductRequest {
     @Min(value = 0, message = "Quantity must be >= 0")
     private Integer quantity;
     private String size;
-    @NotNull(message = "Category is required")
     private UUID categoryId;
     private List<String> tags;
     private List<MultipartFile> images;

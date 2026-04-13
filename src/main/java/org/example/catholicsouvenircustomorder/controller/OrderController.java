@@ -43,16 +43,16 @@ public class OrderController {
         return ResponseEntity.ok(BaseResponse.success("Lấy thông tin order thành công",order));
     }
 
-    @GetMapping("/account")
+    @GetMapping("/account/{accountId}")
     public ResponseEntity<BaseResponse> getAllOrdersByAccountId(
-            @AuthenticationPrincipal UUID accountId,
+            @AuthenticationPrincipal String accountId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDirection) {
         Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-        Page<OrderResponseDTO> orderList = orderService.findAllByAccountId(accountId,pageable);
+        Page<OrderResponseDTO> orderList = orderService.findAllByAccountId(UUID.fromString(accountId),pageable);
         return ResponseEntity.ok(BaseResponse.success("Lấy danh sách order thành công",orderList));
     }
     @GetMapping("/artisan/{artisanId}")

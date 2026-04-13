@@ -31,7 +31,7 @@ public interface ProductRepository extends JpaRepository<Product,UUID>, JpaSpeci
            p.productName AS productName,
            p.quantity AS quantity
     FROM Product p
-    WHERE p.artisan.artisanUuid = :artisanId AND p.status <> 'DELETED'
+    WHERE p.artisan.artisanUuid = :artisanId
     AND p.quantity <= 10
 """)
     List<ShortStockProduct> findShortStockProduct(UUID artisanId);
@@ -45,8 +45,7 @@ public interface ProductRepository extends JpaRepository<Product,UUID>, JpaSpeci
                plainto_tsquery('simple', :keyword)
            ) AS rank
     FROM product
-     WHERE status <> 'DELETED'
-               AND (
+    WHERE (
         setweight(to_tsvector('simple', coalesce(product_name,'')), 'A') ||
         setweight(to_tsvector('simple', coalesce(product_description,'')), 'B')
     ) @@ plainto_tsquery('simple', :keyword)

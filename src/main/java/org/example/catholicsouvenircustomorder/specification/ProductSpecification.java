@@ -6,14 +6,12 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.UUID;
-
 public class ProductSpecification {
 
-    public static Specification<Product> hasCategory(UUID category) {
+    public static Specification<Product> hasCategory(String category) {
         return (root, query, cb) ->
                 category == null ? null :
-                        cb.equal(root.get("category").get("categoryId"), category);
+                        cb.equal(root.get("category").get("categoryName"), category);
     }
 
     public static Specification<Product> hasTags(List<String> tags) {

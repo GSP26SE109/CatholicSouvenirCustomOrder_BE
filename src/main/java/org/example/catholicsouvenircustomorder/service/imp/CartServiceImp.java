@@ -41,14 +41,14 @@ public class CartServiceImp implements CartService {
     @Transactional
     public void addToCart(UUID accountId, UUID productId, int quantity) {
 
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại"));
+        redisTemplate.opsForHash()
+                .increment(buildKey(accountId), productId.toString(), quantity);
 
         Cart cart = cartRepository.findByAccount_AccountId(accountId)
                 .orElseGet(() -> {
                     Cart newCart = new Cart();
                     newCart.setAccount(accountRepository.findById(accountId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại")));
+                            .orElseThrow(() -> new ResourceNotFoundException("Account not found")));
                     return cartRepository.save(newCart);
                 });
 
@@ -59,16 +59,15 @@ public class CartServiceImp implements CartService {
         if (item == null) {
             item = new CartItem();
             item.setCart(cart);
-            item.setProduct(product);
+            item.setProduct(productRepository.findById(productId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found")));
             item.setQuantity(quantity);
+
         } else {
             item.setQuantity(item.getQuantity() + quantity);
         }
 
         cartItemRepository.save(item);
-
-        redisTemplate.opsForHash()
-                .put(buildKey(accountId), productId.toString(), String.valueOf(item.getQuantity()));
     }
 
     @Override
@@ -153,24 +152,14 @@ public class CartServiceImp implements CartService {
                 .delete(buildKey(accountId), productId.toString());
     }
 
-    @Transactional
+    @Override
     public void updateCart(UUID accountId, UUID productId, int quantity) {
         String cartKey = "cart:" + accountId;
 
-        Cart cart = cartRepository.findByAccount_AccountId(accountId)
-                .orElseThrow(() -> new ResourceNotFoundException("Cart không tồn tại"));
-
-        CartItem item = cartItemRepository
-                .findByCart_CartIdAndProduct_ProductId(cart.getCartId(), productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Item không tồn tại"));
-
         if (quantity <= 0) {
-            cartItemRepository.delete(item);
-            redisTemplate.opsForHash().delete(cartKey, productId.toString());
+            redisTemplate.opsForHash()
+                    .delete(cartKey, productId.toString());
         } else {
-            item.setQuantity(quantity);
-            cartItemRepository.save(item);
-
             redisTemplate.opsForHash()
                     .put(cartKey, productId.toString(), String.valueOf(quantity));
         }

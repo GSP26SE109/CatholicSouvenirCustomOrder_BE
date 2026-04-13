@@ -95,7 +95,6 @@ spring:
     redis:
       host: localhost
       port: 6379
-      password: ${REDIS_PASSWORD}
       timeout: 60000
 jwt:
   key: +N+X+g3cRIx2DEKzpO+klBxslpL3CCYfDj5ESSnqTNhA=
