@@ -33,7 +33,7 @@ public class ProductController {
 
     @GetMapping("")
     public ResponseEntity<BaseResponse> getProducts(
-            @RequestParam(required = false) String category,
+                @RequestParam(required = false) UUID category,
             @RequestParam(required = false) List<String> tags,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
@@ -111,7 +111,7 @@ public class ProductController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<BaseResponse> create(
-            @ModelAttribute CreateProductRequest request, @AuthenticationPrincipal UUID accountId) {
+            @ModelAttribute @Valid CreateProductRequest request, @AuthenticationPrincipal UUID accountId) {
 
         ProductResponse product = productService.create(request, accountId);
 

@@ -170,7 +170,7 @@ public class ProductServiceImp implements ProductService {
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product không tồn tại"));
-
+        product.setStatus("DELETED");
         for (ProductImage image : product.getImages()) {
             try {
                 cloudinary.uploader().destroy(
@@ -181,7 +181,7 @@ public class ProductServiceImp implements ProductService {
                 throw new RuntimeException("Failed to delete image from Cloudinary");
             }
         }
-        productRepository.delete(product);
+        productRepository.save(product);
     }
 
     @Override
