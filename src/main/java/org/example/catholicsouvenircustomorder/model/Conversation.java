@@ -29,8 +29,8 @@ public class Conversation {
     @JoinColumn(name = "artisan_id")
     private Artisan artisan;
     
-    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("timestamp ASC")
+    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("sentAt ASC")
     private List<ChatMessage> messages = new ArrayList<>();
     
     @Column(nullable = false)
