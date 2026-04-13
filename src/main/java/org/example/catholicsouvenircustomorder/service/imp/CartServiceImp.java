@@ -59,14 +59,34 @@ public class CartServiceImp implements CartService {
     @Transactional
     public CartResponse addToCart(UUID customerId, AddToCartRequest request) {
         Cart cart = findOrCreateCart(customerId);
-        CartItem cartItem = createCartItem(cart, request);
         
         Optional<CartItem> existing = findExisting(cart, request);
         if (existing.isPresent()) {
             CartItem item = existing.get();
-            item.setQuantity(item.getQuantity() + request.getQuantity());
+            int newQuantity = item.getQuantity() + request.getQuantity();
+            
+            // Validate stock for products
+            if (item.isProduct()) {
+                Product product = item.getProduct();
+                
+                if (product.getQuantity() == 0) {
+                    throw new BadRequestException(
+                        String.format("Sản phẩm '%s' đã hết hàng", product.getProductName())
+                    );
+                }
+                
+                if (product.getQuantity() < newQuantity) {
+                    throw new BadRequestException(
+                        String.format("Sản phẩm '%s' chỉ còn %d sản phẩm trong kho. Bạn đã có %d trong giỏ hàng", 
+                            product.getProductName(), product.getQuantity(), item.getQuantity())
+                    );
+                }
+            }
+            
+            item.setQuantity(newQuantity);
             cartItemRepository.save(item);
         } else {
+            CartItem cartItem = createCartItem(cart, request);
             cart.addItem(cartItem);
             cartItemRepository.save(cartItem);
         }
@@ -87,6 +107,24 @@ public class CartServiceImp implements CartService {
         
         if (!cartItem.getCart().getCartId().equals(cart.getCartId())) {
             throw new BadRequestException("Sản phẩm không thuộc giỏ hàng của bạn");
+        }
+        
+        // Validate stock for products
+        if (cartItem.isProduct()) {
+            Product product = cartItem.getProduct();
+            
+            if (product.getQuantity() == 0) {
+                throw new BadRequestException(
+                    String.format("Sản phẩm '%s' đã hết hàng", product.getProductName())
+                );
+            }
+            
+            if (product.getQuantity() < request.getQuantity()) {
+                throw new BadRequestException(
+                    String.format("Sản phẩm '%s' chỉ còn %d sản phẩm trong kho", 
+                        product.getProductName(), product.getQuantity())
+                );
+            }
         }
         
         cartItem.setQuantity(request.getQuantity());
@@ -193,8 +231,19 @@ public class CartServiceImp implements CartService {
             Product product = productRepository.findById(request.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm"));
             
+            // Check if product is out of stock
+            if (product.getQuantity() == 0) {
+                throw new BadRequestException(
+                    String.format("Sản phẩm '%s' đã hết hàng", product.getProductName())
+                );
+            }
+            
+            // Check if requested quantity exceeds available stock
             if (product.getQuantity() < request.getQuantity()) {
-                throw new BadRequestException("Không đủ hàng trong kho");
+                throw new BadRequestException(
+                    String.format("Sản phẩm '%s' chỉ còn %d sản phẩm trong kho", 
+                        product.getProductName(), product.getQuantity())
+                );
             }
             
             item.setProduct(product);

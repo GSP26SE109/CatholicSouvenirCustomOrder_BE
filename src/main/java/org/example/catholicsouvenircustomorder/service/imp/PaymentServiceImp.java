@@ -78,20 +78,23 @@ public class PaymentServiceImp implements PaymentService {
         
         String paymentUrl;
         try {
+            // Use returnUrl from request, or fallback to config default
+            String returnUrl = dto.getReturnUrl();
+            
             if (dto.getMethod() == PaymentMethod.VNPAY) {
                 paymentUrl = vnPayUtil.createPaymentUrl(
                         referenceId,
                         order.getTotal(),
                         "Thanh toán đơn hàng #" + order.getOrderId(),
                         order.getCustomer().getEmail(),
-                        dto.getReturnUrl()
+                        returnUrl  // Will use config default if null
                 );
             } else if (dto.getMethod() == PaymentMethod.ZALOPAY) {
                 paymentUrl = zaloPayUtil.createPaymentUrl(
                         referenceId,
                         order.getTotal(),
                         "Thanh toán đơn hàng #" + order.getOrderId(),
-                        dto.getReturnUrl()
+                        returnUrl  // Will use config default if null
                 );
             } else {
                 throw new BadRequestException("Phương thức thanh toán không được hỗ trợ");
