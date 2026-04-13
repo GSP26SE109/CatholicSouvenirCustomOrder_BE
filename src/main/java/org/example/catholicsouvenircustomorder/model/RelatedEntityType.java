@@ -6,6 +6,7 @@ public enum RelatedEntityType {
     CUSTOM_ORDER,
     STAGE,
     PAYMENT,
+    CONVERSATION,          // For chat conversations
     CHAT_MESSAGE,
     ACCOUNT
 }

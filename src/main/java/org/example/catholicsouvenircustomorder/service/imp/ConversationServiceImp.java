@@ -9,6 +9,7 @@ import org.example.catholicsouvenircustomorder.repository.ArtisanRepository;
 import org.example.catholicsouvenircustomorder.repository.ConversationRepository;
 import org.example.catholicsouvenircustomorder.repository.CustomRequestRepository;
 import org.example.catholicsouvenircustomorder.service.ConversationService;
+import org.example.catholicsouvenircustomorder.service.NotificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class ConversationServiceImp implements ConversationService {
     private final CustomRequestRepository customRequestRepository;
     private final AccountRepository accountRepository;
     private final ArtisanRepository artisanRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -57,8 +59,13 @@ public class ConversationServiceImp implements ConversationService {
         
         Conversation saved = conversationRepository.save(conversation);
         
-        // TODO: Send notification to customer
-        // notificationService.notifyCustomer(customer, "Nghệ nhân " + artisan.getAccount().getFullName() + " quan tâm đến yêu cầu của bạn");
+        // Send notification to customer
+        notificationService.notifyCustomerOfNewConversation(
+            customer.getAccountId(),
+            saved.getConversationId(),
+            artisan.getAccount().getFullName(),
+            requestId
+        );
         
         return mapToResponse(saved);
     }

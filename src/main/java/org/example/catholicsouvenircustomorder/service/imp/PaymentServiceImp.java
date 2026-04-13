@@ -83,13 +83,15 @@ public class PaymentServiceImp implements PaymentService {
                         referenceId,
                         order.getTotal(),
                         "Thanh toán đơn hàng #" + order.getOrderId(),
-                        order.getCustomer().getEmail()
+                        order.getCustomer().getEmail(),
+                        dto.getReturnUrl()
                 );
             } else if (dto.getMethod() == PaymentMethod.ZALOPAY) {
                 paymentUrl = zaloPayUtil.createPaymentUrl(
                         referenceId,
                         order.getTotal(),
-                        "Thanh toán đơn hàng #" + order.getOrderId()
+                        "Thanh toán đơn hàng #" + order.getOrderId(),
+                        dto.getReturnUrl()
                 );
             } else {
                 throw new BadRequestException("Phương thức thanh toán không được hỗ trợ");

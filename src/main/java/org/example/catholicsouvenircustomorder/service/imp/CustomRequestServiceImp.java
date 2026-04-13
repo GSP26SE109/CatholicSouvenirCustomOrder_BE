@@ -30,7 +30,7 @@ public class CustomRequestServiceImp implements CustomRequestService {
     private final ArtisanRepository artisanRepository;
     private final AIImageService aiImageService;
     private final NotificationService notificationService;
-
+    
     private static final int MAX_IMAGE_GEN_COUNT = 3;
 
     @Override
@@ -38,21 +38,21 @@ public class CustomRequestServiceImp implements CustomRequestService {
     public CustomRequestResponse createFreeFormRequest(CreateFreeFormRequestDTO request, UUID customerId) {
         Account customer = accountRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng"));
-
+        
         // Validate description length
         if (request.getDescription() == null || request.getDescription().length() < 50) {
             throw new BadRequestException("Mô tả phải có ít nhất 50 ký tự");
         }
-
+        
         // Validate budget range
         if (request.getMinBudget() == null || request.getMaxBudget() == null) {
             throw new BadRequestException("Ngân sách tối thiểu và tối đa không được để trống");
         }
-
+        
         if (request.getMinBudget().compareTo(request.getMaxBudget()) > 0) {
             throw new BadRequestException("Ngân sách tối thiểu không được lớn hơn ngân sách tối đa");
         }
-
+        
         // Create custom request
         CustomRequest customRequest = new CustomRequest();
         customRequest.setCustomer(customer);
@@ -62,15 +62,15 @@ public class CustomRequestServiceImp implements CustomRequestService {
         customRequest.setMinBudget(request.getMinBudget());
         customRequest.setMaxBudget(request.getMaxBudget());
         customRequest.setImageGenCount(0);
-
+        
         // Generate AI concept image if requested
         if (Boolean.TRUE.equals(request.getGenerateAiImage())) {
             try {
                 AIPromptRequest aiRequest = new AIPromptRequest();
                 aiRequest.setAdditionalDescription(request.getDescription());
-
+                
                 AIImageResponse aiResponse = aiImageService.generateConceptImage(aiRequest);
-
+                
                 if (aiResponse.isSuccess()) {
                     customRequest.setAiConceptImageUrl(aiResponse.getImageUrl());
                     customRequest.setAiImagePrompt(aiResponse.getPrompt());
@@ -81,9 +81,9 @@ public class CustomRequestServiceImp implements CustomRequestService {
                 // Continue without AI image
             }
         }
-
+        
         customRequest = customRequestRepository.save(customRequest);
-
+        
         return mapToResponse(customRequest);
     }
 
@@ -92,35 +92,35 @@ public class CustomRequestServiceImp implements CustomRequestService {
     public CustomRequestResponse regenerateAIImage(UUID requestId, UUID customerId) {
         CustomRequest customRequest = customRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));
-
+        
         // Verify customer ownership
         if (!customRequest.getCustomer().getAccountId().equals(customerId)) {
             throw new UnauthorizedTemplateAccessException("Bạn không có quyền với yêu cầu này");
         }
-
+        
         // Check image generation count limit
         if (customRequest.getImageGenCount() >= MAX_IMAGE_GEN_COUNT) {
             throw new ImageGenerationLimitExceededException(
-                    "Bạn đã hết lượt tạo ảnh (tối đa " + MAX_IMAGE_GEN_COUNT + " lần)"
+                "Bạn đã hết lượt tạo ảnh (tối đa " + MAX_IMAGE_GEN_COUNT + " lần)"
             );
         }
-
+        
         // Generate new AI image
         AIPromptRequest aiRequest = new AIPromptRequest();
         aiRequest.setAdditionalDescription(customRequest.getDescription());
-
+        
         AIImageResponse aiResponse = aiImageService.generateConceptImage(aiRequest);
-
+        
         // Update AI image data if successful
         if (aiResponse.isSuccess()) {
             customRequest.setAiConceptImageUrl(aiResponse.getImageUrl());
             customRequest.setAiImagePrompt(aiResponse.getPrompt());
         }
-
+        
         // Increment image generation count
         customRequest.setImageGenCount(customRequest.getImageGenCount() + 1);
         customRequest = customRequestRepository.save(customRequest);
-
+        
         return mapToResponse(customRequest);
     }
 
@@ -129,30 +129,47 @@ public class CustomRequestServiceImp implements CustomRequestService {
     public CustomRequestResponse publishRequest(UUID requestId, UUID customerId) {
         CustomRequest customRequest = customRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));
-
+        
         // Verify customer ownership
         if (!customRequest.getCustomer().getAccountId().equals(customerId)) {
             throw new UnauthorizedTemplateAccessException("Bạn không có quyền với yêu cầu này");
         }
-
+        
         // Verify request is in DRAFT status
         if (customRequest.getStatus() != CustomRequestStatus.DRAFT) {
             throw new BadRequestException("Chỉ có thể publish yêu cầu ở trạng thái nháp");
         }
-
+        
         // Update status to OPEN
         customRequest.setStatus(CustomRequestStatus.OPEN);
         customRequest = customRequestRepository.save(customRequest);
-
-        // TODO: Broadcast notification to all artisans
-         broadcastNewRequestToAllArtisans(customRequest);
-
+        
+        // Get all artisans and send notification to each
+        List<Artisan> allArtisans = artisanRepository.findAll();
+        
+        log.info("Broadcasting new request {} to {} artisans", 
+                customRequest.getRequestId(), allArtisans.size());
+        
+        for (Artisan artisan : allArtisans) {
+            try {
+                notificationService.notifyArtisanOfNewCustomRequest(
+                    artisan.getAccount().getAccountId(),
+                    customRequest.getRequestId(),
+                    customRequest.getCustomer().getFullName(),
+                    customRequest.getDescription()
+                );
+            } catch (Exception e) {
+                log.error("Failed to notify artisan {}: {}", 
+                        artisan.getArtisanUuid(), e.getMessage());
+            }
+        }
+        
         return mapToResponse(customRequest);
     }
 
     @Override
     public Page<CustomRequestResponse> getOpenRequests(Pageable pageable) {
-        // For now, we don't filter by category as CustomRequest doesn't have category field
+        // Get all OPEN requests for artisans to browse
         Page<CustomRequest> requests = customRequestRepository.findOpenRequestsForBidding(pageable);
         return requests.map(this::mapToResponse);
     }
@@ -163,33 +180,33 @@ public class CustomRequestServiceImp implements CustomRequestService {
         // Verify customer exists
         Account customer = accountRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng"));
-
+        
         // Verify artisan exists
         Artisan artisan = artisanRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nghệ nhân"));
-
+        
         // Verify request exists
         CustomRequest customRequest = customRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));
-
+        
         // Verify request belongs to customer
         if (!customRequest.getCustomer().getAccountId().equals(customerId)) {
             throw new UnauthorizedTemplateAccessException("Bạn không có quyền với yêu cầu này");
         }
-
+        
         // Verify request is OPEN
         if (customRequest.getStatus() != CustomRequestStatus.OPEN) {
             throw new BadRequestException("Yêu cầu không ở trạng thái mở");
         }
-
+        
         // Update request with selected artisan
         customRequest.setSelectedArtisan(artisan);
         customRequest.setStatus(CustomRequestStatus.ARTISAN_SELECTED);
         customRequest = customRequestRepository.save(customRequest);
-
+        
         // Notify selected artisan
         notifyArtisanOfSelection(artisan, customRequest);
-
+        
         return mapToResponse(customRequest);
     }
 
@@ -197,14 +214,14 @@ public class CustomRequestServiceImp implements CustomRequestService {
     public Page<CustomRequestResponse> getCustomerRequests(UUID customerId, CustomRequestStatus status, Pageable pageable) {
         Account customer = accountRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng"));
-
+        
         Page<CustomRequest> requests;
         if (status != null) {
             requests = customRequestRepository.findByCustomerAndStatus(customer, status, pageable);
         } else {
             requests = customRequestRepository.findByCustomer(customer, pageable);
         }
-
+        
         return requests.map(this::mapToResponse);
     }
 
@@ -212,14 +229,14 @@ public class CustomRequestServiceImp implements CustomRequestService {
     public Page<CustomRequestResponse> getArtisanRequests(UUID artisanId, CustomRequestStatus status, Pageable pageable) {
         artisanRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nghệ nhân"));
-
+        
         Page<CustomRequest> requests;
         if (status != null) {
             requests = customRequestRepository.findAllByArtisanAndStatus(artisanId, status, pageable);
         } else {
             requests = customRequestRepository.findAllByArtisan(artisanId, pageable);
         }
-
+        
         return requests.map(this::mapToResponse);
     }
 
@@ -227,42 +244,18 @@ public class CustomRequestServiceImp implements CustomRequestService {
     public CustomRequestResponse getRequestDetail(UUID requestId) {
         CustomRequest request = customRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));
-
+        
         return mapToResponse(request);
     }
 
     // ==================== Private Helper Methods ====================
 
-    private void broadcastNewRequestToAllArtisans(CustomRequest customRequest) {
-        // Get all active artisans
-        List<Artisan> allArtisans = artisanRepository.findAll();
-
-        log.info("Broadcasting new request {} to {} artisans",
-                customRequest.getRequestId(), allArtisans.size());
-
-        // Send notification to each artisan
-        for (Artisan artisan : allArtisans) {
-            try {
-                notificationService.notifyArtisanOfNewCustomRequest(
-                        artisan.getAccount().getAccountId(),
-                        customRequest.getRequestId(),
-                        customRequest.getCustomer().getFullName(),
-                        customRequest.getDescription()
-                );
-            } catch (Exception e) {
-                log.error("Failed to notify artisan {}: {}",
-                        artisan.getArtisanUuid(), e.getMessage());
-                // Continue with other artisans even if one fails
-            }
-        }
-    }
-
     private void notifyArtisanOfSelection(Artisan artisan, CustomRequest customRequest) {
         notificationService.notifyArtisanOfSelection(
-                artisan.getAccount().getAccountId(),
-                customRequest.getRequestId(),
-                customRequest.getCustomer().getFullName(),
-                customRequest.getDescription()
+            artisan.getAccount().getAccountId(),
+            customRequest.getRequestId(),
+            customRequest.getCustomer().getFullName(),
+            customRequest.getDescription()
         );
     }
 
@@ -282,13 +275,13 @@ public class CustomRequestServiceImp implements CustomRequestService {
                 .maxBudget(request.getMaxBudget())
                 .createdAt(request.getCreatedAt())
                 .updatedAt(request.getUpdatedAt());
-
+        
         // Include selected artisan information if available
         if (request.getSelectedArtisan() != null) {
             builder.artisanId(request.getSelectedArtisan().getArtisanUuid())
-                    .artisanName(request.getSelectedArtisan().getAccount().getFullName());
+                   .artisanName(request.getSelectedArtisan().getAccount().getFullName());
         }
-
+        
         return builder.build();
     }
 }
