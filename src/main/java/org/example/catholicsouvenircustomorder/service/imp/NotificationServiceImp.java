@@ -385,7 +385,7 @@ public class NotificationServiceImp implements NotificationService {
     public void broadcastToAllArtisans(NotificationType type, String title, String message, 
                                       UUID relatedEntityId) {
         // Get all artisans
-        List<Account> artisans = accountRepository.findByRole_RoleName("ARTISAN");
+        List<Account> artisans = accountRepository.findByRole_Name("ARTISAN");
         
         for (Account artisan : artisans) {
             try {
