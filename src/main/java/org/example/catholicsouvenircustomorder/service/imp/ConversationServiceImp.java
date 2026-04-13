@@ -141,18 +141,11 @@ public class ConversationServiceImp implements ConversationService {
         response.setArtisanId(conversation.getArtisan().getArtisanUuid());
         response.setArtisanName(conversation.getArtisan().getAccount().getFullName());
         
-        // Get last message
-        if (!conversation.getMessages().isEmpty()) {
-            var lastMessage = conversation.getMessages().get(conversation.getMessages().size() - 1);
-            response.setLastMessage(lastMessage.getContent());
-            response.setLastMessageTime(lastMessage.getSentAt());
-        }
-        
-        // Count unread messages
-        long unreadCount = conversation.getMessages().stream()
-                .filter(msg -> !msg.getIsRead())
-                .count();
-        response.setUnreadCount((int) unreadCount);
+        // Don't load messages here to avoid N+1 problem
+        // Messages should be loaded separately via ChatService
+        response.setLastMessage(null);
+        response.setLastMessageTime(null);
+        response.setUnreadCount(0);
         
         response.setCreatedAt(conversation.getCreatedAt());
         response.setUpdatedAt(conversation.getUpdatedAt());
