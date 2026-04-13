@@ -26,6 +26,19 @@ public class InitiatePaymentDTO {
     @NotNull(message = "Payment method is required")
     private PaymentMethod method;
     
+    /**
+     * URL to redirect after successful payment.
+     * - Web: https://yourweb.com/payment/success
+     * - Mobile: yourapp://payment/success
+     * If null, uses default from config
+     */
     private String returnUrl;
+    
+    /**
+     * URL to redirect after cancelled/failed payment.
+     * - Web: https://yourweb.com/payment/cancel
+     * - Mobile: yourapp://payment/cancel
+     * Currently not used by VNPay/ZaloPay (they use returnUrl for both cases)
+     */
     private String cancelUrl;
 }

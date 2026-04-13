@@ -25,6 +25,10 @@ public class VNPayUtil {
     }
     
     public String createPaymentUrl(String transactionId, BigDecimal amount, String description, String customerEmail) throws Exception {
+        return createPaymentUrl(transactionId, amount, description, customerEmail, null);
+    }
+    
+    public String createPaymentUrl(String transactionId, BigDecimal amount, String description, String customerEmail, String returnUrl) throws Exception {
         Map<String, String> params = new HashMap<>();
         params.put("vnp_Version", vnPayConfig.getVersion());
         params.put("vnp_Command", vnPayConfig.getCommand());
@@ -35,7 +39,7 @@ public class VNPayUtil {
         params.put("vnp_OrderInfo", description);
         params.put("vnp_OrderType", vnPayConfig.getOrderType());
         params.put("vnp_Locale", "vn");
-        params.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl());
+        params.put("vnp_ReturnUrl", returnUrl != null ? returnUrl : vnPayConfig.getReturnUrl());
         params.put("vnp_IpAddr", "127.0.0.1");
         params.put("vnp_CreateDate", getVNPayDate());
         params.put("vnp_ExpireDate", getExpireDate(15));
