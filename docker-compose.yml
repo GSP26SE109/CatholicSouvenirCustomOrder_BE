@@ -84,6 +84,7 @@ services:
       GHN_FROM_WARD_CODE: ${GHN_FROM_WARD_CODE}
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
+      APP_BASE_URL: ${APP_BASE_URL}
     depends_on:
       postgres:
         condition: service_healthy
