@@ -23,18 +23,23 @@ public class CustomOrderStageResponse {
     private BigDecimal amount;
     private Integer percentage;
     private StageStatus status;
+    
+    // Workflow tracking flags
+    private Boolean canPay;        // Can customer pay this stage now?
+    private Boolean isPaid;        // Has this stage been paid?
+    private Boolean isCompleted;   // Has artisan completed this stage?
+    
+    // Timestamps
     private LocalDateTime dueDate;
     private LocalDateTime paidAt;
     private LocalDateTime completedAt;
+    private LocalDateTime createdAt;
+    
+    // Proof of work
     private String completionImageUrl;
     
-    // Payment information
+    // Payment information (if available)
     private String paymentMethod;
     private String transactionId;
     private String paymentUrl;
-    
-    // Helper flags
-    private Boolean canPay;
-    private Boolean canComplete;
-    private LocalDateTime createdAt;
 }

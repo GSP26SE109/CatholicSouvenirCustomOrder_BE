@@ -9,6 +9,7 @@ import org.example.catholicsouvenircustomorder.dto.response.CustomOrderDetailRes
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderResponse;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderStageResponse;
 import org.example.catholicsouvenircustomorder.exception.BadRequestException;
+import org.example.catholicsouvenircustomorder.exception.NotFoundException;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.exception.UnauthorizedTemplateAccessException;
 import org.example.catholicsouvenircustomorder.model.*;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -95,6 +97,11 @@ public class CustomOrderServiceImp implements CustomOrderService {
             stage.setPaymentPercentage(stageDTO.getPaymentPercentage());
             stage.setEstimatedDays(stageDTO.getEstimatedDays());
             stage.setStatus(StageStatus.PENDING);
+            
+            // Workflow: Stage 1 can be paid immediately, others are locked
+            stage.setCanPay(i == 0);  // Only first stage can be paid
+            stage.setIsPaid(false);
+            stage.setIsCompleted(false);
 
             stages.add(stage);
         }
@@ -315,16 +322,43 @@ public class CustomOrderServiceImp implements CustomOrderService {
                 .amount(stage.getAmount())
                 .percentage(stage.getPaymentPercentage())
                 .status(stage.getStatus())
+                
+                // Workflow flags
+                .canPay(stage.getCanPay())
+                .isPaid(stage.getIsPaid())
+                .isCompleted(stage.getIsCompleted())
+                
+                // Timestamps
                 .dueDate(stage.getDueDate())
                 .paidAt(stage.getPaidAt())
                 .completedAt(stage.getCompletedAt())
-                .completionImageUrl(stage.getCompletionImageUrl())
                 .createdAt(stage.getCreatedAt())
+                
+                // Proof
+                .completionImageUrl(stage.getCompletionImageUrl())
+                
                 .build();
+    }
+    
+    @Override
+    public List<CustomOrderStageResponse> getOrderStages(UUID orderId) {
+        CustomOrder order = customOrderRepository.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy đơn hàng"));
+        
+        return order.getStages().stream()
+                .sorted(Comparator.comparing(CustomOrderStage::getStageOrder))
+                .map(this::mapToStageResponse)
+                .collect(Collectors.toList());
     }
 
     private CustomOrderDetailResponse mapToDetailResponse(CustomOrder order, boolean fullyPaid) {
         CustomRequest request = order.getRequest();
+        
+        // Map stages with workflow flags
+        List<CustomOrderStageResponse> stageResponses = order.getStages().stream()
+                .sorted(Comparator.comparing(CustomOrderStage::getStageOrder))
+                .map(this::mapToStageResponse)
+                .collect(Collectors.toList());
 
         return CustomOrderDetailResponse.builder()
                 .customOrderId(order.getCustomOrderId())
@@ -341,6 +375,7 @@ public class CustomOrderServiceImp implements CustomOrderService {
                 .aiConceptImageUrl(request.getAiConceptImageUrl())
                 .status(order.getStatus())
                 .totalPrice(order.getTotalPrice())
+                .stages(stageResponses)  // ← Add stages to response
                 .fullyPaid(fullyPaid)
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())

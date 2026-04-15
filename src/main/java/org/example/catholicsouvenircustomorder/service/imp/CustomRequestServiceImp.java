@@ -56,6 +56,7 @@ public class CustomRequestServiceImp implements CustomRequestService {
         // Create custom request
         CustomRequest customRequest = new CustomRequest();
         customRequest.setCustomer(customer);
+        customRequest.setTitle(request.getTitle());  // Set title
         customRequest.setDescription(request.getDescription());
         customRequest.setRequestType(RequestType.REQUEST_BASED);
         customRequest.setStatus(CustomRequestStatus.DRAFT); // Start as DRAFT
@@ -264,6 +265,7 @@ public class CustomRequestServiceImp implements CustomRequestService {
                 .requestId(request.getRequestId())
                 .customerId(request.getCustomer().getAccountId())
                 .customerName(request.getCustomer().getFullName())
+                .title(request.getTitle())  // Add title
                 .description(request.getDescription())
                 .aiConceptImageUrl(request.getAiConceptImageUrl())
                 .aiImagePrompt(request.getAiImagePrompt())

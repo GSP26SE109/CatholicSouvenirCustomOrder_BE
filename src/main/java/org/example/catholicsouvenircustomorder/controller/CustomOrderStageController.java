@@ -50,24 +50,12 @@ public class CustomOrderStageController {
                 .build());
     }
     
-    @GetMapping("/custom-orders/{orderId}/stages")
-    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
-    public ResponseEntity<BaseResponse<List<CustomOrderStageResponse>>> getStagesByOrderId(
-            @PathVariable UUID orderId,
-            @AuthenticationPrincipal UUID userId) {
-        
-        log.info("GET /api/custom-orders/{}/stages - User: {}", orderId, userId);
-        
-        List<CustomOrderStageResponse> response = stageService.getStagesByOrderId(orderId, userId);
-        
-        return ResponseEntity.ok(BaseResponse.<List<CustomOrderStageResponse>>builder()
-                .code(HttpStatus.OK.value())
-                .message("Stages retrieved successfully")
-                .data(response)
-                .build());
-    }
+    /**
+     * NOTE: Get stages by order ID has been moved to CustomOrderController
+     * Use GET /api/custom-orders/{orderId}/stages instead
+     */
     
-    @PostMapping("/stages/{stageId}/complete")
+    @PutMapping("/stages/{stageId}/complete")
     @PreAuthorize("hasAuthority('ARTISAN')")
     public ResponseEntity<BaseResponse<CustomOrderStageResponse>> completeStage(
             @PathVariable UUID stageId,
@@ -111,23 +99,10 @@ public class CustomOrderStageController {
                 .build());
     }
     
-    @PostMapping("/stages/{stageId}/payment/initiate")
-    @PreAuthorize("hasAuthority('CUSTOMER')")
-    public ResponseEntity<BaseResponse<PaymentInitiationResponse>> initiateStagePayment(
-            @PathVariable UUID stageId,
-            @Valid @RequestBody InitiateStagePaymentRequest request,
-            @AuthenticationPrincipal UUID customerId) {
-        
-        log.info("POST /api/stages/{}/payment/initiate - Customer: {}", stageId, customerId);
-        
-        PaymentInitiationResponse response = stageService.initiateStagePayment(stageId, request, customerId);
-        
-        return ResponseEntity.ok(BaseResponse.<PaymentInitiationResponse>builder()
-                .code(HttpStatus.OK.value())
-                .message("Payment initiated successfully")
-                .data(response)
-                .build());
-    }
+    /**
+     * NOTE: Payment initiation has been moved to StagePaymentController
+     * Use POST /api/stage-payments/{stageId}/initiate instead
+     */
     
     @GetMapping("/stages/{stageId}/can-pay")
     @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")

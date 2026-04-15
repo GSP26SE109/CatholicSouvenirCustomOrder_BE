@@ -8,7 +8,10 @@ import org.example.catholicsouvenircustomorder.dto.request.CreateOrderWithStages
 import org.example.catholicsouvenircustomorder.dto.request.InitiatePaymentDTO;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderDetailResponse;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderResponse;
+import org.example.catholicsouvenircustomorder.dto.response.CustomOrderStageResponse;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentInitiationResponse;
+
+import java.util.List;
 import org.example.catholicsouvenircustomorder.model.CustomOrderStatus;
 import org.example.catholicsouvenircustomorder.model.PaymentMethod;
 import org.example.catholicsouvenircustomorder.service.CustomOrderService;
@@ -163,8 +166,37 @@ public class CustomOrderController {
     }
     
     /**
+     * Get stages of a custom order
+     * GET /api/custom-orders/{orderId}/stages
+     * Requirements: RB-4 (Request-Based flow)
+     */
+    @GetMapping("/{orderId}/stages")
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
+    public ResponseEntity<BaseResponse> getOrderStages(
+            @PathVariable UUID orderId,
+            Authentication authentication) {
+        UUID userId = (UUID) authentication.getPrincipal();
+        log.info("User {} fetching stages for order {}", userId, orderId);
+        
+        // Verify ownership first
+        CustomOrderDetailResponse order = customOrderService.getOrderDetail(orderId);
+        boolean isCustomer = order.getCustomerId().equals(userId);
+        boolean isArtisan = order.getArtisanId().equals(userId);
+        
+        if (!isCustomer && !isArtisan) {
+            return ResponseEntity.status(403)
+                    .body(BaseResponse.error(403, "Bạn không có quyền xem các giai đoạn của đơn hàng này"));
+        }
+        
+        // Get stages with payment status
+        List<CustomOrderStageResponse> stages = customOrderService.getOrderStages(orderId);
+        
+        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách giai đoạn thành công", stages));
+    }
+    
+    /**
      * NOTE: CustomOrder uses STAGE-BASED payment flow
-     * This endpoint is REMOVED - use /api/stages/{stageId}/payment/initiate instead
+     * This endpoint is REMOVED - use /api/stage-payments/{stageId}/initiate instead
      * CustomOrder payments are handled per stage, not for the entire order
      */
 }

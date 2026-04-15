@@ -36,7 +36,8 @@ public class CustomRequestResponse {
     private UUID artisanId;
     private String artisanName;
     
-    // Request description
+    // Request content
+    private String title;  // Short title for easy identification
     private String description;
     
     // AI image information

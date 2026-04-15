@@ -10,10 +10,32 @@ import java.util.List;
 import java.util.UUID;
 
 public interface CustomOrderStageService {
+    /**
+     * Get stage by ID (with ownership check)
+     */
     CustomOrderStageResponse getStageById(UUID stageId, UUID userId);
-    List<CustomOrderStageResponse> getStagesByOrderId(UUID orderId, UUID userId);
+    
+    /**
+     * Artisan completes a stage
+     * This will unlock the next stage for payment
+     */
     CustomOrderStageResponse completeStage(UUID stageId, CompleteStageRequest request, UUID artisanId);
+    
+    /**
+     * Artisan uploads proof image for a stage
+     */
     CustomOrderStageResponse uploadProofImage(UUID stageId, String imageUrl, UUID artisanId);
-    PaymentInitiationResponse initiateStagePayment(UUID stageId, InitiateStagePaymentRequest paymentRequest, UUID customerId);
+    
+    /**
+     * Check if a stage can be paid
+     * Uses workflow flags (canPay && !isPaid)
+     */
     boolean canPayStage(UUID stageId);
+    
+    /**
+     * Initiate payment for a stage
+     * NOTE: This is called from StagePaymentController but implemented here
+     * because it needs access to stage validation logic
+     */
+    PaymentInitiationResponse initiateStagePayment(UUID stageId, InitiateStagePaymentRequest paymentRequest, UUID customerId);
 }
