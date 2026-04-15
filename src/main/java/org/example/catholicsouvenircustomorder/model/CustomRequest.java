@@ -31,6 +31,9 @@ public class CustomRequest {
     @JoinColumn(name = "selected_artisan_id")
     private Artisan selectedArtisan;
     
+    @Column(length = 200)
+    private String title;  // Short title for easy identification (e.g., "Tượng Đức Mẹ Maria 30cm")
+    
     @Column(columnDefinition = "TEXT")
     private String description;
     

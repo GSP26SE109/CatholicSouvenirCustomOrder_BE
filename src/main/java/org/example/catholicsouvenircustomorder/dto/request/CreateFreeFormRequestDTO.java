@@ -19,7 +19,11 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateFreeFormRequestDTO {
-    
+
+    @NotBlank(message = "Tiêu đề không được để trống")
+    @Size(min = 15, max = 1000, message = "Tiêu đề phải từ 15 đến 1000 ký tự")
+    private String title;
+
     @NotBlank(message = "Mô tả không được để trống")
     @Size(min = 50, max = 5000, message = "Mô tả phải từ 50 đến 5000 ký tự")
     private String description;

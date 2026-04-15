@@ -3,10 +3,12 @@ package org.example.catholicsouvenircustomorder.service;
 import org.example.catholicsouvenircustomorder.dto.request.CreateOrderWithStagesDTO;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderDetailResponse;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderResponse;
+import org.example.catholicsouvenircustomorder.dto.response.CustomOrderStageResponse;
 import org.example.catholicsouvenircustomorder.model.CustomOrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -55,4 +57,10 @@ public interface CustomOrderService {
      * Cancel order
      */
     CustomOrderResponse cancelOrder(UUID orderId, UUID userId, String reason);
+    
+    /**
+     * Get stages of a custom order
+     * Returns list of stages with workflow status (canPay, isPaid, isCompleted)
+     */
+    List<CustomOrderStageResponse> getOrderStages(UUID orderId);
 }

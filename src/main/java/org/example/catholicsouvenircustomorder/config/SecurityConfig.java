@@ -69,7 +69,8 @@ public class SecurityConfig {
                             "/swagger-ui.html",
                             "/api/authen/**",
                             "/api/payments/**",
-                            "/api/shipments/webhook/ghn",
+                            "/api/stage-payments/**",  // Allow stage payment callbacks
+                            "/api/webhook/ghn",
                             "/ws/**",
                             "/api/artisan-applications/register"
                     ).permitAll();

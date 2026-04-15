@@ -8,7 +8,7 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   flyway:
-    enabled: true
+    enabled: false
     baseline-on-migrate: true
   jpa:
     hibernate:
@@ -93,7 +93,7 @@ ghn:
   shop-id: ${GHN_SHOP_ID:199863}
   from-district-id: ${GHN_FROM_DISTRICT_ID:1442}
   from-ward-code: ${GHN_FROM_WARD_CODE:21211}
-
+  callback-url: ${GHN_CALLBACK_URL:https://5007-14-187-119-138.ngrok-free.app/api/webhook/ghn}
 
 
 

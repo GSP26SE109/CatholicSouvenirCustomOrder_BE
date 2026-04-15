@@ -101,18 +101,24 @@ public class StagePaymentServiceImp implements StagePaymentService {
         String paymentUrl;
 
         try {
+            // Stage payment callback URL
+            String stageCallbackUrl = "http://localhost:8080/api/stage-payments/vnpay/callback";
+            
             if (paymentMethod.equalsIgnoreCase("VNPAY")) {
                 paymentUrl = vnPayUtil.createPaymentUrl(
                         referenceId,  // Use referenceId as vnp_TxnRef
                         stage.getAmount(),
                         "Thanh toán stage: " + stage.getName(),
-                        customer.getEmail()
+                        customer.getEmail(),
+                        stageCallbackUrl  // Use stage-specific callback URL
                 );
             } else if (paymentMethod.equalsIgnoreCase("ZALOPAY")) {
+                String zaloCallbackUrl = "http://localhost:8080/api/stage-payments/zalopay/callback";
                 paymentUrl = zaloPayUtil.createPaymentUrl(
                         referenceId,  // Use referenceId as apptransid
                         stage.getAmount(),
-                        "Thanh toán stage: " + stage.getName()
+                        "Thanh toán stage: " + stage.getName(),
+                        zaloCallbackUrl  // Use stage-specific callback URL
                 );
             } else {
                 throw new BadRequestException("Phương thức thanh toán không hợp lệ");
@@ -146,10 +152,12 @@ public class StagePaymentServiceImp implements StagePaymentService {
             // Note: transactionId from gateway should be set by the caller
             // or extracted from callback params before calling this method
 
-            // Update stage status
+            // Update stage status and workflow flags
             CustomOrderStage stage = payment.getStage();
             stage.setStatus(StageStatus.PAID);
             stage.setPaidAt(LocalDateTime.now());
+            stage.setIsPaid(true);  // ← Set workflow flag
+            stage.setCanPay(false); // ← Lock this stage (already paid)
             stageRepository.save(stage);
 
             // Distribute money: 90% to artisan, 10% platform fee
@@ -165,10 +173,10 @@ public class StagePaymentServiceImp implements StagePaymentService {
             // Check if all stages are paid, update custom order status
             CustomOrder customOrder = stage.getCustomOrder();
             boolean allStagesPaid = customOrder.getStages().stream()
-                    .allMatch(s -> s.getStatus() == StageStatus.PAID || s.getStatus() == StageStatus.COMPLETED);
+                    .allMatch(s -> s.getIsPaid());
 
             if (allStagesPaid) {
-                customOrder.setStatus(CustomOrderStatus.COMPLETED);
+                customOrder.setStatus(CustomOrderStatus.IN_PROGRESS);
             } else {
                 customOrder.setStatus(CustomOrderStatus.IN_PROGRESS);
             }

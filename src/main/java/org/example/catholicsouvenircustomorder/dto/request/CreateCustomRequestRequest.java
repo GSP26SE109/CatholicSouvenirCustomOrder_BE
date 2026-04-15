@@ -20,6 +20,9 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class CreateCustomRequestRequest {
     
+    @Size(max = 200, message = "Tiêu đề không được quá 200 ký tự")
+    private String title;  // Optional short title (e.g., "Tượng Đức Mẹ Maria")
+    
     @NotBlank(message = "Mô tả không được để trống")
     @Size(min = 10, max = 2000, message = "Mô tả phải từ 10-2000 ký tự")
     private String description;

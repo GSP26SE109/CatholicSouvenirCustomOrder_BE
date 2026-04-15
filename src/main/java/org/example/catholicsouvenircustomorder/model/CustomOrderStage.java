@@ -44,6 +44,16 @@ public class CustomOrderStage {
     @Column(nullable = false)
     private StageStatus status = StageStatus.PENDING;
     
+    // Workflow tracking
+    @Column(nullable = false)
+    private Boolean canPay = false;  // Can customer pay this stage now?
+    
+    @Column(nullable = false)
+    private Boolean isPaid = false;  // Has this stage been paid?
+    
+    @Column(nullable = false)
+    private Boolean isCompleted = false;  // Has artisan completed this stage?
+    
     private LocalDateTime dueDate;
     private LocalDateTime paidAt;
     private LocalDateTime completedAt;

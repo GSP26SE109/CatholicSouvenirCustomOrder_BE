@@ -52,26 +52,6 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
     }
     
     @Override
-    public List<CustomOrderStageResponse> getStagesByOrderId(UUID orderId, UUID userId) {
-        // Verify access to order
-        CustomOrder order = customOrderRepository.findById(orderId)
-                .orElseThrow(() -> new NotFoundException("Không tìm thấy đơn hàng"));
-        
-        UUID customerId = order.getRequest().getCustomer().getAccountId();
-        UUID artisanId = order.getArtisan() != null ? order.getArtisan().getArtisanUuid() : null;
-        
-        if (!userId.equals(customerId) && !userId.equals(artisanId)) {
-            throw new BadRequestException("Bạn không có quyền xem các giai đoạn của đơn hàng này");
-        }
-        
-        List<CustomOrderStage> stages = stageRepository
-                .findByCustomOrder_CustomOrderIdOrderByStageOrderAsc(orderId);
-        return stages.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-    
-    @Override
     @Transactional
     public CustomOrderStageResponse completeStage(UUID stageId, CompleteStageRequest request, UUID artisanId) {
         CustomOrderStage stage = stageRepository.findById(stageId)
@@ -83,18 +63,20 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
         }
         
         // Validate stage is paid
-        if (stage.getStatus() != StageStatus.PAID && stage.getStatus() != StageStatus.IN_PROGRESS) {
+        if (!stage.getIsPaid()) {
             throw new BadRequestException("Giai đoạn phải được thanh toán trước khi hoàn thành");
         }
         
         // Validate not already completed
-        if (stage.getCompletedAt() != null) {
+        if (stage.getIsCompleted()) {
             throw new BadRequestException("Giai đoạn này đã được hoàn thành");
         }
         
         // Complete the stage
         stage.setCompletedAt(LocalDateTime.now());
         stage.setCompletionImageUrl(request.getCompletionImageUrl());
+        stage.setIsCompleted(true);  // ← Set workflow flag
+        stage.setStatus(StageStatus.COMPLETED);
         stage = stageRepository.save(stage);
         
         // Store values needed for lambda
@@ -111,6 +93,13 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
                 .filter(s -> s.getStageOrder().equals(currentStageOrder + 1))
                 .findFirst()
                 .orElse(null);
+        
+        // UNLOCK NEXT STAGE for payment
+        if (nextStage != null) {
+            nextStage.setCanPay(true);  // ← Unlock next stage
+            stageRepository.save(nextStage);
+            log.info("Unlocked stage {} for payment", nextStage.getStageOrder());
+        }
         
         // Notify customer about completion and next stage
         UUID customerId = stage.getCustomOrder().getRequest().getCustomer().getAccountId();
@@ -137,7 +126,7 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
             );
             // Check if all stages are completed
             boolean allCompleted = allStages.stream()
-                    .allMatch(s -> s.getCompletedAt() != null);
+                    .allMatch(s -> s.getIsCompleted());
             
             if (allCompleted) {
                 CustomOrder order = stage.getCustomOrder();
@@ -155,28 +144,8 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
         CustomOrderStage stage = stageRepository.findById(stageId)
                 .orElseThrow(() -> new NotFoundException("Không tìm thấy giai đoạn"));
         
-        // Already paid
-        if (stage.getStatus() == StageStatus.PAID) {
-            return false;
-        }
-        
-        // First stage can always be paid
-        if (stage.getStageOrder() == 1) {
-            return true;
-        }
-        
-        // Check if previous stage is completed and paid
-        List<CustomOrderStage> allStages = stageRepository
-                .findByCustomOrder_CustomOrderIdOrderByStageOrderAsc(stage.getCustomOrder().getCustomOrderId());
-        
-        CustomOrderStage previousStage = allStages.stream()
-                .filter(s -> s.getStageOrder().equals(stage.getStageOrder() - 1))
-                .findFirst()
-                .orElse(null);
-        
-        return previousStage != null && 
-               previousStage.getCompletedAt() != null && 
-               previousStage.getStatus() == StageStatus.PAID;
+        // Use workflow flag directly
+        return stage.getCanPay() && !stage.getIsPaid();
     }
     
     @Override
@@ -257,13 +226,21 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
                 .amount(stage.getAmount())
                 .percentage(stage.getPaymentPercentage())
                 .status(stage.getStatus())
+                
+                // Workflow flags
+                .canPay(stage.getCanPay())
+                .isPaid(stage.getIsPaid())
+                .isCompleted(stage.getIsCompleted())
+                
+                // Timestamps
                 .dueDate(stage.getDueDate())
                 .paidAt(stage.getPaidAt())
                 .completedAt(stage.getCompletedAt())
-                .completionImageUrl(stage.getCompletionImageUrl())
-                .canPay(canPayStage(stage.getStageId()))
-                .canComplete(stage.getStatus() == StageStatus.PAID && stage.getCompletedAt() == null)
                 .createdAt(stage.getCreatedAt())
+                
+                // Proof
+                .completionImageUrl(stage.getCompletionImageUrl())
+                
                 .build();
     }
 }
