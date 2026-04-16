@@ -15,6 +15,7 @@ import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.repository.PaymentRepository;
 import org.example.catholicsouvenircustomorder.service.PaymentService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -36,6 +37,9 @@ public class PaymentController {
     private final PaymentService paymentService;
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
+    
+    @Value("${vnpay.return-url-url}")
+    private String defaultFrontendUrl;
     
 
     
@@ -79,31 +83,40 @@ public class PaymentController {
     @GetMapping("/vnpay/return")
     public void handleVNPayReturn(
             @RequestParam Map<String, String> params,
-            @RequestParam(required = false) String platform,
             jakarta.servlet.http.HttpServletResponse response) throws Exception {
         
         log.info("Received VNPay return callback");
-        log.info("Platform: {}", platform);
-        log.info("Response code: {}", params.get("vnp_ResponseCode"));
         
         String vnpResponseCode = params.get("vnp_ResponseCode");
         String txnRef = params.get("vnp_TxnRef");
         boolean isSuccess = "00".equals(vnpResponseCode);
         
-        // Build redirect URL based on platform
+        log.info("Response code: {}, TxnRef: {}", vnpResponseCode, txnRef);
+        
+        // Find payment by reference ID to get custom return URL
         String redirectUrl;
-        if ("mobile".equalsIgnoreCase(platform)) {
-            // Mobile deep link
-            redirectUrl = String.format("myapp://payment/result?orderId=%s&success=%s&code=%s",
-                    txnRef, isSuccess, vnpResponseCode);
-        } else {
-            // Web frontend URL
-            String frontendUrl = "https://your-frontend.com"; // TODO: Move to config
-            redirectUrl = String.format("%s/payment/result?orderId=%s&success=%s&code=%s",
-                    frontendUrl, txnRef, isSuccess, vnpResponseCode);
+        try {
+            var payment = paymentRepository.findByReferenceId(txnRef);
+            
+            if (payment.isPresent() && payment.get().getReturnUrl() != null && !payment.get().getReturnUrl().isEmpty()) {
+                // Use custom return URL from payment
+                String customReturnUrl = payment.get().getReturnUrl();
+                String separator = customReturnUrl.contains("?") ? "&" : "?";
+                redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s",
+                        customReturnUrl, separator, isSuccess, vnpResponseCode, txnRef);
+                log.info("Using custom return URL: {}", redirectUrl);
+            } else {
+                // Fallback to default frontend URL from config
+                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
+                        defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
+                log.info("Using default return URL: {}", redirectUrl);
+            }
+        } catch (Exception e) {
+            log.error("Error getting payment return URL, using default", e);
+            redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
+                    defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
         }
         
-        log.info("Redirecting to: {}", redirectUrl);
         response.sendRedirect(redirectUrl);
     }
     

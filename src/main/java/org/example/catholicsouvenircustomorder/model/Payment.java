@@ -42,6 +42,10 @@ public class Payment {
     @Column(length = 1000)
     private String paymentUrl;
     
+    // Return URL for redirecting user after payment (web or mobile deep link)
+    @Column(length = 500)
+    private String returnUrl;
+    
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     

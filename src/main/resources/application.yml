@@ -49,6 +49,7 @@ jwt:
 # Application Configuration
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
+  frontend-url: ${APP_FRONTEND_URL:https://catholic-souvenir-custom.vercel.app}
 
 server:
   forward-headers-strategy: framework
