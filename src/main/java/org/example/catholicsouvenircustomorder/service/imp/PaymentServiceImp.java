@@ -72,6 +72,7 @@ public class PaymentServiceImp implements PaymentService {
         payment.setMethod(dto.getMethod());
         payment.setAmount(order.getTotal());
         payment.setStatus(PaymentStatus.PENDING);
+        payment.setReturnUrl(dto.getReturnUrl()); // Save return URL for later use
         
         String referenceId = "ORDER_" + order.getOrderId() + "_" + System.currentTimeMillis();
         payment.setReferenceId(referenceId);
