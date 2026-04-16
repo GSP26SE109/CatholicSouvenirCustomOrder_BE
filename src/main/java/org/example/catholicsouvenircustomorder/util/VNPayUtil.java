@@ -171,7 +171,7 @@ public class VNPayUtil {
                 }
                 hashData.append(key)
                         .append("=")
-                        .append(value);
+                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
             }
         }
         return hashData.toString();
