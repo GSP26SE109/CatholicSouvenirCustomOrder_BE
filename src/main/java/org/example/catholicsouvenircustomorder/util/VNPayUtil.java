@@ -128,7 +128,7 @@ public class VNPayUtil {
                 if (query.length() > 0) {
                     query.append("&");
                 }
-                query.append(URLEncoder.encode(key, StandardCharsets.UTF_8))
+                query.append(key)
                      .append("=")
                      .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
             }
@@ -152,7 +152,7 @@ public class VNPayUtil {
                 if (hashData.length() > 0) {
                     hashData.append("&");
                 }
-                hashData.append(URLEncoder.encode(key, StandardCharsets.UTF_8))
+                hashData.append(key)
                         .append("=")
                         .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
             }
