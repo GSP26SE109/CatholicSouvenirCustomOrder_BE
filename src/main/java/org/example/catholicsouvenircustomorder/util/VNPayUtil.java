@@ -169,9 +169,9 @@ public class VNPayUtil {
                 if (hashData.length() > 0) {
                     hashData.append("&");
                 }
-                // IMPORTANT: Do NOT URL encode when building hash data
-                // VNPay calculates hash on raw values, not encoded values
-                hashData.append(key).append("=").append(value);
+                hashData.append(key)
+                        .append("=")
+                        .append(value);
             }
         }
         return hashData.toString();
