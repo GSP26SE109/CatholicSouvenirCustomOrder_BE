@@ -26,6 +26,10 @@ public class Order {
     @ManyToOne
     @JoinColumn(name = "customer_id")
     private Account customer;
+    
+    @ManyToOne
+    @JoinColumn(name = "order_group_id")
+    private OrderGroup orderGroup;
 
     @OneToMany(mappedBy = "order",
             cascade = CascadeType.ALL,
@@ -36,7 +40,4 @@ public class Order {
             cascade = CascadeType.ALL,
             orphanRemoval = true)
     private List<OrderTemplateDetail> templateDetails = new ArrayList<>();
-    
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-    private List<Payment> payments = new ArrayList<>();
 }

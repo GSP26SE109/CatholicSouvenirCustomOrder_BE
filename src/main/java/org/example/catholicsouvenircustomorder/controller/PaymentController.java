@@ -8,10 +8,6 @@ import org.example.catholicsouvenircustomorder.dto.request.InitiatePaymentDTO;
 import org.example.catholicsouvenircustomorder.dto.request.PaymentCallbackRequest;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentInitiationResponse;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentResponse;
-import org.example.catholicsouvenircustomorder.exception.BadRequestException;
-import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
-import org.example.catholicsouvenircustomorder.model.Order;
-import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.repository.PaymentRepository;
 import org.example.catholicsouvenircustomorder.service.PaymentService;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -35,16 +30,13 @@ import java.util.stream.Collectors;
 public class PaymentController {
     
     private final PaymentService paymentService;
-    private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
     
     @Value("${vnpay.return-url}")
     private String defaultFrontendUrl;
     
-
-    
     /**
-     * Khởi tạo payment cho Order (template/product order)
+     * Khởi tạo payment cho OrderGroup (checkout)
      */
     @PostMapping("/initiate")
     @PreAuthorize("hasAuthority('CUSTOMER')")
@@ -52,21 +44,9 @@ public class PaymentController {
             @Valid @RequestBody InitiatePaymentDTO dto,
             @AuthenticationPrincipal UUID accountId) {
         
-        log.info("Initiating payment for order: {}", dto.getOrderId());
+        log.info("Initiating payment for order group: {} by customer: {}", dto.getOrderGroupId(), accountId);
         
-        // Validate order exists and belongs to customer
-        if (dto.getOrderId() == null) {
-            throw new BadRequestException("Order ID không được để trống");
-        }
-        
-        Order order = orderRepository.findById(dto.getOrderId())
-                .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng"));
-        
-        if (!order.getCustomer().getAccountId().equals(accountId)) {
-            throw new BadRequestException("Bạn không có quyền thanh toán đơn hàng này");
-        }
-        
-        PaymentInitiationResponse response = paymentService.initiatePayment(dto);
+        PaymentInitiationResponse response = paymentService.initiatePayment(dto, accountId);
         
         return ResponseEntity.ok(BaseResponse.<PaymentInitiationResponse>builder()
                 .code(200)
@@ -77,44 +57,66 @@ public class PaymentController {
     
     /**
      * VNPay Return URL endpoint - User is redirected here after payment
-     * DO NOT update DB here - only redirect to frontend
+     * Supports both WEB and MOBILE platforms
+     * DO NOT update DB here - only redirect to frontend/app
      * DB update happens via IPN callback
      */
     @GetMapping("/vnpay/return")
     public void handleVNPayReturn(
             @RequestParam Map<String, String> params,
+            @RequestParam(required = false) String platform, // "web" or "mobile"
             jakarta.servlet.http.HttpServletResponse response) throws Exception {
         
-        log.info("Received VNPay return callback");
+        log.info("Received VNPay return callback for platform: {}", platform);
         
         String vnpResponseCode = params.get("vnp_ResponseCode");
         String txnRef = params.get("vnp_TxnRef");
         boolean isSuccess = "00".equals(vnpResponseCode);
         
-        log.info("Response code: {}, TxnRef: {}", vnpResponseCode, txnRef);
+        log.info("Response code: {}, TxnRef: {}, Platform: {}", vnpResponseCode, txnRef, platform);
         
-        // Find payment by reference ID to get custom return URL
         String redirectUrl;
+        
         try {
             var payment = paymentRepository.findByReferenceId(txnRef);
             
             if (payment.isPresent() && payment.get().getReturnUrl() != null && !payment.get().getReturnUrl().isEmpty()) {
-                // Use custom return URL from payment
                 String customReturnUrl = payment.get().getReturnUrl();
-                String separator = customReturnUrl.contains("?") ? "&" : "?";
-                redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s",
-                        customReturnUrl, separator, isSuccess, vnpResponseCode, txnRef);
-                log.info("Using custom return URL: {}", redirectUrl);
+                
+                // Check if mobile platform
+                if ("mobile".equalsIgnoreCase(platform)) {
+                    // Mobile: Use deep link or custom scheme
+                    // Format: catholicsouvenir://payment-result?success=true&code=00&txnRef=...
+                    redirectUrl = String.format("catholicsouvenir://payment-result?success=%s&code=%s&txnRef=%s",
+                            isSuccess, vnpResponseCode, txnRef);
+                    log.info("Using mobile deep link: {}", redirectUrl);
+                } else {
+                    // Web: Use HTTP URL
+                    String separator = customReturnUrl.contains("?") ? "&" : "?";
+                    redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s",
+                            customReturnUrl, separator, isSuccess, vnpResponseCode, txnRef);
+                    log.info("Using custom web return URL: {}", redirectUrl);
+                }
             } else {
-                // Fallback to default frontend URL from config
-                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
-                        defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
+                // Fallback to default
+                if ("mobile".equalsIgnoreCase(platform)) {
+                    redirectUrl = String.format("catholicsouvenir://payment-result?success=%s&code=%s&txnRef=%s",
+                            isSuccess, vnpResponseCode, txnRef);
+                } else {
+                    redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
+                            defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
+                }
                 log.info("Using default return URL: {}", redirectUrl);
             }
         } catch (Exception e) {
             log.error("Error getting payment return URL, using default", e);
-            redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
-                    defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
+            if ("mobile".equalsIgnoreCase(platform)) {
+                redirectUrl = String.format("catholicsouvenir://payment-result?success=%s&code=%s&txnRef=%s",
+                        isSuccess, vnpResponseCode, txnRef);
+            } else {
+                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
+                        defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
+            }
         }
         
         response.sendRedirect(redirectUrl);
@@ -169,47 +171,13 @@ public class PaymentController {
         
         log.info("Getting payments for user: {}", accountId);
         
-        List<PaymentResponse> payments;
-        
-        // Get role from authorities
         String role = authentication.getAuthorities().stream()
                 .findFirst()
                 .map(GrantedAuthority::getAuthority)
                 .orElse("")
                 .replace("ROLE_", "");
         
-        if ("CUSTOMER".equals(role)) {
-            // Get all payments for customer's orders
-            List<Order> orders = orderRepository.findByCustomer_AccountId(accountId);
-            payments = orders.stream()
-                    .flatMap(order -> paymentService.getOrderPayments(order.getOrderId()).stream())
-                    .collect(Collectors.toList());
-            
-        } else if ("ADMIN".equals(role)) {
-            // Admin can see all payments
-            payments = paymentRepository.findAll().stream()
-                    .map(payment -> {
-                        PaymentResponse.PaymentResponseBuilder builder = PaymentResponse.builder()
-                                .paymentId(payment.getPaymentId())
-                                .paymentMethod(payment.getMethod())
-                                .amount(payment.getAmount())
-                                .paymentStatus(payment.getStatus())
-                                .transactionId(payment.getTransactionId())
-                                .paymentUrl(payment.getPaymentUrl())
-                                .failureReason(payment.getFailureReason())
-                                .createdAt(payment.getCreatedAt())
-                                .paidAt(payment.getPaidAt());
-                        
-                        if (payment.getOrder() != null) {
-                            builder.orderId(payment.getOrder().getOrderId());
-                        }
-                        
-                        return builder.build();
-                    })
-                    .collect(Collectors.toList());
-        } else {
-            payments = List.of();
-        }
+        List<PaymentResponse> payments = paymentService.getUserPayments(accountId, role);
         
         return ResponseEntity.ok(BaseResponse.<List<PaymentResponse>>builder()
                 .code(200)
@@ -219,34 +187,24 @@ public class PaymentController {
     }
     
     /**
-     * Lấy payments của một order cụ thể
+     * Lấy payments của một order group cụ thể
      */
-    @GetMapping("/order/{orderId}")
+    @GetMapping("/order-group/{orderGroupId}")
     @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ADMIN')")
-    public ResponseEntity<BaseResponse<List<PaymentResponse>>> getOrderPayments(
-            @PathVariable UUID orderId,
+    public ResponseEntity<BaseResponse<List<PaymentResponse>>> getOrderGroupPayments(
+            @PathVariable UUID orderGroupId,
             @AuthenticationPrincipal UUID accountId,
             Authentication authentication) {
         
-        log.info("Getting payments for order: {}", orderId);
+        log.info("Getting payments for order group: {} by user: {}", orderGroupId, accountId);
         
-        // Get role from authorities
         String role = authentication.getAuthorities().stream()
                 .findFirst()
                 .map(GrantedAuthority::getAuthority)
                 .orElse("")
                 .replace("ROLE_", "");
         
-        // Verify ownership for customers
-        if ("CUSTOMER".equals(role)) {
-            Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng"));
-            if (!order.getCustomer().getAccountId().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền xem thanh toán của đơn hàng này");
-            }
-        }
-        
-        List<PaymentResponse> payments = paymentService.getOrderPayments(orderId);
+        List<PaymentResponse> payments = paymentService.getOrderGroupPayments(orderGroupId, accountId, role);
         
         return ResponseEntity.ok(BaseResponse.<List<PaymentResponse>>builder()
                 .code(200)
@@ -265,75 +223,20 @@ public class PaymentController {
             @AuthenticationPrincipal UUID accountId,
             Authentication authentication) {
         
-        log.info("Getting payment: {}", paymentId);
+        log.info("Getting payment: {} by user: {}", paymentId, accountId);
         
-        PaymentResponse payment = paymentService.getPaymentById(paymentId);
-        
-        // Get role from authorities
         String role = authentication.getAuthorities().stream()
                 .findFirst()
                 .map(GrantedAuthority::getAuthority)
                 .orElse("")
                 .replace("ROLE_", "");
         
-        // Verify ownership for customers
-        if ("CUSTOMER".equals(role)) {
-            Order order = orderRepository.findById(payment.getOrderId())
-                    .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng"));
-            if (!order.getCustomer().getAccountId().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền xem thanh toán này");
-            }
-        }
+        PaymentResponse payment = paymentService.getPaymentById(paymentId, accountId, role);
         
         return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
                 .code(200)
                 .message("Lấy thông tin thanh toán thành công")
                 .data(payment)
-                .build());
-    }
-    
-    /**
-     * Lấy trạng thái payment mới nhất của order (cho mobile app polling)
-     * Also returns payment status for checking if order is paid
-     */
-    @GetMapping("/order/{orderId}/latest")
-    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ADMIN')")
-    public ResponseEntity<BaseResponse<PaymentResponse>> getLatestOrderPayment(
-            @PathVariable UUID orderId,
-            @AuthenticationPrincipal UUID accountId,
-            Authentication authentication) {
-        
-        log.info("Getting latest payment for order: {}", orderId);
-        
-        // Get role from authorities
-        String role = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(GrantedAuthority::getAuthority)
-                .orElse("")
-                .replace("ROLE_", "");
-        
-        // Verify ownership for customers
-        if ("CUSTOMER".equals(role)) {
-            Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng"));
-            if (!order.getCustomer().getAccountId().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền xem thanh toán của đơn hàng này");
-            }
-        }
-        
-        List<PaymentResponse> payments = paymentService.getOrderPayments(orderId);
-        
-        if (payments.isEmpty()) {
-            throw new ResourceNotFoundException("Không tìm thấy thanh toán cho đơn hàng này");
-        }
-        
-        // Return the most recent payment
-        PaymentResponse latestPayment = payments.get(0);
-        
-        return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
-                .code(200)
-                .message("Lấy trạng thái thanh toán thành công")
-                .data(latestPayment)
                 .build());
     }
     

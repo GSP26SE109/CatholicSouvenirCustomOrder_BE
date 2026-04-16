@@ -14,9 +14,10 @@ public interface WalletService {
     Wallet getOrCreateWallet(Account account);
     
     /**
-     * Process payment and distribute money (90% to artisan, 10% platform fee)
+     * Process payment and distribute money to multiple artisans
+     * (90% to each artisan based on their order total, 10% platform fee)
      */
-    void processPaymentDistribution(Payment payment, Artisan artisan, Account platformAdmin);
+    void processPaymentDistribution(Payment payment, Account platformAdmin);
     
     /**
      * Process stage payment and distribute money

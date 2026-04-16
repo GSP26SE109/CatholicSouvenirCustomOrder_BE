@@ -23,7 +23,10 @@ public class PaymentResponse {
     
     private UUID paymentId;
     
-    // Order reference
+    // Order group reference (for checkout payments)
+    private UUID orderGroupId;
+    
+    // Legacy: Order reference (deprecated, kept for backward compatibility)
     private UUID orderId;
     
     // Payment details

@@ -16,9 +16,10 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID paymentId;
     
+    // Order group payment - always use this for checkout payments
     @ManyToOne(optional = false)
-    @JoinColumn(name = "order_id")
-    private Order order;
+    @JoinColumn(name = "order_group_id", nullable = false)
+    private OrderGroup orderGroup;
     
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;

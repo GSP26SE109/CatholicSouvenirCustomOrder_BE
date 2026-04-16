@@ -28,4 +28,3 @@ public class OrderResponseDTO {
     private List<OrderDetailResponseDTO> orderDetails;
     private List<OrderTemplateDetailResponseDTO> templateDetails;
 }
-

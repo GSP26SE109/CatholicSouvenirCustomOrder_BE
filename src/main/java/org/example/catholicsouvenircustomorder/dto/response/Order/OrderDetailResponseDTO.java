@@ -21,4 +21,5 @@ public class OrderDetailResponseDTO {
 
     private UUID productId;
     private String productName;
+    private String image;
 }

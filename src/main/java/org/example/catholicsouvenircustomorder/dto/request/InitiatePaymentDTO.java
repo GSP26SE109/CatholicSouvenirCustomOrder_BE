@@ -20,19 +20,21 @@ import java.util.UUID;
 @AllArgsConstructor
 public class InitiatePaymentDTO {
     
-    @NotNull(message = "Order ID is required")
-    private UUID orderId;
+    @NotNull(message = "Order group ID is required")
+    private UUID orderGroupId;
     
     @NotNull(message = "Payment method is required")
     private PaymentMethod method;
     
     /**
      * URL to redirect after payment (success or failed).
+     * Backend will auto-detect platform from URL scheme:
      * - Web: https://yourweb.com/payment/result
-     * - Mobile: yourapp://payment/result
-     * If null, uses default from config
+     * - Mobile: catholicsouvenir://payment/result (deep link)
      * 
-     * Note: Payment status update is handled by IPN callback (/vnpay/ipn, /zalopay/ipn)
+     * If null, uses default web URL from config
+     * 
+     * Note: Payment status update is handled by IPN callback (/vnpay/ipn)
      * This URL is only for user redirection back to app
      */
     private String returnUrl;

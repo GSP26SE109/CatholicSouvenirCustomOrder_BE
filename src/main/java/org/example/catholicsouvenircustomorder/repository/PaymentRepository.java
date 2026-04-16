@@ -16,12 +16,10 @@ import java.util.UUID;
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     
-    // Find by order relationship
-    List<Payment> findByOrder(Order order);
+    // Find by order group (NEW - primary method)
+    List<Payment> findByOrderGroup_GroupId(UUID orderGroupId);
     
-    List<Payment> findByOrderOrderId(UUID orderId);
-    
-    Optional<Payment> findByOrderOrderIdAndStatus(UUID orderId, PaymentStatus status);
+    Optional<Payment> findByOrderGroup_GroupIdAndStatus(UUID orderGroupId, PaymentStatus status);
     
     // Find by reference ID (internal tracking)
     Optional<Payment> findByReferenceId(String referenceId);
@@ -32,13 +30,17 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     // Find by status
     List<Payment> findByStatus(PaymentStatus status);
     
-    // Check if order is fully paid
-    @Query("SELECT CASE WHEN COUNT(p) > 0 AND p.status = 'SUCCESS' THEN true ELSE false END " +
-           "FROM Payment p WHERE p.order.orderId = :orderId")
-    boolean isOrderFullyPaid(@Param("orderId") UUID orderId);
+    // Find by customer (through order group)
+    @Query("SELECT p FROM Payment p WHERE p.orderGroup.customer.accountId = :customerId")
+    List<Payment> findByCustomerId(@Param("customerId") UUID customerId);
     
-    // Get total paid amount for order
+    // Check if order group is fully paid
+    @Query("SELECT CASE WHEN COUNT(p) > 0 AND p.status = 'SUCCESS' THEN true ELSE false END " +
+           "FROM Payment p WHERE p.orderGroup.groupId = :orderGroupId")
+    boolean isOrderGroupPaid(@Param("orderGroupId") UUID orderGroupId);
+    
+    // Get total paid amount for order group
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p " +
-           "WHERE p.order.orderId = :orderId AND p.status = 'SUCCESS'")
-    BigDecimal getTotalPaidAmount(@Param("orderId") UUID orderId);
+           "WHERE p.orderGroup.groupId = :orderGroupId AND p.status = 'SUCCESS'")
+    BigDecimal getTotalPaidAmount(@Param("orderGroupId") UUID orderGroupId);
 }
