@@ -79,7 +79,7 @@ vnpay:
   return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/payments/vnpay/return}
   # IPN URL: server-to-server callback for DB update (REQUIRED for production)
   # Comment out for localhost testing since VNPay sandbox cannot reach localhost
-  # ipn-url: ${VNPAY_IPN_URL:https://catholic-souvenir-api.southeastasia.cloudapp.azure.com/api/payments/vnpay/ipn}
+  ipn-url: ${VNPAY_IPN_URL:https://catholic-souvenir-api.southeastasia.cloudapp.azure.com/api/payments/vnpay/ipn}
   version: ${VNPAY_VERSION:2.1.0}
   command: ${VNPAY_COMMAND:pay}
   order-type: ${VNPAY_ORDER_TYPE:other}
