@@ -12,6 +12,7 @@ public class VNPayConfig {
     private String hashSecret;
     private String url;
     private String returnUrl;
+    private String ipnUrl;
     private String version;
     private String command;
     private String orderType;

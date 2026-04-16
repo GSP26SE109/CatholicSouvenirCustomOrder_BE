@@ -6,10 +6,8 @@ import org.example.catholicsouvenircustomorder.dto.request.UpdateAccountRequest;
 import org.example.catholicsouvenircustomorder.dto.response.AccountResponse;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.Role;
-import org.example.catholicsouvenircustomorder.model.Saint;
 import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.RoleRepository;
-import org.example.catholicsouvenircustomorder.repository.SaintRepository;
 import org.example.catholicsouvenircustomorder.service.AccountService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,7 +24,6 @@ public class AccountServiceImp implements AccountService {
 
     private final AccountRepository accountRepository;
     private final RoleRepository roleRepository;
-    private final SaintRepository saintRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -55,12 +52,6 @@ public class AccountServiceImp implements AccountService {
         account.setRole(role);
         account.setVerified(request.getIsVerified());
         account.setCreatedDate(LocalDateTime.now());
-
-        if (request.getSaintId() != null) {
-            Saint saint = saintRepository.findById(request.getSaintId())
-                    .orElseThrow(() -> new RuntimeException("Saint không tồn tại"));
-            account.setSaint(saint);
-        }
 
         Account savedAccount = accountRepository.save(account);
         return mapToResponse(savedAccount);
@@ -103,12 +94,6 @@ public class AccountServiceImp implements AccountService {
             Role role = roleRepository.findById(request.getRoleId())
                     .orElseThrow(() -> new RuntimeException("Role không tồn tại"));
             account.setRole(role);
-        }
-
-        if (request.getSaintId() != null) {
-            Saint saint = saintRepository.findById(request.getSaintId())
-                    .orElseThrow(() -> new RuntimeException("Saint không tồn tại"));
-            account.setSaint(saint);
         }
 
         if (request.getIsVerified() != null) {
@@ -170,8 +155,6 @@ public class AccountServiceImp implements AccountService {
                 .updatedDate(account.getUpdatedDate())
                 .roleName(account.getRole() != null ? account.getRole().getName() : null)
                 .roleId(account.getRole() != null ? account.getRole().getRoleId() : null)
-                .saintName(account.getSaint() != null ? account.getSaint().getSaintName() : null)
-                .saintId(account.getSaint() != null ? account.getSaint().getSaintId() : null)
                 .build();
     }
 }

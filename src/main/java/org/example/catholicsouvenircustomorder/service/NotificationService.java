@@ -40,6 +40,12 @@ public interface NotificationService {
     void notifyCustomerOfNewConversation(UUID customerId, UUID conversationId, String artisanName, UUID requestId);
     void notifyUserOfNewMessage(UUID recipientId, UUID conversationId, String senderName, String messagePreview);
     
+    // Withdrawal notifications
+    void notifyAdminOfWithdrawalRequest(UUID withdrawalId, String artisanName, Long amount);
+    void notifyArtisanOfWithdrawalApproval(UUID artisanId, UUID withdrawalId, Long amount);
+    void notifyArtisanOfWithdrawalRejection(UUID artisanId, UUID withdrawalId, Long amount, String reason);
+    void notifyAdminOfWithdrawalCancellation(UUID withdrawalId, String artisanName, Long amount);
+    
     // Query notifications
     Page<NotificationResponse> getUserNotifications(UUID userId, Pageable pageable);
     Page<NotificationResponse> getUnreadNotifications(UUID userId, Pageable pageable);

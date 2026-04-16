@@ -17,6 +17,5 @@ public class UpdateAccountRequest {
     private String dateOfBirth;
     private String avtUrl;
     private int roleId;
-    private UUID saintId;
     private Boolean isVerified;
 }

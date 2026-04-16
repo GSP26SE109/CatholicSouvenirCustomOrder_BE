@@ -13,6 +13,7 @@ import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundExcepti
 import org.example.catholicsouvenircustomorder.model.*;
 import org.example.catholicsouvenircustomorder.repository.*;
 import org.example.catholicsouvenircustomorder.service.CheckoutService;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +37,7 @@ public class CheckoutServiceImp implements CheckoutService {
     private final OrderDetailRepository orderDetailRepository;
     private final OrderTemplateDetailRepository orderTemplateDetailRepository;
     private final ObjectMapper objectMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     @Transactional
@@ -70,6 +72,11 @@ public class CheckoutServiceImp implements CheckoutService {
         cartItemRepository.deleteByCart_CartId(cart.getCartId());
         cart.clearItems();
         cartRepository.save(cart);
+
+        String cartKey = "cart:" + customerId;
+        String countKey = "cart:" +customerId + ":count";
+        redisTemplate.delete(cartKey);
+        redisTemplate.delete(countKey);
 
         return orderResponse;
     }

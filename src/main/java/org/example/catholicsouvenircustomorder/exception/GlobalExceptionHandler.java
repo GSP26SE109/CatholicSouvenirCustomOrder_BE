@@ -101,6 +101,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(BaseResponse.error(401, ex.getMessage()));
     }
+    
+    @ExceptionHandler(InsufficientBalanceException.class)
+    public ResponseEntity<BaseResponse> handleInsufficientBalanceException(InsufficientBalanceException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(BaseResponse.error(400, ex.getMessage()));
+    }
+    
+    @ExceptionHandler(PendingWithdrawalExistsException.class)
+    public ResponseEntity<BaseResponse> handlePendingWithdrawalExistsException(PendingWithdrawalExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(BaseResponse.error(409, ex.getMessage()));
+    }
+    
+    @ExceptionHandler(InvalidStatusException.class)
+    public ResponseEntity<BaseResponse> handleInvalidStatusException(InvalidStatusException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(BaseResponse.error(400, ex.getMessage()));
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseResponse> handleGenericException(Exception ex) {

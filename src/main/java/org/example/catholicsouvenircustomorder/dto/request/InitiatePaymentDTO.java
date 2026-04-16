@@ -27,18 +27,13 @@ public class InitiatePaymentDTO {
     private PaymentMethod method;
     
     /**
-     * URL to redirect after successful payment.
-     * - Web: https://yourweb.com/payment/success
-     * - Mobile: yourapp://payment/success
+     * URL to redirect after payment (success or failed).
+     * - Web: https://yourweb.com/payment/result
+     * - Mobile: yourapp://payment/result
      * If null, uses default from config
+     * 
+     * Note: Payment status update is handled by IPN callback (/vnpay/ipn, /zalopay/ipn)
+     * This URL is only for user redirection back to app
      */
     private String returnUrl;
-    
-    /**
-     * URL to redirect after cancelled/failed payment.
-     * - Web: https://yourweb.com/payment/cancel
-     * - Mobile: yourapp://payment/cancel
-     * Currently not used by VNPay/ZaloPay (they use returnUrl for both cases)
-     */
-    private String cancelUrl;
 }

@@ -31,6 +31,5 @@ public class CreateAccountRequest {
     @NotNull(message = "Role ID không được để trống")
     private int roleId;
 
-    private UUID saintId;
     private Boolean isVerified = true;
 }

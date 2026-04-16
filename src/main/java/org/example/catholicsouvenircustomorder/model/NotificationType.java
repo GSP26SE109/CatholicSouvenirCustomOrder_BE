@@ -20,6 +20,12 @@ public enum NotificationType {
     NEW_CONVERSATION,      // When conversation is created
     NEW_MESSAGE,           // When new chat message arrives
     
+    // Withdrawal notifications
+    WITHDRAWAL_REQUESTED,  // When artisan creates withdrawal request
+    WITHDRAWAL_APPROVED,   // When admin approves withdrawal
+    WITHDRAWAL_REJECTED,   // When admin rejects withdrawal
+    WITHDRAWAL_CANCELLED,  // When artisan cancels withdrawal
+    
     // General
     SYSTEM_ANNOUNCEMENT,
     ACCOUNT_VERIFIED
