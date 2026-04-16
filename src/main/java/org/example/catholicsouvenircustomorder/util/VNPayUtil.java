@@ -51,17 +51,23 @@ public class VNPayUtil {
         params.put("vnp_Locale", "vn");
         params.put("vnp_ReturnUrl", returnUrl != null ? returnUrl : vnPayConfig.getReturnUrl());
 
-        // IPN URL: MUST add BEFORE calculating hash
-        if (vnPayConfig.getIpnUrl() != null && !vnPayConfig.getIpnUrl().isEmpty()) {
-            params.put("vnp_IpnUrl", vnPayConfig.getIpnUrl());
-            log.info("IPN URL added: {}", vnPayConfig.getIpnUrl());
-        }
+//        // IPN URL: MUST add BEFORE calculating hash
+//        if (vnPayConfig.getIpnUrl() != null && !vnPayConfig.getIpnUrl().isEmpty()) {
+//            params.put("vnp_IpnUrl", vnPayConfig.getIpnUrl());
+//            log.info("IPN URL added: {}", vnPayConfig.getIpnUrl());
+//        }
         
         params.put("vnp_IpAddr", "127.0.0.1");
         params.put("vnp_CreateDate", getVNPayDate());
         params.put("vnp_ExpireDate", getExpireDate(15));
         
-        // Generate secure hash AFTER adding all parameters including vnp_IpnUrl
+        // IMPORTANT: Add vnp_IpnUrl to request (VNPay sandbox requires this in request, not just portal config)
+        if (vnPayConfig.getIpnUrl() != null && !vnPayConfig.getIpnUrl().isEmpty()) {
+            params.put("vnp_IpnUrl", vnPayConfig.getIpnUrl());
+            log.info("IPN URL added to request: {}", vnPayConfig.getIpnUrl());
+        }
+        
+        // Generate secure hash AFTER adding vnp_IpnUrl
         String secureHash = generateSecureHash(params, vnPayConfig.getHashSecret());
         params.put("vnp_SecureHash", secureHash);
         

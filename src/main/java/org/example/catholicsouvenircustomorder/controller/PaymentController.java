@@ -57,7 +57,6 @@ public class PaymentController {
     
     /**
      * VNPay Return URL endpoint - User is redirected here after payment
-     * Supports both WEB and MOBILE platforms
      * DO NOT update DB here - only redirect to frontend/app
      * DB update happens via IPN callback
      */
@@ -122,8 +121,10 @@ public class PaymentController {
     public ResponseEntity<Map<String, String>> handleVNPayIPN(
             @RequestParam Map<String, String> allParams) {
         
+        log.info("========================================");
         log.info("Received VNPay IPN notification");
         log.info("All IPN params: {}", allParams);
+        log.info("========================================");
         
         try {
             // Filter only VNPay parameters (vnp_*)
@@ -145,6 +146,8 @@ public class PaymentController {
             
             paymentService.handlePaymentCallback(request);
             
+            log.info("IPN processing completed successfully");
+            
             // VNPay expects specific response format (NO BaseResponse wrapper)
             Map<String, String> response = new HashMap<>();
             response.put("RspCode", "00");
@@ -153,11 +156,15 @@ public class PaymentController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
+            log.error("========================================");
             log.error("Error processing VNPay IPN", e);
+            log.error("Exception type: {}", e.getClass().getName());
+            log.error("Exception message: {}", e.getMessage());
+            log.error("========================================");
             
             Map<String, String> response = new HashMap<>();
             response.put("RspCode", "99");
-            response.put("Message", "Unknown error");
+            response.put("Message", e.getMessage() != null ? e.getMessage() : "Unknown error");
             
             return ResponseEntity.ok(response);
         }
