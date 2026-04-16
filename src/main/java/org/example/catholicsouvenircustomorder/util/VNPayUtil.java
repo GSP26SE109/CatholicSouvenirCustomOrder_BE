@@ -61,12 +61,6 @@ public class VNPayUtil {
         params.put("vnp_CreateDate", getVNPayDate());
         params.put("vnp_ExpireDate", getExpireDate(15));
         
-        // IMPORTANT: Add vnp_IpnUrl to request (VNPay sandbox requires this in request, not just portal config)
-        if (vnPayConfig.getIpnUrl() != null && !vnPayConfig.getIpnUrl().isEmpty()) {
-            params.put("vnp_IpnUrl", vnPayConfig.getIpnUrl());
-            log.info("IPN URL added to request: {}", vnPayConfig.getIpnUrl());
-        }
-        
         // Generate secure hash AFTER adding vnp_IpnUrl
         String secureHash = generateSecureHash(params, vnPayConfig.getHashSecret());
         params.put("vnp_SecureHash", secureHash);
@@ -99,7 +93,6 @@ public class VNPayUtil {
             Map<String, String> paramsForHash = new HashMap<>(params);
             paramsForHash.remove("vnp_SecureHash");
             paramsForHash.remove("vnp_SecureHashType");
-            paramsForHash.remove("vnp_IpnUrl");
             
 
             
@@ -148,7 +141,6 @@ public class VNPayUtil {
         Map<String, String> hashParams = new HashMap<>(params);
         hashParams.remove("vnp_SecureHash");
         hashParams.remove("vnp_SecureHashType");
-        hashParams.remove("vnp_IpnUrl");
         
         List<String> keys = new ArrayList<>(hashParams.keySet());
         Collections.sort(keys);
