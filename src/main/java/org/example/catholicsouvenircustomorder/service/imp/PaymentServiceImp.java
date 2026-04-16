@@ -148,6 +148,23 @@ public class PaymentServiceImp implements PaymentService {
         String status;
         
         if ("VNPAY".equalsIgnoreCase(request.getPaymentGateway())) {
+            // CRITICAL: Verify signature first
+            log.info("Verifying VNPay signature...");
+            log.info("Received params: {}", request.getParams());
+            
+            boolean isValidSignature = vnPayUtil.verifySecureHash(
+                request.getParams(), 
+                vnPayUtil.getHashSecret()
+            );
+            
+            if (!isValidSignature) {
+                log.error("VNPay signature verification FAILED!");
+                log.error("Received hash: {}", request.getParams().get("vnp_SecureHash"));
+                throw new BadRequestException("Chữ ký không hợp lệ");
+            }
+            
+            log.info("VNPay signature verified successfully");
+            
             referenceId = request.getParams().get("vnp_TxnRef");
             gatewayTransactionId = request.getParams().get("vnp_TransactionNo");
             status = request.getParams().get("vnp_ResponseCode");

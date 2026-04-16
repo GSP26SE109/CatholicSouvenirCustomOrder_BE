@@ -32,7 +32,7 @@ public class PaymentController {
     private final PaymentService paymentService;
     private final PaymentRepository paymentRepository;
     
-    @Value("${vnpay.return-url}")
+    @Value("${app.frontend-url}")
     private String defaultFrontendUrl;
     
     /**
@@ -129,14 +129,26 @@ public class PaymentController {
      */
     @GetMapping("/vnpay/ipn")
     public ResponseEntity<Map<String, String>> handleVNPayIPN(
-            @RequestParam Map<String, String> params) {
+            @RequestParam Map<String, String> allParams) {
         
         log.info("Received VNPay IPN notification");
+        log.info("All IPN params: {}", allParams);
         
         try {
-            // IMPORTANT: Pass a copy of params to avoid modification issues
+            // Filter only VNPay parameters (vnp_*)
+            // Remove any extra parameters like 'platform' that we added
+            Map<String, String> vnpParams = new HashMap<>();
+            for (Map.Entry<String, String> entry : allParams.entrySet()) {
+                if (entry.getKey().startsWith("vnp_")) {
+                    vnpParams.put(entry.getKey(), entry.getValue());
+                }
+            }
+            
+            log.info("Filtered VNPay params: {}", vnpParams);
+            
+            // IMPORTANT: Pass only VNPay params for signature verification
             PaymentCallbackRequest request = PaymentCallbackRequest.builder()
-                    .params(new HashMap<>(params))
+                    .params(vnpParams)
                     .paymentGateway("VNPAY")
                     .build();
             

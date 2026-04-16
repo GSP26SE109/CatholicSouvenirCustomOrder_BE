@@ -24,6 +24,10 @@ public class VNPayUtil {
         this.vnPayConfig = vnPayConfig;
     }
     
+    public String getHashSecret() {
+        return vnPayConfig.getHashSecret();
+    }
+    
     public String createPaymentUrl(String transactionId, BigDecimal amount, String description, String customerEmail) throws Exception {
         return createPaymentUrl(transactionId, amount, description, customerEmail, null);
     }
@@ -92,10 +96,25 @@ public class VNPayUtil {
     public boolean verifySecureHash(Map<String, String> params, String secretKey) {
         try {
             String receivedHash = params.get("vnp_SecureHash");
-            params.remove("vnp_SecureHash");
-            params.remove("vnp_SecureHashType");
+            if (receivedHash == null || receivedHash.isEmpty()) {
+                log.error("No vnp_SecureHash found in params");
+                return false;
+            }
             
-            String calculatedHash = generateSecureHash(params, secretKey);
+            // Create a copy to avoid modifying original params
+            Map<String, String> paramsForHash = new HashMap<>(params);
+            paramsForHash.remove("vnp_SecureHash");
+            paramsForHash.remove("vnp_SecureHashType");
+            
+            log.info("=== VNPay Signature Verification ===");
+            log.info("Received hash: {}", receivedHash);
+            
+            String calculatedHash = generateSecureHash(paramsForHash, secretKey);
+            
+            log.info("Calculated hash: {}", calculatedHash);
+            log.info("Hashes match: {}", calculatedHash.equals(receivedHash));
+            log.info("===================================");
+            
             return calculatedHash.equals(receivedHash);
         } catch (Exception e) {
             log.error("Error verifying VNPay secure hash", e);
@@ -135,12 +154,17 @@ public class VNPayUtil {
     }
     
     private String buildHashData(Map<String, String> params) {
-        List<String> keys = new ArrayList<>(params.keySet());
+        // Remove vnp_SecureHash and vnp_SecureHashType from hash calculation
+        Map<String, String> hashParams = new HashMap<>(params);
+        hashParams.remove("vnp_SecureHash");
+        hashParams.remove("vnp_SecureHashType");
+        
+        List<String> keys = new ArrayList<>(hashParams.keySet());
         Collections.sort(keys);
         
         StringBuilder hashData = new StringBuilder();
         for (String key : keys) {
-            String value = params.get(key);
+            String value = hashParams.get(key);
             if (value != null && !value.isEmpty()) {
                 if (hashData.length() > 0) {
                     hashData.append("&");
