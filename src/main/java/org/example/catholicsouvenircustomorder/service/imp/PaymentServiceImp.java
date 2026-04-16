@@ -90,19 +90,13 @@ public class PaymentServiceImp implements PaymentService {
         try {
             int orderCount = orderGroup.getOrders().size();
             String description = orderCount == 1 
-                ? "Thanh toán đơn hàng" 
-                : "Thanh toán " + orderCount + " đơn hàng";
+                ? "Thanh toan don hang" 
+                : "Thanh toan " + orderCount + " don hang";
             
             if (dto.getMethod() == PaymentMethod.VNPAY) {
-                // Auto-detect platform from returnUrl scheme
+                // Use original returnUrl without adding platform parameter
+                // Platform will be detected from returnUrl scheme when VNPay redirects back
                 String returnUrl = dto.getReturnUrl();
-                String platform = detectPlatform(returnUrl);
-                
-                // Add platform parameter to return URL for backend to handle redirect
-                if (returnUrl != null && platform != null) {
-                    String separator = returnUrl.contains("?") ? "&" : "?";
-                    returnUrl = returnUrl + separator + "platform=" + platform;
-                }
                 
                 paymentUrl = vnPayUtil.createPaymentUrl(
                         referenceId,
