@@ -49,42 +49,27 @@ public class VNPayUtil {
         params.put("vnp_OrderInfo", description);
         params.put("vnp_OrderType", vnPayConfig.getOrderType());
         params.put("vnp_Locale", "vn");
-        
-        // Return URL: where user is redirected (FE web or mobile deep link)
-        // VNPay will redirect user here with payment params in URL
         params.put("vnp_ReturnUrl", returnUrl != null ? returnUrl : vnPayConfig.getReturnUrl());
-        
-        // IMPORTANT: Do NOT send vnp_IpnUrl if already configured in VNPay merchant portal
-        // Sending it will cause signature mismatch
-        // VNPay will use the IPN URL from portal configuration automatically
-        log.info("IPN URL is configured in VNPay portal, not sending in request");
-        
-        params.put("vnp_IpAddr", "127.0.0.1");
+
+        params.put("vnp_IpAddr", "103.21.x.x");
         params.put("vnp_CreateDate", getVNPayDate());
         params.put("vnp_ExpireDate", getExpireDate(15));
         
         // Generate secure hash
         String secureHash = generateSecureHash(params, vnPayConfig.getHashSecret());
         params.put("vnp_SecureHash", secureHash);
+
+        params.put("vnp_IpnUrl", vnPayConfig.getIpnUrl());
         
         // Build URL
         String queryUrl = buildQueryUrl(params);
         String fullUrl = vnPayConfig.getUrl() + "?" + queryUrl;
-        log.info("Payment URL created successfully");
-        log.info("Return URL: {}", params.get("vnp_ReturnUrl"));
-        log.info("================================");
         return fullUrl;
     }
     
     public String generateSecureHash(Map<String, String> params, String secretKey) throws Exception {
         String data = buildHashData(params);
-        log.info("=== VNPay Hash Debug ===");
-        log.info("Hash data string: {}", data);
-        log.info("Secret key length: {}", secretKey.length());
-        log.info("Secret key (first 10 chars): {}...", secretKey.substring(0, Math.min(10, secretKey.length())));
         String hash = hmacSHA512(data, secretKey);
-        log.info("Generated secure hash: {}", hash);
-        log.info("======================");
         return hash;
     }
     
@@ -101,14 +86,9 @@ public class VNPayUtil {
             paramsForHash.remove("vnp_SecureHash");
             paramsForHash.remove("vnp_SecureHashType");
             
-            log.info("=== VNPay Signature Verification ===");
-            log.info("Received hash: {}", receivedHash);
+
             
             String calculatedHash = generateSecureHash(paramsForHash, secretKey);
-            
-            log.info("Calculated hash: {}", calculatedHash);
-            log.info("Hashes match: {}", calculatedHash.equals(receivedHash));
-            log.info("===================================");
             
             return calculatedHash.equals(receivedHash);
         } catch (Exception e) {
@@ -164,7 +144,7 @@ public class VNPayUtil {
                 if (hashData.length() > 0) {
                     hashData.append("&");
                 }
-                hashData.append(key)
+                hashData.append(URLEncoder.encode(key, StandardCharsets.UTF_8))
                         .append("=")
                         .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
             }
