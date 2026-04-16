@@ -75,11 +75,11 @@ vnpay:
   tmn-code: ${VNPAY_TMN_CODE:A1F15ZBS}
   hash-secret: ${VNPAY_HASH_SECRET:I8GJ3NOJ5A6X74QB41YUKWCWAB17A90R}
   url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-  return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/payments/vnpay/callback}
-  # IPN URL is commented out for localhost testing
-  # VNPay sandbox cannot call back to localhost
-  # Uncomment this when deploying to production with public URL
-  ipn-url: ${VNPAY_IPN_URL:http://localhost:8080/api/payments/vnpay/ipn}
+  # Return URL: where VNPay redirects user after payment (with platform param for web/mobile detection)
+  return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/payments/vnpay/return}
+  # IPN URL: server-to-server callback for DB update (REQUIRED for production)
+  # Comment out for localhost testing since VNPay sandbox cannot reach localhost
+  # ipn-url: ${VNPAY_IPN_URL:https://catholic-souvenir-api.southeastasia.cloudapp.azure.com/api/payments/vnpay/ipn}
   version: ${VNPAY_VERSION:2.1.0}
   command: ${VNPAY_COMMAND:pay}
   order-type: ${VNPAY_ORDER_TYPE:other}

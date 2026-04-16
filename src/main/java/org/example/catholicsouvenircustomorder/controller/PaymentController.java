@@ -72,72 +72,62 @@ public class PaymentController {
     }
     
     /**
-     * Xử lý callback từ payment gateway (VNPay, ZaloPay)
+     * VNPay Return URL endpoint - User is redirected here after payment
+     * DO NOT update DB here - only redirect to frontend
+     * DB update happens via IPN callback
      */
-    @PostMapping("/callback")
-    public ResponseEntity<BaseResponse<PaymentResponse>> handlePaymentCallback(
-            @RequestBody Map<String, String> params,
-            @RequestParam(required = false, defaultValue = "VNPAY") String gateway) {
+    @GetMapping("/vnpay/return")
+    public void handleVNPayReturn(
+            @RequestParam Map<String, String> params,
+            @RequestParam(required = false) String platform,
+            jakarta.servlet.http.HttpServletResponse response) throws Exception {
         
-        log.info("Received payment callback from gateway: {}", gateway);
+        log.info("Received VNPay return callback");
+        log.info("Platform: {}", platform);
+        log.info("Response code: {}", params.get("vnp_ResponseCode"));
         
-        PaymentCallbackRequest request = PaymentCallbackRequest.builder()
-                .params(params)
-                .paymentGateway(gateway)
-                .build();
+        String vnpResponseCode = params.get("vnp_ResponseCode");
+        String txnRef = params.get("vnp_TxnRef");
+        boolean isSuccess = "00".equals(vnpResponseCode);
         
-        PaymentResponse response = paymentService.handlePaymentCallback(request);
+        // Build redirect URL based on platform
+        String redirectUrl;
+        if ("mobile".equalsIgnoreCase(platform)) {
+            // Mobile deep link
+            redirectUrl = String.format("myapp://payment/result?orderId=%s&success=%s&code=%s",
+                    txnRef, isSuccess, vnpResponseCode);
+        } else {
+            // Web frontend URL
+            String frontendUrl = "https://your-frontend.com"; // TODO: Move to config
+            redirectUrl = String.format("%s/payment/result?orderId=%s&success=%s&code=%s",
+                    frontendUrl, txnRef, isSuccess, vnpResponseCode);
+        }
         
-        return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
-                .code(200)
-                .message("Xử lý callback thanh toán thành công")
-                .data(response)
-                .build());
-    }
-    
-    /**
-     * VNPay callback endpoint (GET method)
-     */
-    @GetMapping("/vnpay/callback")
-    public ResponseEntity<BaseResponse<PaymentResponse>> handleVNPayCallback(
-            @RequestParam Map<String, String> params) {
-        
-        log.info("Received VNPay callback");
-        
-        PaymentCallbackRequest request = PaymentCallbackRequest.builder()
-                .params(params)
-                .paymentGateway("VNPAY")
-                .build();
-        
-        PaymentResponse response = paymentService.handlePaymentCallback(request);
-        
-        return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
-                .code(200)
-                .message("Xử lý callback VNPay thành công")
-                .data(response)
-                .build());
+        log.info("Redirecting to: {}", redirectUrl);
+        response.sendRedirect(redirectUrl);
     }
     
     /**
      * VNPay IPN endpoint (Server-to-Server callback)
-     * VNPay will POST here to notify payment result
-     * This is the AUTHORITATIVE source of payment status
+     * VNPay will call this via GET to notify payment result
+     * This is the AUTHORITATIVE source - UPDATE DB HERE
      */
-    @PostMapping("/vnpay/ipn")
+    @GetMapping("/vnpay/ipn")
     public ResponseEntity<Map<String, String>> handleVNPayIPN(
             @RequestParam Map<String, String> params) {
         
         log.info("Received VNPay IPN notification");
         
         try {
+            // IMPORTANT: Pass a copy of params to avoid modification issues
             PaymentCallbackRequest request = PaymentCallbackRequest.builder()
-                    .params(params)
+                    .params(new HashMap<>(params))
                     .paymentGateway("VNPAY")
                     .build();
             
             paymentService.handlePaymentCallback(request);
             
-            // VNPay expects specific response format
+            // VNPay expects specific response format (NO BaseResponse wrapper)
             Map<String, String> response = new HashMap<>();
             response.put("RspCode", "00");
             response.put("Message", "Confirm Success");
@@ -150,66 +140,6 @@ public class PaymentController {
             Map<String, String> response = new HashMap<>();
             response.put("RspCode", "99");
             response.put("Message", "Unknown error");
-            
-            return ResponseEntity.ok(response);
-        }
-    }
-    
-    /**
-     * ZaloPay callback endpoint (POST method)
-     */
-    @PostMapping("/zalopay/callback")
-    public ResponseEntity<BaseResponse<PaymentResponse>> handleZaloPayCallback(
-            @RequestBody Map<String, String> params) {
-        
-        log.info("Received ZaloPay callback");
-        
-        PaymentCallbackRequest request = PaymentCallbackRequest.builder()
-                .params(params)
-                .paymentGateway("ZALOPAY")
-                .build();
-        
-        PaymentResponse response = paymentService.handlePaymentCallback(request);
-        
-        return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
-                .code(200)
-                .message("Xử lý callback ZaloPay thành công")
-                .data(response)
-                .build());
-    }
-    
-    /**
-     * ZaloPay IPN endpoint (Server-to-Server callback)
-     * ZaloPay will POST here to notify payment result
-     * This is the AUTHORITATIVE source of payment status
-     */
-    @PostMapping("/zalopay/ipn")
-    public ResponseEntity<Map<String, Object>> handleZaloPayIPN(
-            @RequestBody Map<String, String> params) {
-        
-        log.info("Received ZaloPay IPN notification");
-        
-        try {
-            PaymentCallbackRequest request = PaymentCallbackRequest.builder()
-                    .params(params)
-                    .paymentGateway("ZALOPAY")
-                    .build();
-            
-            paymentService.handlePaymentCallback(request);
-            
-            // ZaloPay expects specific response format
-            Map<String, Object> response = new HashMap<>();
-            response.put("return_code", 1);
-            response.put("return_message", "success");
-            
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            log.error("Error processing ZaloPay IPN", e);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("return_code", 0);
-            response.put("return_message", "failed");
             
             return ResponseEntity.ok(response);
         }
@@ -350,44 +280,8 @@ public class PaymentController {
     }
     
     /**
-     * Kiểm tra trạng thái thanh toán của order
-     */
-    @GetMapping("/order/{orderId}/status")
-    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ADMIN')")
-    public ResponseEntity<BaseResponse<Boolean>> checkOrderPaymentStatus(
-            @PathVariable UUID orderId,
-            @AuthenticationPrincipal UUID accountId,
-            Authentication authentication) {
-        
-        log.info("Checking payment status for order: {}", orderId);
-        
-        // Get role from authorities
-        String role = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(GrantedAuthority::getAuthority)
-                .orElse("")
-                .replace("ROLE_", "");
-        
-        // Verify ownership for customers
-        if ("CUSTOMER".equals(role)) {
-            Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng"));
-            if (!order.getCustomer().getAccountId().equals(accountId)) {
-                throw new BadRequestException("Bạn không có quyền xem trạng thái thanh toán của đơn hàng này");
-            }
-        }
-        
-        boolean isPaid = paymentRepository.isOrderFullyPaid(orderId);
-        
-        return ResponseEntity.ok(BaseResponse.<Boolean>builder()
-                .code(200)
-                .message(isPaid ? "Đơn hàng đã được thanh toán" : "Đơn hàng chưa được thanh toán")
-                .data(isPaid)
-                .build());
-    }
-    
-    /**
      * Lấy trạng thái payment mới nhất của order (cho mobile app polling)
+     * Also returns payment status for checking if order is paid
      */
     @GetMapping("/order/{orderId}/latest")
     @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ADMIN')")

@@ -78,24 +78,35 @@ public class PaymentServiceImp implements PaymentService {
         
         String paymentUrl;
         try {
-            // Use returnUrl from request, or fallback to config default
+            // Build return URL with platform parameter
             String returnUrl = dto.getReturnUrl();
+            String returnUrlWithPlatform;
             
-            if (dto.getMethod() == PaymentMethod.VNPAY) {
-                paymentUrl = vnPayUtil.createPaymentUrl(
+            if (returnUrl != null && !returnUrl.isEmpty()) {
+                // User provided custom return URL - detect platform from URL scheme
+                String platform = returnUrl.startsWith("http") ? "web" : "mobile";
+                returnUrlWithPlatform = vnPayUtil.createPaymentUrl(
                         referenceId,
                         order.getTotal(),
                         "Thanh toán đơn hàng #" + order.getOrderId(),
                         order.getCustomer().getEmail(),
-                        returnUrl  // Will use config default if null
+                        returnUrl + (returnUrl.contains("?") ? "&" : "?") + "platform=" + platform
                 );
-            } else if (dto.getMethod() == PaymentMethod.ZALOPAY) {
-                paymentUrl = zaloPayUtil.createPaymentUrl(
+            } else {
+                // Use default return URL from config (will be /vnpay/return endpoint)
+                returnUrlWithPlatform = vnPayUtil.createPaymentUrl(
                         referenceId,
                         order.getTotal(),
                         "Thanh toán đơn hàng #" + order.getOrderId(),
-                        returnUrl  // Will use config default if null
+                        order.getCustomer().getEmail(),
+                        null  // Use config default
                 );
+            }
+            
+            if (dto.getMethod() == PaymentMethod.VNPAY) {
+                paymentUrl = returnUrlWithPlatform;
+            } else if (dto.getMethod() == PaymentMethod.ZALOPAY) {
+                throw new BadRequestException("ZaloPay không được hỗ trợ. Vui lòng sử dụng VNPay");
             } else {
                 throw new BadRequestException("Phương thức thanh toán không được hỗ trợ");
             }
