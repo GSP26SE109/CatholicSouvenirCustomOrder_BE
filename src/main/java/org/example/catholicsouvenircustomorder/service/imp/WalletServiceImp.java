@@ -44,32 +44,94 @@ public class WalletServiceImp implements WalletService {
     
     @Override
     @Transactional
-    public void processPaymentDistribution(Payment payment, Artisan artisan, Account platformAdmin) {
+    public void processPaymentDistribution(Payment payment, Account platformAdmin) {
         if (payment.getStatus() != PaymentStatus.SUCCESS) {
             throw new IllegalStateException("Payment must be SUCCESS to distribute money");
         }
         
-        BigDecimal totalAmount = payment.getAmount();
+        OrderGroup orderGroup = payment.getOrderGroup();
+        if (orderGroup == null || orderGroup.getOrders() == null || orderGroup.getOrders().isEmpty()) {
+            throw new IllegalStateException("Payment has no associated orders");
+        }
         
-        // Calculate platform fee (10%)
-        BigDecimal platformFee = totalAmount.multiply(PLATFORM_FEE_RATE)
-                .setScale(2, RoundingMode.HALF_UP);
+        log.info("Starting payment distribution for OrderGroup: {}", orderGroup.getGroupId());
+        log.info("Total payment amount: {}", payment.getAmount());
         
-        // Calculate artisan amount (90%)
-        BigDecimal artisanAmount = totalAmount.subtract(platformFee);
+        // Group orders by artisan and calculate total per artisan
+        var ordersByArtisan = orderGroup.getOrders().stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        this::findArtisanByOrder,
+                        java.util.stream.Collectors.toList()
+                ));
         
-        log.info("Distributing payment: Total={}, PlatformFee={}, ArtisanAmount={}", 
-                totalAmount, platformFee, artisanAmount);
+        BigDecimal totalPlatformFee = BigDecimal.ZERO;
         
-        // 1. Deposit to artisan wallet (90%)
-        depositToWallet(artisan.getAccount(), artisanAmount, WalletTransactionType.DEPOSIT, payment, null,
-                "Nạp tiền từ đơn hàng #" + payment.getOrder().getOrderId());
+        // Distribute to each artisan
+        for (var entry : ordersByArtisan.entrySet()) {
+            Artisan artisan = entry.getKey();
+            List<Order> artisanOrders = entry.getValue();
+            
+            if (artisan == null) {
+                log.error("Skipping orders with no artisan: {}", artisanOrders.size());
+                continue;
+            }
+            
+            // Calculate total amount for this artisan's orders
+            BigDecimal artisanOrdersTotal = artisanOrders.stream()
+                    .map(Order::getTotal)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            // Calculate platform fee (10% of artisan's orders)
+            BigDecimal platformFee = artisanOrdersTotal.multiply(PLATFORM_FEE_RATE)
+                    .setScale(2, RoundingMode.HALF_UP);
+            
+            // Calculate artisan amount (90% of artisan's orders)
+            BigDecimal artisanAmount = artisanOrdersTotal.subtract(platformFee);
+            
+            totalPlatformFee = totalPlatformFee.add(platformFee);
+            
+            log.info("Artisan {}: OrdersTotal={}, PlatformFee={}, ArtisanAmount={}", 
+                    artisan.getArtisanUuid(), artisanOrdersTotal, platformFee, artisanAmount);
+            
+            // Deposit to artisan wallet (90%)
+            String orderIds = artisanOrders.stream()
+                    .map(o -> o.getOrderId().toString())
+                    .collect(java.util.stream.Collectors.joining(", "));
+            
+            depositToWallet(artisan.getAccount(), artisanAmount, WalletTransactionType.DEPOSIT, payment, null,
+                    String.format("Nạp tiền từ %d đơn hàng (OrderGroup #%s)", 
+                            artisanOrders.size(), orderGroup.getGroupId()));
+        }
         
-        // 2. Collect platform fee to admin wallet (10%)
-        depositToWallet(platformAdmin, platformFee, WalletTransactionType.PLATFORM_FEE, payment, null,
-                "Phí sàn 10% từ đơn hàng #" + payment.getOrder().getOrderId());
+        // Collect total platform fee to admin wallet (10%)
+        if (totalPlatformFee.compareTo(BigDecimal.ZERO) > 0) {
+            depositToWallet(platformAdmin, totalPlatformFee, WalletTransactionType.PLATFORM_FEE, payment, null,
+                    String.format("Phí sàn 10%% từ OrderGroup #%s", orderGroup.getGroupId()));
+            log.info("Total platform fee collected: {}", totalPlatformFee);
+        }
         
-        log.info("Payment distribution completed for order: {}", payment.getOrder().getOrderId());
+        log.info("Payment distribution completed for OrderGroup: {}", orderGroup.getGroupId());
+    }
+    
+    /**
+     * Helper method to find artisan from order
+     */
+    private Artisan findArtisanByOrder(Order order) {
+        if (order.getOrderDetails() != null && !order.getOrderDetails().isEmpty()) {
+            Product product = order.getOrderDetails().get(0).getProduct();
+            if (product != null && product.getArtisan() != null) {
+                return product.getArtisan();
+            }
+        }
+        
+        if (order.getTemplateDetails() != null && !order.getTemplateDetails().isEmpty()) {
+            ProductTemplate template = order.getTemplateDetails().get(0).getTemplate();
+            if (template != null && template.getArtisan() != null) {
+                return template.getArtisan();
+            }
+        }
+        
+        return null;
     }
     
     @Override

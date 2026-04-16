@@ -21,5 +21,6 @@ public class OrderTemplateDetailResponseDTO {
     
     private UUID templateId;
     private String templateName;
+    private String image;
     private Map<String, String> customizations;
 }

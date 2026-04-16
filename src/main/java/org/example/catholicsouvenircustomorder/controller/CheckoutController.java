@@ -7,7 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.CheckoutRequest;
-import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
+import org.example.catholicsouvenircustomorder.dto.response.Order.CheckoutResponseDTO;
 import org.example.catholicsouvenircustomorder.service.CheckoutService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,16 +25,16 @@ public class CheckoutController {
     
     @PostMapping
     @PreAuthorize("hasAuthority('CUSTOMER')")
-    public ResponseEntity<BaseResponse<OrderResponseDTO>> checkout(
+    public ResponseEntity<BaseResponse<CheckoutResponseDTO>> checkout(
             @AuthenticationPrincipal UUID customerId,
             @Valid @RequestBody CheckoutRequest request) {
         
-        OrderResponseDTO order = checkoutService.checkout(customerId, request);
+        CheckoutResponseDTO response = checkoutService.checkout(customerId, request);
         
-        return ResponseEntity.ok(BaseResponse.<OrderResponseDTO>builder()
+        return ResponseEntity.ok(BaseResponse.<CheckoutResponseDTO>builder()
                 .code(200)
-                .message("Đặt hàng thành công")
-                .data(order)
+                .message(response.getMessage())
+                .data(response)
                 .build());
     }
     

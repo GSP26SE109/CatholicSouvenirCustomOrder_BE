@@ -9,6 +9,7 @@ import org.example.catholicsouvenircustomorder.dto.response.PaymentResponse;
 import org.example.catholicsouvenircustomorder.exception.BadRequestException;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.model.*;
+import org.example.catholicsouvenircustomorder.repository.OrderGroupRepository;
 import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.repository.PaymentRepository;
 import org.example.catholicsouvenircustomorder.service.PaymentService;
@@ -23,7 +24,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Service implementation for Order payments only
+ * Service implementation for OrderGroup payments (checkout payments)
  * For custom order stage payments, use StagePaymentService
  */
 @Slf4j
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 public class PaymentServiceImp implements PaymentService {
     
     private final PaymentRepository paymentRepository;
+    private final OrderGroupRepository orderGroupRepository;
     private final OrderRepository orderRepository;
     private final VNPayUtil vnPayUtil;
     private final ZaloPayUtil zaloPayUtil;
@@ -39,22 +41,28 @@ public class PaymentServiceImp implements PaymentService {
 
     @Override
     @Transactional
-    public PaymentInitiationResponse initiatePayment(InitiatePaymentDTO dto) {
-        log.info("Initiating payment for order: {}", dto.getOrderId());
+    public PaymentInitiationResponse initiatePayment(InitiatePaymentDTO dto, UUID customerId) {
+        log.info("Initiating payment for order group: {} by customer: {}", dto.getOrderGroupId(), customerId);
         
-        if (dto.getOrderId() == null) {
-            throw new BadRequestException("Order ID không được để trống");
+        if (dto.getOrderGroupId() == null) {
+            throw new BadRequestException("Order Group ID không được để trống");
         }
         
-        Order order = orderRepository.findById(dto.getOrderId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng"));
+        OrderGroup orderGroup = orderGroupRepository.findById(dto.getOrderGroupId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhóm đơn hàng"));
         
-        if ("PAID".equals(order.getStatus()) || "COMPLETED".equals(order.getStatus())) {
-            throw new BadRequestException("Đơn hàng đã được thanh toán");
+        // Validate ownership
+        if (!orderGroup.getCustomer().getAccountId().equals(customerId)) {
+            throw new BadRequestException("Bạn không có quyền thanh toán nhóm đơn hàng này");
         }
         
-        Payment existingPayment = paymentRepository.findByOrderOrderIdAndStatus(
-                dto.getOrderId(), PaymentStatus.PENDING
+        if (orderGroup.getOrders() == null || orderGroup.getOrders().isEmpty()) {
+            throw new BadRequestException("Nhóm đơn hàng không có đơn hàng nào");
+        }
+        
+        // Check if already has pending payment
+        Payment existingPayment = paymentRepository.findByOrderGroup_GroupIdAndStatus(
+                dto.getOrderGroupId(), PaymentStatus.PENDING
         ).orElse(null);
         
         if (existingPayment != null) {
@@ -62,50 +70,47 @@ public class PaymentServiceImp implements PaymentService {
             return PaymentInitiationResponse.builder()
                     .paymentId(existingPayment.getPaymentId())
                     .paymentUrl(existingPayment.getPaymentUrl())
-                    .transactionId(existingPayment.getTransactionId())
+                    .transactionId(existingPayment.getReferenceId())
                     .amount(existingPayment.getAmount())
                     .build();
         }
         
+        // Create new payment
         Payment payment = new Payment();
-        payment.setOrder(order);
+        payment.setOrderGroup(orderGroup);
         payment.setMethod(dto.getMethod());
-        payment.setAmount(order.getTotal());
+        payment.setAmount(orderGroup.getTotalAmount());
         payment.setStatus(PaymentStatus.PENDING);
-        payment.setReturnUrl(dto.getReturnUrl()); // Save return URL for later use
+        payment.setReturnUrl(dto.getReturnUrl());
         
-        String referenceId = "ORDER_" + order.getOrderId() + "_" + System.currentTimeMillis();
+        String referenceId = "GROUP_" + orderGroup.getGroupId() + "_" + System.currentTimeMillis();
         payment.setReferenceId(referenceId);
         
         String paymentUrl;
         try {
-            // Build return URL with platform parameter
-            String returnUrl = dto.getReturnUrl();
-            String returnUrlWithPlatform;
-            
-            if (returnUrl != null && !returnUrl.isEmpty()) {
-                // User provided custom return URL - detect platform from URL scheme
-                String platform = returnUrl.startsWith("http") ? "web" : "mobile";
-                returnUrlWithPlatform = vnPayUtil.createPaymentUrl(
-                        referenceId,
-                        order.getTotal(),
-                        "Thanh toán đơn hàng #" + order.getOrderId(),
-                        order.getCustomer().getEmail(),
-                        returnUrl + (returnUrl.contains("?") ? "&" : "?") + "platform=" + platform
-                );
-            } else {
-                // Use default return URL from config (will be /vnpay/return endpoint)
-                returnUrlWithPlatform = vnPayUtil.createPaymentUrl(
-                        referenceId,
-                        order.getTotal(),
-                        "Thanh toán đơn hàng #" + order.getOrderId(),
-                        order.getCustomer().getEmail(),
-                        null  // Use config default
-                );
-            }
+            int orderCount = orderGroup.getOrders().size();
+            String description = orderCount == 1 
+                ? "Thanh toán đơn hàng" 
+                : "Thanh toán " + orderCount + " đơn hàng";
             
             if (dto.getMethod() == PaymentMethod.VNPAY) {
-                paymentUrl = returnUrlWithPlatform;
+                // Auto-detect platform from returnUrl scheme
+                String returnUrl = dto.getReturnUrl();
+                String platform = detectPlatform(returnUrl);
+                
+                // Add platform parameter to return URL for backend to handle redirect
+                if (returnUrl != null && platform != null) {
+                    String separator = returnUrl.contains("?") ? "&" : "?";
+                    returnUrl = returnUrl + separator + "platform=" + platform;
+                }
+                
+                paymentUrl = vnPayUtil.createPaymentUrl(
+                        referenceId,
+                        orderGroup.getTotalAmount(),
+                        description,
+                        orderGroup.getCustomer().getEmail(),
+                        returnUrl
+                );
             } else if (dto.getMethod() == PaymentMethod.ZALOPAY) {
                 throw new BadRequestException("ZaloPay không được hỗ trợ. Vui lòng sử dụng VNPay");
             } else {
@@ -126,14 +131,17 @@ public class PaymentServiceImp implements PaymentService {
                 .paymentId(payment.getPaymentId())
                 .paymentUrl(paymentUrl)
                 .transactionId(referenceId)
-                .amount(order.getTotal())
+                .amount(orderGroup.getTotalAmount())
                 .build();
     }
 
     @Override
     @Transactional
     public PaymentResponse handlePaymentCallback(PaymentCallbackRequest request) {
-        log.info("Handling payment callback for gateway: {}", request.getPaymentGateway());
+        log.info("========================================");
+        log.info("Processing payment callback");
+        log.info("Gateway: {}", request.getPaymentGateway());
+        log.info("========================================");
         
         String referenceId;
         String gatewayTransactionId;
@@ -143,6 +151,8 @@ public class PaymentServiceImp implements PaymentService {
             referenceId = request.getParams().get("vnp_TxnRef");
             gatewayTransactionId = request.getParams().get("vnp_TransactionNo");
             status = request.getParams().get("vnp_ResponseCode");
+            log.info("VNPay callback - TxnRef: {}, TransactionNo: {}, Status: {}", 
+                    referenceId, gatewayTransactionId, status);
         } else if ("ZALOPAY".equalsIgnoreCase(request.getPaymentGateway())) {
             referenceId = request.getParams().get("apptransid");
             gatewayTransactionId = request.getParams().get("zptransid");
@@ -154,55 +164,84 @@ public class PaymentServiceImp implements PaymentService {
         Payment payment = paymentRepository.findByReferenceId(referenceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy payment"));
         
+        // IDEMPOTENCY CHECK: If already processed, return existing result
+        if (payment.getStatus() == PaymentStatus.SUCCESS) {
+            log.info("Payment already processed successfully, returning existing result");
+            return mapToPaymentResponse(payment);
+        }
+        
+        if (payment.getStatus() == PaymentStatus.FAILED) {
+            log.info("Payment already marked as failed, returning existing result");
+            return mapToPaymentResponse(payment);
+        }
+        
         if ("00".equals(status) || "SUCCESS".equalsIgnoreCase(status) || "1".equals(status)) {
+            log.info("Payment successful, updating status");
             payment.setStatus(PaymentStatus.SUCCESS);
             payment.setTransactionId(gatewayTransactionId);
             payment.setPaidAt(LocalDateTime.now());
             
-            Order order = payment.getOrder();
-            if (order == null) {
-                log.error("Payment {} has no associated order! Cannot process distribution.", payment.getPaymentId());
+            OrderGroup orderGroup = payment.getOrderGroup();
+            if (orderGroup == null) {
+                log.error("Payment {} has no associated order group!", payment.getPaymentId());
                 payment.setStatus(PaymentStatus.FAILED);
-                payment.setFailureReason("No order associated with payment");
+                payment.setFailureReason("No order group associated with payment");
             } else {
-                order.setStatus(String.valueOf(OrderStatus.PAID));
-                order.setUpdateAt(LocalDateTime.now());
-                orderRepository.save(order);
+                // Update order group status
+                orderGroup.setStatus("PAID");
+                orderGroup.setUpdatedAt(LocalDateTime.now());
+                orderGroupRepository.save(orderGroup);
+                log.info("Order group {} status updated to PAID", orderGroup.getGroupId());
                 
-                try {
-                    Artisan artisan = findArtisanByOrder(order);
-                    
-                    if (artisan != null) {
-                        Account platformAdmin = walletService.getPlatformAdminAccount();
-                        walletService.processPaymentDistribution(payment, artisan, platformAdmin);
-                        log.info("Payment distribution completed for order: {}", order.getOrderId());
-                    } else {
-                        log.error("No artisan found for order: {}", order.getOrderId());
-                    }
-                } catch (Exception e) {
-                    log.error("Error distributing payment for order {}: {}", order.getOrderId(), e.getMessage(), e);
+                // Update ALL orders in the group
+                for (Order order : orderGroup.getOrders()) {
+                    order.setStatus("PAID");
+                    order.setUpdateAt(LocalDateTime.now());
+                    orderRepository.save(order);
+                    log.info("Order {} status updated to PAID", order.getOrderId());
                 }
                 
-                log.info("Payment successful for order: {}, gateway transaction: {}", 
-                        order.getOrderId(), gatewayTransactionId);
+                log.info("Updated {} orders in group {}", 
+                        orderGroup.getOrders().size(), orderGroup.getGroupId());
+                
+                // Distribute payment to all artisans (once for the entire order group)
+                try {
+                    Account platformAdmin = walletService.getPlatformAdminAccount();
+                    walletService.processPaymentDistribution(payment, platformAdmin);
+                    log.info("Payment distribution completed for order group: {}", orderGroup.getGroupId());
+                } catch (Exception e) {
+                    log.error("Error distributing payment for order group {}: {}", 
+                            orderGroup.getGroupId(), e.getMessage(), e);
+                }
             }
             
         } else {
+            log.warn("Payment failed with status: {}", status);
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason("Payment failed with status: " + status);
-            log.warn("Payment failed for reference: {}", referenceId);
         }
         
         payment = paymentRepository.save(payment);
+        log.info("Payment callback processing completed");
+        log.info("========================================");
         
         return mapToPaymentResponse(payment);
     }
 
     @Override
-    public List<PaymentResponse> getOrderPayments(UUID orderId) {
-        log.info("Getting payments for order: {}", orderId);
+    public List<PaymentResponse> getOrderGroupPayments(UUID orderGroupId, UUID customerId, String role) {
+        log.info("Getting payments for order group: {} by user: {} with role: {}", orderGroupId, customerId, role);
         
-        List<Payment> payments = paymentRepository.findByOrderOrderId(orderId);
+        // Verify ownership for customers
+        if ("CUSTOMER".equals(role)) {
+            OrderGroup orderGroup = orderGroupRepository.findById(orderGroupId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhóm đơn hàng"));
+            if (!orderGroup.getCustomer().getAccountId().equals(customerId)) {
+                throw new BadRequestException("Bạn không có quyền xem thanh toán này");
+            }
+        }
+        
+        List<Payment> payments = paymentRepository.findByOrderGroup_GroupId(orderGroupId);
         
         return payments.stream()
                 .map(this::mapToPaymentResponse)
@@ -210,18 +249,47 @@ public class PaymentServiceImp implements PaymentService {
     }
 
     @Override
-    public PaymentResponse getPaymentById(UUID paymentId) {
-        log.info("Getting payment: {}", paymentId);
+    public PaymentResponse getPaymentById(UUID paymentId, UUID customerId, String role) {
+        log.info("Getting payment: {} by user: {} with role: {}", paymentId, customerId, role);
         
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy payment"));
+        
+        // Verify ownership for customers
+        if ("CUSTOMER".equals(role)) {
+            if (payment.getOrderGroup() == null || 
+                !payment.getOrderGroup().getCustomer().getAccountId().equals(customerId)) {
+                throw new BadRequestException("Bạn không có quyền xem thanh toán này");
+            }
+        }
         
         return mapToPaymentResponse(payment);
     }
 
     @Override
-    public boolean isOrderFullyPaid(UUID orderId) {
-        return paymentRepository.isOrderFullyPaid(orderId);
+    public List<PaymentResponse> getUserPayments(UUID customerId, String role) {
+        log.info("Getting payments for user: {} with role: {}", customerId, role);
+        
+        List<Payment> payments;
+        
+        if ("CUSTOMER".equals(role)) {
+            // Get payments for customer's order groups
+            payments = paymentRepository.findByCustomerId(customerId);
+        } else if ("ADMIN".equals(role)) {
+            // Admin can see all payments
+            payments = paymentRepository.findAll();
+        } else {
+            payments = List.of();
+        }
+        
+        return payments.stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean isOrderGroupPaid(UUID orderGroupId) {
+        return paymentRepository.isOrderGroupPaid(orderGroupId);
     }
 
     @Override
@@ -239,10 +307,18 @@ public class PaymentServiceImp implements PaymentService {
         payment.setStatus(PaymentStatus.CANCELLED);
         payment.setFailureReason("Refunded: " + reason);
         
-        Order order = payment.getOrder();
-        order.setStatus(String.valueOf(OrderStatus.CANCELED));
-        order.setUpdateAt(LocalDateTime.now());
-        orderRepository.save(order);
+        OrderGroup orderGroup = payment.getOrderGroup();
+        if (orderGroup != null) {
+            orderGroup.setStatus("CANCELLED");
+            orderGroupRepository.save(orderGroup);
+            
+            // Cancel all orders in group
+            for (Order order : orderGroup.getOrders()) {
+                order.setStatus("CANCELED");
+                order.setUpdateAt(LocalDateTime.now());
+                orderRepository.save(order);
+            }
+        }
         
         payment = paymentRepository.save(payment);
         log.info("Payment refunded successfully: {}", paymentId);
@@ -254,27 +330,6 @@ public class PaymentServiceImp implements PaymentService {
     public Payment findById(UUID paymentId) {
         return paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy payment"));
-    }
-    
-    private Artisan findArtisanByOrder(Order order) {
-        if (order.getOrderDetails() != null && !order.getOrderDetails().isEmpty()) {
-            Product product = order.getOrderDetails().get(0).getProduct();
-            if (product != null && product.getArtisan() != null) {
-                log.info("Found artisan from product order: {}", product.getArtisan().getArtisanUuid());
-                return product.getArtisan();
-            }
-        }
-        
-        if (order.getTemplateDetails() != null && !order.getTemplateDetails().isEmpty()) {
-            ProductTemplate template = order.getTemplateDetails().get(0).getTemplate();
-            if (template != null && template.getArtisan() != null) {
-                log.info("Found artisan from template order: {}", template.getArtisan().getArtisanUuid());
-                return template.getArtisan();
-            }
-        }
-        
-        log.error("No artisan found for order: {}", order.getOrderId());
-        return null;
     }
     
     private PaymentResponse mapToPaymentResponse(Payment payment) {
@@ -289,10 +344,34 @@ public class PaymentServiceImp implements PaymentService {
                 .createdAt(payment.getCreatedAt())
                 .paidAt(payment.getPaidAt());
         
-        if (payment.getOrder() != null) {
-            builder.orderId(payment.getOrder().getOrderId());
+        if (payment.getOrderGroup() != null) {
+            builder.orderGroupId(payment.getOrderGroup().getGroupId());
         }
         
         return builder.build();
+    }
+    
+    /**
+     * Auto-detect platform from return URL scheme
+     * @param returnUrl The return URL
+     * @return "web" for HTTP(S) URLs, "mobile" for custom schemes, null if returnUrl is null
+     */
+    private String detectPlatform(String returnUrl) {
+        if (returnUrl == null || returnUrl.isEmpty()) {
+            return null;
+        }
+        
+        // Check if it's a standard web URL
+        if (returnUrl.startsWith("http://") || returnUrl.startsWith("https://")) {
+            return "web";
+        }
+        
+        // Otherwise, assume it's a mobile deep link (e.g., catholicsouvenir://, myapp://)
+        if (returnUrl.contains("://")) {
+            return "mobile";
+        }
+        
+        // Default to web if scheme is unclear
+        return "web";
     }
 }
