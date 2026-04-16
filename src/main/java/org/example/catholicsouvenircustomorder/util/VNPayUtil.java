@@ -29,6 +29,12 @@ public class VNPayUtil {
     }
     
     public String createPaymentUrl(String transactionId, BigDecimal amount, String description, String customerEmail, String returnUrl) throws Exception {
+        log.info("=== Creating VNPay Payment URL ===");
+        log.info("TMN Code: {}", vnPayConfig.getTmnCode());
+        log.info("Hash Secret Length: {}", vnPayConfig.getHashSecret().length());
+        log.info("Version: {}", vnPayConfig.getVersion());
+        log.info("Command: {}", vnPayConfig.getCommand());
+        
         Map<String, String> params = new HashMap<>();
         params.put("vnp_Version", vnPayConfig.getVersion());
         params.put("vnp_Command", vnPayConfig.getCommand());
@@ -39,7 +45,10 @@ public class VNPayUtil {
         params.put("vnp_OrderInfo", description);
         params.put("vnp_OrderType", vnPayConfig.getOrderType());
         params.put("vnp_Locale", "vn");
+        
+        // Return URL: where user is redirected (can be mobile deep link)
         params.put("vnp_ReturnUrl", returnUrl != null ? returnUrl : vnPayConfig.getReturnUrl());
+        
         params.put("vnp_IpAddr", "127.0.0.1");
         params.put("vnp_CreateDate", getVNPayDate());
         params.put("vnp_ExpireDate", getExpireDate(15));
@@ -50,12 +59,22 @@ public class VNPayUtil {
         
         // Build URL
         String queryUrl = buildQueryUrl(params);
-        return vnPayConfig.getUrl() + "?" + queryUrl;
+        String fullUrl = vnPayConfig.getUrl() + "?" + queryUrl;
+        log.info("Payment URL created successfully");
+        log.info("================================");
+        return fullUrl;
     }
     
     public String generateSecureHash(Map<String, String> params, String secretKey) throws Exception {
         String data = buildHashData(params);
-        return hmacSHA512(data, secretKey);
+        log.info("=== VNPay Hash Debug ===");
+        log.info("Hash data string: {}", data);
+        log.info("Secret key length: {}", secretKey.length());
+        log.info("Secret key (first 10 chars): {}...", secretKey.substring(0, Math.min(10, secretKey.length())));
+        String hash = hmacSHA512(data, secretKey);
+        log.info("Generated secure hash: {}", hash);
+        log.info("======================");
+        return hash;
     }
     
     public boolean verifySecureHash(Map<String, String> params, String secretKey) {

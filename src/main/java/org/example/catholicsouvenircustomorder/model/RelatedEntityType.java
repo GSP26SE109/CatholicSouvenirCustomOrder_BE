@@ -7,5 +7,6 @@ public enum RelatedEntityType {
     PAYMENT,               // Payment entity
     CONVERSATION,          // Chat conversation entity
     CHAT_MESSAGE,          // Chat message entity
-    ACCOUNT                // Account entity
+    ACCOUNT,               // Account entity
+    WITHDRAWAL_REQUEST     // Withdrawal request entity
 }

@@ -69,12 +69,17 @@ zalopay:
   key2: ${ZALOPAY_KEY2:uUfsWgfLkRLzq6W2uNXTCxrfxs51auny}
   endpoint: https://sb-openapi.zalopay.vn/v2/create
   callback-url: ${ZALOPAY_CALLBACK_URL:http://localhost:8080/api/payments/zalopay/callback}
+  ipn-url: ${ZALOPAY_IPN_URL:http://localhost:8080/api/payments/zalopay/ipn}
 
 vnpay:
   tmn-code: ${VNPAY_TMN_CODE:A1F15ZBS}
   hash-secret: ${VNPAY_HASH_SECRET:I8GJ3NOJ5A6X74QB41YUKWCWAB17A90R}
   url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
   return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/payments/vnpay/callback}
+  # IPN URL is commented out for localhost testing
+  # VNPay sandbox cannot call back to localhost
+  # Uncomment this when deploying to production with public URL
+  ipn-url: ${VNPAY_IPN_URL:http://localhost:8080/api/payments/vnpay/ipn}
   version: ${VNPAY_VERSION:2.1.0}
   command: ${VNPAY_COMMAND:pay}
   order-type: ${VNPAY_ORDER_TYPE:other}

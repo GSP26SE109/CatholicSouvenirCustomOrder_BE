@@ -13,6 +13,7 @@ import org.example.catholicsouvenircustomorder.repository.RoleRepository;
 import org.example.catholicsouvenircustomorder.service.AuthenService;
 import org.example.catholicsouvenircustomorder.service.EmailService;
 import org.example.catholicsouvenircustomorder.service.JwtService;
+import org.example.catholicsouvenircustomorder.service.UserProfileService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +29,7 @@ public class AuthenServiceImp implements AuthenService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailService emailService;
+    private final UserProfileService userProfileService;
 
     @Override
     public RegisterResponse register(RegisterRequest request) {
@@ -119,6 +121,14 @@ public class AuthenServiceImp implements AuthenService {
         account.setVerified(true);
         account.setVerificationToken(null);  // Clear token after verification
         accountRepository.save(account);
+        
+        // Automatically create UserProfile after email verification
+        try {
+            userProfileService.createUserProfile(account);
+        } catch (Exception e) {
+            // Log error but don't fail verification
+            System.err.println("Failed to create user profile: " + e.getMessage());
+        }
     }
     
     @Override

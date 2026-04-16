@@ -37,10 +37,6 @@ public class Account {
     @JoinColumn(name = "role_id")
     private Role role;
 
-    @ManyToOne
-    @JoinColumn(name = "saint_id")
-    private Saint saint;
-
     @OneToMany(mappedBy = "customer")
     private List<Order> orders;
 

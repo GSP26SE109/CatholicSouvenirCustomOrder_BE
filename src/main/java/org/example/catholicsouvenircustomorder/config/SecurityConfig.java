@@ -74,9 +74,11 @@ public class SecurityConfig {
                             "/ws/**",
                             "/api/artisan-applications/register"
                     ).permitAll();
+                    // Withdrawal endpoints - protected by @PreAuthorize in controllers
                     request.anyRequest().authenticated();
                 })
                 .addFilterBefore(customSecurityFilter, UsernamePasswordAuthenticationFilter.class)
+                // Require HTTPS in production
                 .build();
     }
 }

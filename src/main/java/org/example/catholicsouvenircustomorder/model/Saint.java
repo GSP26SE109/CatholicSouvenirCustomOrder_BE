@@ -17,9 +17,4 @@ public class Saint {
     private String saintName;
     private String saintDescription;
     private LocalDateTime saintDate;
-
-
-    @OneToMany(mappedBy = "saint")
-    private List<Account> account;
-
 }

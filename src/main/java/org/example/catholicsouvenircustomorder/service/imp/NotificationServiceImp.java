@@ -358,6 +358,126 @@ public class NotificationServiceImp implements NotificationService {
         sendRealTimeNotification(recipientId, "/notifications", mapToResponse(notification));
     }
     
+    // ========== Withdrawal Notifications ==========
+    
+    @Override
+    @Transactional
+    public void notifyAdminOfWithdrawalRequest(UUID withdrawalId, String artisanName, Long amount) {
+        // Get all admin accounts
+        List<Account> admins = accountRepository.findByRole_Name("ADMIN");
+        
+        String metadata = String.format("artisanName=%s;amount=%d", artisanName, amount);
+        
+        for (Account admin : admins) {
+            Notification notification = new Notification();
+            notification.setRecipient(admin);
+            notification.setType(NotificationType.WITHDRAWAL_REQUESTED);
+            notification.setTitle("Yêu cầu rút tiền mới");
+            notification.setMessage(String.format(
+                "Nghệ nhân %s đã tạo yêu cầu rút tiền %,d VNĐ. Vui lòng xem xét và phê duyệt.", 
+                artisanName, amount
+            ));
+            notification.setRelatedEntityId(withdrawalId);
+            notification.setRelatedEntityType(RelatedEntityType.WITHDRAWAL_REQUEST);
+            notification.setActionType(NotificationAction.VIEW_REQUEST);
+            notification.setActionRequired(true);
+            notification.setActionCompleted(false);
+            notification.setPriority(NotificationPriority.HIGH);
+            notification.setMetadata(metadata);
+            
+            notification = notificationRepository.save(notification);
+            sendRealTimeNotification(admin.getAccountId(), "/notifications", mapToResponse(notification));
+        }
+    }
+    
+    @Override
+    @Transactional
+    public void notifyArtisanOfWithdrawalApproval(UUID artisanId, UUID withdrawalId, Long amount) {
+        Account artisan = accountRepository.findById(artisanId)
+                .orElseThrow(() -> new NotFoundException("Artisan not found"));
+        
+        String metadata = String.format("amount=%d", amount);
+        
+        Notification notification = new Notification();
+        notification.setRecipient(artisan);
+        notification.setType(NotificationType.WITHDRAWAL_APPROVED);
+        notification.setTitle("Yêu cầu rút tiền đã được phê duyệt");
+        notification.setMessage(String.format(
+            "Yêu cầu rút tiền %,d VNĐ của bạn đã được phê duyệt. Tiền sẽ được chuyển vào tài khoản ngân hàng của bạn trong 1-3 ngày làm việc.", 
+            amount
+        ));
+        notification.setRelatedEntityId(withdrawalId);
+        notification.setRelatedEntityType(RelatedEntityType.WITHDRAWAL_REQUEST);
+        notification.setActionType(NotificationAction.VIEW_REQUEST);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.HIGH);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(artisanId, "/notifications", mapToResponse(notification));
+    }
+    
+    @Override
+    @Transactional
+    public void notifyArtisanOfWithdrawalRejection(UUID artisanId, UUID withdrawalId, Long amount, String reason) {
+        Account artisan = accountRepository.findById(artisanId)
+                .orElseThrow(() -> new NotFoundException("Artisan not found"));
+        
+        String metadata = String.format("amount=%d;reason=%s", amount, reason);
+        
+        String message = String.format(
+            "Yêu cầu rút tiền %,d VNĐ của bạn đã bị từ chối.", 
+            amount
+        );
+        if (reason != null && !reason.trim().isEmpty()) {
+            message += " Lý do: " + reason;
+        }
+        
+        Notification notification = new Notification();
+        notification.setRecipient(artisan);
+        notification.setType(NotificationType.WITHDRAWAL_REJECTED);
+        notification.setTitle("Yêu cầu rút tiền bị từ chối");
+        notification.setMessage(message);
+        notification.setRelatedEntityId(withdrawalId);
+        notification.setRelatedEntityType(RelatedEntityType.WITHDRAWAL_REQUEST);
+        notification.setActionType(NotificationAction.VIEW_REQUEST);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.NORMAL);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(artisanId, "/notifications", mapToResponse(notification));
+    }
+    
+    @Override
+    @Transactional
+    public void notifyAdminOfWithdrawalCancellation(UUID withdrawalId, String artisanName, Long amount) {
+        // Get all admin accounts
+        List<Account> admins = accountRepository.findByRole_Name("ADMIN");
+        
+        String metadata = String.format("artisanName=%s;amount=%d", artisanName, amount);
+        
+        for (Account admin : admins) {
+            Notification notification = new Notification();
+            notification.setRecipient(admin);
+            notification.setType(NotificationType.WITHDRAWAL_CANCELLED);
+            notification.setTitle("Yêu cầu rút tiền đã bị hủy");
+            notification.setMessage(String.format(
+                "Nghệ nhân %s đã hủy yêu cầu rút tiền %,d VNĐ.", 
+                artisanName, amount
+            ));
+            notification.setRelatedEntityId(withdrawalId);
+            notification.setRelatedEntityType(RelatedEntityType.WITHDRAWAL_REQUEST);
+            notification.setActionType(NotificationAction.VIEW_REQUEST);
+            notification.setActionRequired(false);
+            notification.setPriority(NotificationPriority.LOW);
+            notification.setMetadata(metadata);
+            
+            notification = notificationRepository.save(notification);
+            sendRealTimeNotification(admin.getAccountId(), "/notifications", mapToResponse(notification));
+        }
+    }
+    
     // ========== Core Methods ==========
     
     @Override

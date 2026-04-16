@@ -28,7 +28,7 @@ public class ZaloPayUtil {
         return createPaymentUrl(transactionId, amount, description, null);
     }
     
-    public String createPaymentUrl(String transactionId, BigDecimal amount, String description, String callbackUrl) throws Exception {
+    public String createPaymentUrl(String transactionId, BigDecimal amount, String description, String returnUrl) throws Exception {
         Map<String, Object> order = new HashMap<>();
         order.put("app_id", zaloPayConfig.getAppId());
         order.put("app_trans_id", transactionId);
@@ -39,7 +39,19 @@ public class ZaloPayUtil {
         order.put("bank_code", "");
         order.put("item", "[]");
         order.put("embed_data", "{}");
-        order.put("callback_url", callbackUrl != null ? callbackUrl : zaloPayConfig.getCallbackUrl());
+        
+        // Callback URL: backend IPN endpoint (ZaloPay will POST here)
+        String ipnUrl = zaloPayConfig.getIpnUrl() != null && !zaloPayConfig.getIpnUrl().isEmpty()
+                ? zaloPayConfig.getIpnUrl()
+                : zaloPayConfig.getCallbackUrl();
+        order.put("callback_url", ipnUrl);
+        
+        // Return URL: where user is redirected (can be mobile deep link)
+        if (returnUrl != null) {
+            Map<String, String> embedData = new HashMap<>();
+            embedData.put("redirecturl", returnUrl);
+            order.put("embed_data", new ObjectMapper().writeValueAsString(embedData));
+        }
         
         // Generate MAC
         String data = zaloPayConfig.getAppId() + "|" + transactionId + "|" + 

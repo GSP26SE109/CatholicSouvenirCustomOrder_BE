@@ -21,6 +21,4 @@ public class AccountResponse {
     private LocalDateTime updatedDate;
     private String roleName;
     private int roleId;
-    private String saintName;
-    private UUID saintId;
 }

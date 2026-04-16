@@ -9,6 +9,7 @@ import org.example.catholicsouvenircustomorder.dto.request.PaymentCallbackReques
 import org.example.catholicsouvenircustomorder.dto.response.PaymentInitiationResponse;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentResponse;
 import org.example.catholicsouvenircustomorder.exception.BadRequestException;
+import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.model.Order;
 import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.repository.PaymentRepository;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -34,6 +36,8 @@ public class PaymentController {
     private final PaymentService paymentService;
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
+    
+
     
     /**
      * Khởi tạo payment cho Order (template/product order)
@@ -115,6 +119,43 @@ public class PaymentController {
     }
     
     /**
+     * VNPay IPN endpoint (Server-to-Server callback)
+     * VNPay will POST here to notify payment result
+     * This is the AUTHORITATIVE source of payment status
+     */
+    @PostMapping("/vnpay/ipn")
+    public ResponseEntity<Map<String, String>> handleVNPayIPN(
+            @RequestParam Map<String, String> params) {
+        
+        log.info("Received VNPay IPN notification");
+        
+        try {
+            PaymentCallbackRequest request = PaymentCallbackRequest.builder()
+                    .params(params)
+                    .paymentGateway("VNPAY")
+                    .build();
+            
+            paymentService.handlePaymentCallback(request);
+            
+            // VNPay expects specific response format
+            Map<String, String> response = new HashMap<>();
+            response.put("RspCode", "00");
+            response.put("Message", "Confirm Success");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error processing VNPay IPN", e);
+            
+            Map<String, String> response = new HashMap<>();
+            response.put("RspCode", "99");
+            response.put("Message", "Unknown error");
+            
+            return ResponseEntity.ok(response);
+        }
+    }
+    
+    /**
      * ZaloPay callback endpoint (POST method)
      */
     @PostMapping("/zalopay/callback")
@@ -135,6 +176,43 @@ public class PaymentController {
                 .message("Xử lý callback ZaloPay thành công")
                 .data(response)
                 .build());
+    }
+    
+    /**
+     * ZaloPay IPN endpoint (Server-to-Server callback)
+     * ZaloPay will POST here to notify payment result
+     * This is the AUTHORITATIVE source of payment status
+     */
+    @PostMapping("/zalopay/ipn")
+    public ResponseEntity<Map<String, Object>> handleZaloPayIPN(
+            @RequestBody Map<String, String> params) {
+        
+        log.info("Received ZaloPay IPN notification");
+        
+        try {
+            PaymentCallbackRequest request = PaymentCallbackRequest.builder()
+                    .params(params)
+                    .paymentGateway("ZALOPAY")
+                    .build();
+            
+            paymentService.handlePaymentCallback(request);
+            
+            // ZaloPay expects specific response format
+            Map<String, Object> response = new HashMap<>();
+            response.put("return_code", 1);
+            response.put("return_message", "success");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error processing ZaloPay IPN", e);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("return_code", 0);
+            response.put("return_message", "failed");
+            
+            return ResponseEntity.ok(response);
+        }
     }
     
     /**
@@ -305,6 +383,50 @@ public class PaymentController {
                 .code(200)
                 .message(isPaid ? "Đơn hàng đã được thanh toán" : "Đơn hàng chưa được thanh toán")
                 .data(isPaid)
+                .build());
+    }
+    
+    /**
+     * Lấy trạng thái payment mới nhất của order (cho mobile app polling)
+     */
+    @GetMapping("/order/{orderId}/latest")
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ADMIN')")
+    public ResponseEntity<BaseResponse<PaymentResponse>> getLatestOrderPayment(
+            @PathVariable UUID orderId,
+            @AuthenticationPrincipal UUID accountId,
+            Authentication authentication) {
+        
+        log.info("Getting latest payment for order: {}", orderId);
+        
+        // Get role from authorities
+        String role = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(GrantedAuthority::getAuthority)
+                .orElse("")
+                .replace("ROLE_", "");
+        
+        // Verify ownership for customers
+        if ("CUSTOMER".equals(role)) {
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new BadRequestException("Không tìm thấy đơn hàng"));
+            if (!order.getCustomer().getAccountId().equals(accountId)) {
+                throw new BadRequestException("Bạn không có quyền xem thanh toán của đơn hàng này");
+            }
+        }
+        
+        List<PaymentResponse> payments = paymentService.getOrderPayments(orderId);
+        
+        if (payments.isEmpty()) {
+            throw new ResourceNotFoundException("Không tìm thấy thanh toán cho đơn hàng này");
+        }
+        
+        // Return the most recent payment
+        PaymentResponse latestPayment = payments.get(0);
+        
+        return ResponseEntity.ok(BaseResponse.<PaymentResponse>builder()
+                .code(200)
+                .message("Lấy trạng thái thanh toán thành công")
+                .data(latestPayment)
                 .build());
     }
     
