@@ -38,7 +38,7 @@ public class PaymentController {
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
     
-    @Value("${vnpay.return-url-url}")
+    @Value("${vnpay.return-url}")
     private String defaultFrontendUrl;
     
 
