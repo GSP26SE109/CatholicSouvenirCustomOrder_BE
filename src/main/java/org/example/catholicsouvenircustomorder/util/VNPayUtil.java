@@ -46,8 +46,18 @@ public class VNPayUtil {
         params.put("vnp_OrderType", vnPayConfig.getOrderType());
         params.put("vnp_Locale", "vn");
         
-        // Return URL: where user is redirected (can be mobile deep link)
+        // Return URL: where user is redirected (FE web or mobile deep link)
+        // VNPay will redirect user here with payment params in URL
         params.put("vnp_ReturnUrl", returnUrl != null ? returnUrl : vnPayConfig.getReturnUrl());
+        
+        // IPN URL: backend callback for DB update (server-to-server)
+        // VNPay will POST here to notify payment result - THIS IS THE AUTHORITATIVE SOURCE
+        if (vnPayConfig.getIpnUrl() != null && !vnPayConfig.getIpnUrl().isEmpty()) {
+            params.put("vnp_IpnUrl", vnPayConfig.getIpnUrl());
+            log.info("IPN URL configured: {}", vnPayConfig.getIpnUrl());
+        } else {
+            log.warn("IPN URL not configured - payment status will only update via returnUrl callback");
+        }
         
         params.put("vnp_IpAddr", "127.0.0.1");
         params.put("vnp_CreateDate", getVNPayDate());
@@ -61,6 +71,8 @@ public class VNPayUtil {
         String queryUrl = buildQueryUrl(params);
         String fullUrl = vnPayConfig.getUrl() + "?" + queryUrl;
         log.info("Payment URL created successfully");
+        log.info("Return URL: {}", params.get("vnp_ReturnUrl"));
+        log.info("IPN URL: {}", params.get("vnp_IpnUrl"));
         log.info("================================");
         return fullUrl;
     }

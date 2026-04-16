@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VNPay Payment Result</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .success {
+            color: #28a745;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .failed {
+            color: #dc3545;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .label {
+            font-weight: bold;
+            color: #666;
+        }
+        .value {
+            color: #333;
+        }
+        .params {
+            margin-top: 30px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div th:if="${success}" class="success">
+            ✓ Thanh toán thành công!
+        </div>
+        <div th:unless="${success}" class="failed">
+            ✗ Thanh toán thất bại!
+        </div>
+        
+        <div class="info">
+            <span class="label">Mã phản hồi:</span>
+            <span class="value" th:text="${responseCode}"></span>
+        </div>
+        
+        <div class="info">
+            <span class="label">Số tiền:</span>
+            <span class="value" th:text="${amount != null ? amount + ' VND' : 'N/A'}"></span>
+        </div>
+        
+        <div class="info">
+            <span class="label">Mã giao dịch:</span>
+            <span class="value" th:text="${txnRef}"></span>
+        </div>
+        
+        <div class="info">
+            <span class="label">Mã giao dịch VNPay:</span>
+            <span class="value" th:text="${transactionNo}"></span>
+        </div>
+        
+        <div class="params">
+            <strong>All Parameters:</strong><br/>
+            <div th:each="param : ${allParams}">
+                <span th:text="${param.key}"></span>: <span th:text="${param.value}"></span>
+            </div>
+        </div>
+        
+        <a href="/" class="btn">Quay lại trang chủ</a>
+    </div>
+</body>
+</html>
