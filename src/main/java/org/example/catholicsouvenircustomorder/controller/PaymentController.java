@@ -57,58 +57,69 @@ public class PaymentController {
     
     /**
      * VNPay Return URL endpoint - User is redirected here after payment
-     * DO NOT update DB here - only redirect to frontend/app
-     * DB update happens via IPN callback
+     * This endpoint will:
+     * 1. Update DB with payment result
+     * 2. Redirect user to frontend
      */
     @GetMapping("/vnpay/return")
     public void handleVNPayReturn(
             @RequestParam Map<String, String> params,
             jakarta.servlet.http.HttpServletResponse response) throws Exception {
         
+        log.info("========================================");
         log.info("Received VNPay return callback");
+        log.info("========================================");
         
         String vnpResponseCode = params.get("vnp_ResponseCode");
         String txnRef = params.get("vnp_TxnRef");
         boolean isSuccess = "00".equals(vnpResponseCode);
         
-        log.info("Response code: {}, TxnRef: {}", vnpResponseCode, txnRef);
+        log.info("Response code: {}, TxnRef: {}, Success: {}", vnpResponseCode, txnRef, isSuccess);
         
+        // Update DB first
+        try {
+            log.info("Updating payment status...");
+            
+            Map<String, String> vnpParams = new HashMap<>();
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                if (entry.getKey().startsWith("vnp_")) {
+                    vnpParams.put(entry.getKey(), entry.getValue());
+                }
+            }
+            
+            PaymentCallbackRequest request = PaymentCallbackRequest.builder()
+                    .params(vnpParams)
+                    .paymentGateway("VNPAY")
+                    .build();
+            
+            paymentService.handlePaymentCallback(request);
+            log.info("Payment status updated successfully");
+        } catch (Exception e) {
+            log.error("Error updating payment status", e);
+        }
+        
+        // Redirect to frontend
         String redirectUrl;
-        
         try {
             var payment = paymentRepository.findByReferenceId(txnRef);
             
             if (payment.isPresent() && payment.get().getReturnUrl() != null && !payment.get().getReturnUrl().isEmpty()) {
                 String customReturnUrl = payment.get().getReturnUrl();
-                
-                // Detect platform from returnUrl scheme
-                boolean isMobile = customReturnUrl.startsWith("catholicsouvenir://") || 
-                                  customReturnUrl.startsWith("app://");
-                
-                if (isMobile) {
-                    // Mobile: Use deep link
-                    redirectUrl = String.format("catholicsouvenir://payment-result?success=%s&code=%s&txnRef=%s",
-                            isSuccess, vnpResponseCode, txnRef);
-                    log.info("Using mobile deep link: {}", redirectUrl);
-                } else {
-                    // Web: Use HTTP URL
-                    String separator = customReturnUrl.contains("?") ? "&" : "?";
-                    redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s",
-                            customReturnUrl, separator, isSuccess, vnpResponseCode, txnRef);
-                    log.info("Using custom web return URL: {}", redirectUrl);
-                }
+                String separator = customReturnUrl.contains("?") ? "&" : "?";
+                redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s",
+                        customReturnUrl, separator, isSuccess, vnpResponseCode, txnRef);
             } else {
-                // Fallback to default web URL
                 redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
                         defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
-                log.info("Using default return URL: {}", redirectUrl);
             }
         } catch (Exception e) {
-            log.error("Error getting payment return URL, using default", e);
+            log.error("Error getting return URL", e);
             redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
                     defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
         }
         
+        log.info("Redirecting to: {}", redirectUrl);
+        log.info("========================================");
         response.sendRedirect(redirectUrl);
     }
     

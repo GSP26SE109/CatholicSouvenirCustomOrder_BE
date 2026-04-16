@@ -15,6 +15,7 @@ import org.example.catholicsouvenircustomorder.repository.PaymentRepository;
 import org.example.catholicsouvenircustomorder.service.PaymentService;
 import org.example.catholicsouvenircustomorder.util.VNPayUtil;
 import org.example.catholicsouvenircustomorder.util.ZaloPayUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +39,8 @@ public class PaymentServiceImp implements PaymentService {
     private final VNPayUtil vnPayUtil;
     private final ZaloPayUtil zaloPayUtil;
     private final WalletServiceImp walletService;
+    @Value("${app.base-url}")
+    private String baseUrl;
 
     @Override
     @Transactional
@@ -94,16 +97,20 @@ public class PaymentServiceImp implements PaymentService {
                 : "Thanh toan " + orderCount + " don hang";
             
             if (dto.getMethod() == PaymentMethod.VNPAY) {
-                // Use original returnUrl without adding platform parameter
-                // Platform will be detected from returnUrl scheme when VNPay redirects back
-                String returnUrl = dto.getReturnUrl();
+                // IMPORTANT: vnp_ReturnUrl MUST point to BACKEND, not frontend
+                // Backend will update DB and then redirect to frontend
+                // Save frontend URL to payment.returnUrl for later redirect
+                String backendReturnUrl = baseUrl + "/api/payments/vnpay/return";
+                
+                log.info("Using backend return URL: {}", backendReturnUrl);
+                log.info("Frontend return URL saved: {}", dto.getReturnUrl());
                 
                 paymentUrl = vnPayUtil.createPaymentUrl(
                         referenceId,
                         orderGroup.getTotalAmount(),
                         description,
                         orderGroup.getCustomer().getEmail(),
-                        returnUrl
+                        backendReturnUrl  // Use backend URL, not frontend
                 );
             } else if (dto.getMethod() == PaymentMethod.ZALOPAY) {
                 throw new BadRequestException("ZaloPay không được hỗ trợ. Vui lòng sử dụng VNPay");
