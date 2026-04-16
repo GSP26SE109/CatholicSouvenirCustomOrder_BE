@@ -64,16 +64,15 @@ public class PaymentController {
     @GetMapping("/vnpay/return")
     public void handleVNPayReturn(
             @RequestParam Map<String, String> params,
-            @RequestParam(required = false) String platform, // "web" or "mobile"
             jakarta.servlet.http.HttpServletResponse response) throws Exception {
         
-        log.info("Received VNPay return callback for platform: {}", platform);
+        log.info("Received VNPay return callback");
         
         String vnpResponseCode = params.get("vnp_ResponseCode");
         String txnRef = params.get("vnp_TxnRef");
         boolean isSuccess = "00".equals(vnpResponseCode);
         
-        log.info("Response code: {}, TxnRef: {}, Platform: {}", vnpResponseCode, txnRef, platform);
+        log.info("Response code: {}, TxnRef: {}", vnpResponseCode, txnRef);
         
         String redirectUrl;
         
@@ -83,10 +82,12 @@ public class PaymentController {
             if (payment.isPresent() && payment.get().getReturnUrl() != null && !payment.get().getReturnUrl().isEmpty()) {
                 String customReturnUrl = payment.get().getReturnUrl();
                 
-                // Check if mobile platform
-                if ("mobile".equalsIgnoreCase(platform)) {
-                    // Mobile: Use deep link or custom scheme
-                    // Format: catholicsouvenir://payment-result?success=true&code=00&txnRef=...
+                // Detect platform from returnUrl scheme
+                boolean isMobile = customReturnUrl.startsWith("catholicsouvenir://") || 
+                                  customReturnUrl.startsWith("app://");
+                
+                if (isMobile) {
+                    // Mobile: Use deep link
                     redirectUrl = String.format("catholicsouvenir://payment-result?success=%s&code=%s&txnRef=%s",
                             isSuccess, vnpResponseCode, txnRef);
                     log.info("Using mobile deep link: {}", redirectUrl);
@@ -98,25 +99,15 @@ public class PaymentController {
                     log.info("Using custom web return URL: {}", redirectUrl);
                 }
             } else {
-                // Fallback to default
-                if ("mobile".equalsIgnoreCase(platform)) {
-                    redirectUrl = String.format("catholicsouvenir://payment-result?success=%s&code=%s&txnRef=%s",
-                            isSuccess, vnpResponseCode, txnRef);
-                } else {
-                    redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
-                            defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
-                }
+                // Fallback to default web URL
+                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
+                        defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
                 log.info("Using default return URL: {}", redirectUrl);
             }
         } catch (Exception e) {
             log.error("Error getting payment return URL, using default", e);
-            if ("mobile".equalsIgnoreCase(platform)) {
-                redirectUrl = String.format("catholicsouvenir://payment-result?success=%s&code=%s&txnRef=%s",
-                        isSuccess, vnpResponseCode, txnRef);
-            } else {
-                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
-                        defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
-            }
+            redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
+                    defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
         }
         
         response.sendRedirect(redirectUrl);
