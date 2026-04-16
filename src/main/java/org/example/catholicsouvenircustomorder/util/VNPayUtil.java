@@ -93,6 +93,7 @@ public class VNPayUtil {
             Map<String, String> paramsForHash = new HashMap<>(params);
             paramsForHash.remove("vnp_SecureHash");
             paramsForHash.remove("vnp_SecureHashType");
+            paramsForHash.remove("vnp_IpnUrl");
             
 
             
@@ -141,6 +142,7 @@ public class VNPayUtil {
         Map<String, String> hashParams = new HashMap<>(params);
         hashParams.remove("vnp_SecureHash");
         hashParams.remove("vnp_SecureHashType");
+        hashParams.remove("vnp_IpnUrl");
         
         List<String> keys = new ArrayList<>(hashParams.keySet());
         Collections.sort(keys);
