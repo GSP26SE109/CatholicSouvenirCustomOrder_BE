@@ -93,6 +93,8 @@ public class PaymentController {
                     .paymentGateway("VNPAY")
                     .build();
 
+            paymentService.handlePaymentCallback(request);
+            log.info("Payment status updated successfully via return URL");
             
         } catch (Exception e) {
             log.error("Error updating payment via return URL", e);
