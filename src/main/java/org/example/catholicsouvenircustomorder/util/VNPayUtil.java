@@ -130,17 +130,19 @@ public class VNPayUtil {
                 }
                 query.append(key)
                      .append("=")
-                     .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+                     .append(encodeValue(value));
             }
         }
         return query.toString();
     }
     
     private String buildHashData(Map<String, String> params) {
-        // Remove vnp_SecureHash and vnp_SecureHashType from hash calculation
+        // Remove vnp_SecureHash, vnp_SecureHashType, and vnp_IpnUrl from hash calculation
+        // vnp_IpnUrl is NOT included in signature per VNPay documentation
         Map<String, String> hashParams = new HashMap<>(params);
         hashParams.remove("vnp_SecureHash");
         hashParams.remove("vnp_SecureHashType");
+        hashParams.remove("vnp_IpnUrl");
         
         List<String> keys = new ArrayList<>(hashParams.keySet());
         Collections.sort(keys);
@@ -154,7 +156,7 @@ public class VNPayUtil {
                 }
                 hashData.append(key)
                         .append("=")
-                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+                        .append(encodeValue(value));
             }
         }
         return hashData.toString();
@@ -174,5 +176,10 @@ public class VNPayUtil {
             result.append(String.format("%02x", b));
         }
         return result.toString();
+    }
+
+    private String encodeValue(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8)
+                .replace("+", "%20");  // ✅ VNPay dùng %20 không dùng +
     }
 }
