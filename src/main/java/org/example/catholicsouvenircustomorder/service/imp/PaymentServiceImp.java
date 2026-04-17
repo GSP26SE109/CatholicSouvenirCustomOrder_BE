@@ -365,8 +365,16 @@ public class PaymentServiceImp implements PaymentService {
                 .createdAt(payment.getCreatedAt())
                 .paidAt(payment.getPaidAt());
         
-        if (payment.getOrderGroup() != null) {
-            builder.orderGroupId(payment.getOrderGroup().getGroupId());
+        // CRITICAL: Don't access orderGroup directly to avoid circular reference
+        // Use try-catch to safely get groupId
+        try {
+            if (payment.getOrderGroup() != null) {
+                builder.orderGroupId(payment.getOrderGroup().getGroupId());
+            }
+        } catch (Exception e) {
+            log.warn("Could not get orderGroupId for payment {}: {}", 
+                    payment.getPaymentId(), e.getMessage());
+            // Continue without orderGroupId
         }
         
         return builder.build();
