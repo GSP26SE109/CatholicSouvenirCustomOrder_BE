@@ -140,8 +140,7 @@ public class VNPayUtil {
                 // Key KHÔNG encode, value encode và replace + thành %20
                 query.append(key)
                         .append("=")
-                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8)
-                                .replace("+", "%20"));
+                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
             }
         }
         return query.toString();
@@ -163,9 +162,8 @@ public class VNPayUtil {
                 if (hashData.length() > 0) {
                     hashData.append("&");
                 }
-                // CRITICAL: Theo VNPay docs v2.1.0
-                // Hash data = key1=value1&key2=value2 (URL encoded)
-                // Key KHÔNG encode, value PHẢI encode
+                // CRITICAL: Hash data phải dùng CÙNG encoding với query URL
+                // Theo VNPay: encode và replace + thành %20
                 hashData.append(key)
                         .append("=")
                         .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
