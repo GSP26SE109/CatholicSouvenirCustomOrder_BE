@@ -16,4 +16,16 @@ public interface ArtisanRepository extends JpaRepository<Artisan, UUID> {
     
     @Query("SELECT a FROM Artisan a JOIN a.customOrders co WHERE co.customOrderId = :customOrderId")
     Optional<Artisan> findByCustomOrderId(@Param("customOrderId") UUID customOrderId);
+    
+    // Find artisan by product in order details
+    @Query("SELECT DISTINCT p.artisan FROM Product p " +
+           "JOIN OrderDetail od ON od.product.productId = p.productId " +
+           "WHERE od.order.orderId = :orderId")
+    Optional<Artisan> findByOrderIdFromProduct(@Param("orderId") UUID orderId);
+    
+    // Find artisan by template in order template details
+    @Query("SELECT DISTINCT pt.artisan FROM ProductTemplate pt " +
+           "JOIN OrderTemplateDetail otd ON otd.template.templateId = pt.templateId " +
+           "WHERE otd.order.orderId = :orderId")
+    Optional<Artisan> findByOrderIdFromTemplate(@Param("orderId") UUID orderId);
 }
