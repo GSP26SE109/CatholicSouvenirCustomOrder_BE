@@ -21,6 +21,7 @@ public class OrderTemplateDetail {
     
     @ManyToOne(optional = false)
     @JoinColumn(name = "order_id")
+    @com.fasterxml.jackson.annotation.JsonBackReference("order-template-details")
     private Order order;
     
     @ManyToOne(optional = false)
