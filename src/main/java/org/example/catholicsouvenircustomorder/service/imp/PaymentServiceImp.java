@@ -154,9 +154,9 @@ public class PaymentServiceImp implements PaymentService {
             log.info("Verifying VNPay signature...");
             log.info("Received params: {}", request.getParams());
             
-            // IMPORTANT: Pass a COPY of params because verifySecureHash mutates the map
+            // VNPayUtil.verifySecureHash sẽ tự tạo copy, không cần pass copy nữa
             boolean isValidSignature = vnPayUtil.verifySecureHash(
-                new java.util.HashMap<>(request.getParams()), 
+                request.getParams(), 
                 vnPayConfig.getHashSecret()
             );
             
