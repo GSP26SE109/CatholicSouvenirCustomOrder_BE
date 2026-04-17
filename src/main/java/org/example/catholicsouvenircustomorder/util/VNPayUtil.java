@@ -52,12 +52,12 @@ public class VNPayUtil {
 
         // IPN URL: backend callback for DB update (server-to-server)
         // VNPay will POST here to notify payment result - THIS IS THE AUTHORITATIVE SOURCE
-        if (vnPayConfig.getIpnUrl() != null && !vnPayConfig.getIpnUrl().isEmpty()) {
-            params.put("vnp_IpnUrl", vnPayConfig.getIpnUrl());
-            log.info("IPN URL configured: {}", vnPayConfig.getIpnUrl());
-        } else {
-            log.warn("IPN URL not configured - payment status will only update via returnUrl callback");
-        }
+//        if (vnPayConfig.getIpnUrl() != null && !vnPayConfig.getIpnUrl().isEmpty()) {
+//            params.put("vnp_IpnUrl", vnPayConfig.getIpnUrl());
+//            log.info("IPN URL configured: {}", vnPayConfig.getIpnUrl());
+//        } else {
+//            log.warn("IPN URL not configured - payment status will only update via returnUrl callback");
+//        }
 
         params.put("vnp_IpAddr", "127.0.0.1");
         params.put("vnp_CreateDate", getVNPayDate());
@@ -126,9 +126,11 @@ public class VNPayUtil {
                 if (query.length() > 0) {
                     query.append("&");
                 }
-                query.append(URLEncoder.encode(key, StandardCharsets.UTF_8))
+                // Key KHÔNG encode, value encode và replace + thành %20
+                query.append(key)
                         .append("=")
-                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8)
+                                .replace("+", "%20"));
             }
         }
         return query.toString();
@@ -140,14 +142,21 @@ public class VNPayUtil {
 
         StringBuilder hashData = new StringBuilder();
         for (String key : keys) {
+            // Bỏ qua vnp_SecureHash và vnp_SecureHashType
+            if ("vnp_SecureHash".equals(key) || "vnp_SecureHashType".equals(key)) {
+                continue;
+            }
+            
             String value = params.get(key);
             if (value != null && !value.isEmpty()) {
                 if (hashData.length() > 0) {
                     hashData.append("&");
                 }
-                hashData.append(URLEncoder.encode(key, StandardCharsets.UTF_8))
+                // Key KHÔNG encode, value encode và replace + thành %20
+                hashData.append(key)
                         .append("=")
-                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8)
+                                .replace("+", "%20"));
             }
         }
         return hashData.toString();
