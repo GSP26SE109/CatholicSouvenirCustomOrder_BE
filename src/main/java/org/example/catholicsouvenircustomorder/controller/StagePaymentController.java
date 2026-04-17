@@ -25,6 +25,8 @@ public class StagePaymentController {
     
     private final StagePaymentService stagePaymentService;
     private final CustomOrderStageService stageService;
+    private final org.example.catholicsouvenircustomorder.util.VNPayUtil vnPayUtil;
+    private final org.example.catholicsouvenircustomorder.config.VNPayConfig vnPayConfig;
     
     /**
      * Initiate payment for a stage
@@ -119,14 +121,17 @@ public class StagePaymentController {
     
     /**
      * VNPay callback endpoint for stage payments (GET method)
-     * This is for IPN (Instant Payment Notification) - optional webhook
+     * This is for IPN (Instant Payment Notification) - server-to-server callback
+     * IMPORTANT: This is the authoritative source - VNPay guarantees delivery
      */
     @GetMapping("/vnpay/callback")
     public ResponseEntity<BaseResponse<StagePaymentResponse>> handleVNPayCallback(
             @RequestParam Map<String, String> params) {
         
-        log.info("Received VNPay callback for stage payment");
-        log.info("Callback params: {}", params);
+        log.info("========================================");
+        log.info("Received VNPay IPN callback for stage payment");
+        log.info("All callback params: {}", params);
+        log.info("========================================");
         
         // Extract parameters
         String referenceId = params.get("vnp_TxnRef");
@@ -141,10 +146,37 @@ public class StagePaymentController {
                     .build());
         }
         
-        // Determine status
-        String status = "00".equals(responseCode) ? "SUCCESS" : "FAILED";
-        
         try {
+            // CRITICAL: Verify VNPay signature first
+            log.info("Verifying VNPay signature...");
+            
+            // Filter only VNPay params (vnp_*)
+            Map<String, String> vnpParams = new java.util.HashMap<>();
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                if (entry.getKey().startsWith("vnp_")) {
+                    vnpParams.put(entry.getKey(), entry.getValue());
+                }
+            }
+            
+            boolean isValidSignature = vnPayUtil.verifySecureHash(
+                vnpParams, 
+                vnPayConfig.getHashSecret()
+            );
+            
+            if (!isValidSignature) {
+                log.error("VNPay signature verification FAILED!");
+                log.error("Received hash: {}", params.get("vnp_SecureHash"));
+                return ResponseEntity.badRequest().body(BaseResponse.<StagePaymentResponse>builder()
+                        .code(400)
+                        .message("Chữ ký không hợp lệ")
+                        .build());
+            }
+            
+            log.info("VNPay signature verified successfully");
+            
+            // Determine status
+            String status = "00".equals(responseCode) ? "SUCCESS" : "FAILED";
+            
             StagePaymentResponse response = stagePaymentService.handleStagePaymentCallback(
                     referenceId, 
                     status
@@ -152,9 +184,11 @@ public class StagePaymentController {
             
             // Update transaction ID if available
             if (transactionId != null && response != null) {
-                // Transaction ID is already set in the service
                 log.info("Stage payment processed successfully. Transaction ID: {}", transactionId);
             }
+            
+            log.info("IPN callback processing completed successfully");
+            log.info("========================================");
             
             return ResponseEntity.ok(BaseResponse.<StagePaymentResponse>builder()
                     .code(200)
@@ -163,7 +197,12 @@ public class StagePaymentController {
                     .build());
                     
         } catch (Exception e) {
+            log.error("========================================");
             log.error("Error handling VNPay callback: ", e);
+            log.error("Exception type: {}", e.getClass().getName());
+            log.error("Exception message: {}", e.getMessage());
+            log.error("========================================");
+            
             return ResponseEntity.status(404).body(BaseResponse.<StagePaymentResponse>builder()
                     .code(404)
                     .message("Không tìm thấy payment: " + e.getMessage())

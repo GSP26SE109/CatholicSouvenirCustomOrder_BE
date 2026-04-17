@@ -22,5 +22,4 @@ public class InitiateStagePaymentRequest {
     private PaymentMethod paymentMethod;
     
     private String returnUrl;
-    private String cancelUrl;
 }
