@@ -91,4 +91,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     GROUP BY o.status
 """)
     List<Object[]> getAdminOrderStatusRaw();
+    
+    // Get order total for payment distribution
+    @Query("SELECT o.total FROM Order o WHERE o.orderId = :orderId")
+    java.math.BigDecimal findTotalByOrderId(UUID orderId);
 }

@@ -226,13 +226,18 @@ public class PaymentServiceImp implements PaymentService {
                 
                 // Distribute payment to all artisans (once for the entire order group)
                 try {
+                    // Re-fetch payment with JOIN FETCH to avoid lazy loading issues
+                    Payment paymentForDistribution = paymentRepository
+                            .findByIdWithOrdersForDistribution(payment.getPaymentId())
+                            .orElse(payment);
+                    
                     Account platformAdmin = walletService.getPlatformAdminAccount();
-                    walletService.processPaymentDistribution(payment, platformAdmin);
+                    walletService.processPaymentDistribution(paymentForDistribution, platformAdmin);
                     log.info("Payment distribution completed for order group: {}", orderGroup.getGroupId());
                 } catch (Exception e) {
                     log.error("Error distributing payment for order group {}: {}", 
                             orderGroup.getGroupId(), e.getMessage(), e);
-                    // Payment is still SUCCESS, distribution can be retried later
+                    // Payment is still SUCCESS, distribution can be retried later via admin endpoint
                 }
             }
             

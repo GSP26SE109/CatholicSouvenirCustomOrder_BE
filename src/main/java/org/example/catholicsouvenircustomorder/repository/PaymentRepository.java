@@ -43,4 +43,11 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p " +
            "WHERE p.orderGroup.groupId = :orderGroupId AND p.status = 'SUCCESS'")
     BigDecimal getTotalPaidAmount(@Param("orderGroupId") UUID orderGroupId);
+    
+    // Fetch payment with all necessary data for distribution (avoid lazy loading)
+    @Query("SELECT DISTINCT p FROM Payment p " +
+           "LEFT JOIN FETCH p.orderGroup og " +
+           "LEFT JOIN FETCH og.orders o " +
+           "WHERE p.paymentId = :paymentId")
+    Optional<Payment> findByIdWithOrdersForDistribution(@Param("paymentId") UUID paymentId);
 }
