@@ -36,4 +36,9 @@ public interface StagePaymentService {
      * Check if stage payment is completed
      */
     boolean isStagePaymentCompleted(UUID stageId);
+    
+    /**
+     * Get return URL from payment by reference ID
+     */
+    String getReturnUrlByReferenceId(String referenceId);
 }

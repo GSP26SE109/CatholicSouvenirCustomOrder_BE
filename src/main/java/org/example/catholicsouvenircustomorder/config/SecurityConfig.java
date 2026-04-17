@@ -1,8 +1,10 @@
 package org.example.catholicsouvenircustomorder.config;
 
+import com.cloudinary.Api;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -73,6 +75,11 @@ public class SecurityConfig {
                             "/api/webhook/ghn",
                             "/ws/**",
                             "/api/artisan-applications/register"
+                    ).permitAll();
+
+                    request.requestMatchers(
+                            HttpMethod.GET,
+                            "/api/product/**"
                     ).permitAll();
                     // Withdrawal endpoints - protected by @PreAuthorize in controllers
                     request.anyRequest().authenticated();

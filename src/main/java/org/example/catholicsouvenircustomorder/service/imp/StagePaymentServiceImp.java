@@ -43,10 +43,18 @@ public class StagePaymentServiceImp implements StagePaymentService {
 
     @Autowired
     private WalletServiceImp walletService;
+    
+    @Autowired
+    private org.example.catholicsouvenircustomorder.repository.ArtisanRepository artisanRepository;
 
     @Override
     @Transactional
     public StagePaymentResponse createStagePayment(UUID stageId, UUID customerId, String paymentMethod) {
+        return createStagePayment(stageId, customerId, paymentMethod, null);
+    }
+    
+    @Transactional
+    public StagePaymentResponse createStagePayment(UUID stageId, UUID customerId, String paymentMethod, String returnUrl) {
         log.info("Creating stage payment for stage: {}, customer: {}", stageId, customerId);
 
         // Validate stage
@@ -83,7 +91,12 @@ public class StagePaymentServiceImp implements StagePaymentService {
                 .orElse(null);
 
         if (existingPayment != null) {
-            return mapToPaymentResponse(existingPayment);
+            // Cancel old pending payment and create new one
+            log.info("Found existing pending payment: {}, cancelling it", existingPayment.getPaymentId());
+            existingPayment.setStatus(PaymentStatus.CANCELLED);
+            existingPayment.setFailureReason("Replaced by new payment request");
+            paymentRepository.save(existingPayment);
+            log.info("Old stage payment cancelled, creating new one");
         }
 
         // Create payment
@@ -93,32 +106,37 @@ public class StagePaymentServiceImp implements StagePaymentService {
         payment.setStatus(PaymentStatus.PENDING);
         payment.setMethod(PaymentMethod.valueOf(paymentMethod.toUpperCase()));
         payment.setPaymentType(determinePaymentType(stage));
+        payment.setReturnUrl(returnUrl);  // Save frontend return URL
 
         // Generate reference ID for internal tracking
         String referenceId = "STAGE_" + stageId + "_" + System.currentTimeMillis();
         payment.setReferenceId(referenceId);
-        // transactionId will be set later from gateway callback
+        
         String paymentUrl;
 
         try {
-            // Stage payment callback URL
-            String stageCallbackUrl = "http://localhost:8080/api/stage-payments/vnpay/callback";
+            // IMPORTANT: Use BACKEND callback URL, not frontend
+            // Backend will update DB and then redirect to frontend
+            String backendReturnUrl = "http://localhost:8080/api/stage-payments/vnpay/return";
+            
+            log.info("Using backend return URL: {}", backendReturnUrl);
+            log.info("Frontend return URL saved: {}", returnUrl);
             
             if (paymentMethod.equalsIgnoreCase("VNPAY")) {
                 paymentUrl = vnPayUtil.createPaymentUrl(
-                        referenceId,  // Use referenceId as vnp_TxnRef
+                        referenceId,
                         stage.getAmount(),
                         "Thanh toán stage: " + stage.getName(),
                         customer.getEmail(),
-                        stageCallbackUrl  // Use stage-specific callback URL
+                        backendReturnUrl  // Use backend URL, not frontend
                 );
             } else if (paymentMethod.equalsIgnoreCase("ZALOPAY")) {
                 String zaloCallbackUrl = "http://localhost:8080/api/stage-payments/zalopay/callback";
                 paymentUrl = zaloPayUtil.createPaymentUrl(
-                        referenceId,  // Use referenceId as apptransid
+                        referenceId,
                         stage.getAmount(),
                         "Thanh toán stage: " + stage.getName(),
-                        zaloCallbackUrl  // Use stage-specific callback URL
+                        zaloCallbackUrl
                 );
             } else {
                 throw new BadRequestException("Phương thức thanh toán không hợp lệ");
@@ -161,13 +179,25 @@ public class StagePaymentServiceImp implements StagePaymentService {
             stageRepository.save(stage);
 
             // Distribute money: 90% to artisan, 10% platform fee
-            Artisan artisan = findArtisanByStage(stage);
-            
-            if (artisan != null) {
-                Account platformAdmin = walletService.getPlatformAdminAccount();
-                walletService.processStagePaymentDistribution(payment, artisan, platformAdmin);
-            } else {
-                log.warn("No artisan found for stage: {}", stage.getStageId());
+            try {
+                // Re-fetch payment with JOIN FETCH to avoid lazy loading issues
+                StagePayment paymentForDistribution = paymentRepository
+                        .findByIdWithDetailsForDistribution(payment.getPaymentId())
+                        .orElse(payment);
+                
+                Artisan artisan = findArtisanByStage(stage);
+                
+                if (artisan != null) {
+                    Account platformAdmin = walletService.getPlatformAdminAccount();
+                    walletService.processStagePaymentDistribution(paymentForDistribution, artisan, platformAdmin);
+                    log.info("Stage payment distribution completed for stage: {}", stage.getStageId());
+                } else {
+                    log.warn("No artisan found for stage: {}, skipping distribution", stage.getStageId());
+                }
+            } catch (Exception e) {
+                log.error("Error distributing stage payment for stage {}: {}", 
+                        stage.getStageId(), e.getMessage(), e);
+                // Payment is still SUCCESS, distribution can be retried later
             }
 
             // Check if all stages are paid, update custom order status
@@ -214,6 +244,13 @@ public class StagePaymentServiceImp implements StagePaymentService {
         return paymentRepository.findByStage_StageIdAndStatus(stageId, PaymentStatus.SUCCESS)
                 .isPresent();
     }
+    
+    @Override
+    public String getReturnUrlByReferenceId(String referenceId) {
+        return paymentRepository.findByReferenceId(referenceId)
+                .map(StagePayment::getReturnUrl)
+                .orElse(null);
+    }
 
     private PaymentType determinePaymentType(CustomOrderStage stage) {
         if (stage.getStageOrder() == 1) {
@@ -230,16 +267,33 @@ public class StagePaymentServiceImp implements StagePaymentService {
     
     /**
      * Helper method to find artisan from custom order stage
-     * In custom order, artisan is retrieved from CustomRequest.selectedArtisan
+     * Uses safe navigation to avoid lazy loading issues
      */
     private Artisan findArtisanByStage(CustomOrderStage stage) {
-        if (stage == null || stage.getCustomOrder() == null || 
-            stage.getCustomOrder().getRequest() == null) {
-            log.warn("Invalid stage or custom order structure");
+        if (stage == null) {
+            log.warn("Stage is null");
             return null;
         }
         
-        return stage.getCustomOrder().getRequest().getSelectedArtisan();
+        try {
+            // Try to get artisan through the relationship chain
+            if (stage.getCustomOrder() != null && 
+                stage.getCustomOrder().getRequest() != null &&
+                stage.getCustomOrder().getRequest().getSelectedArtisan() != null) {
+                return stage.getCustomOrder().getRequest().getSelectedArtisan();
+            }
+        } catch (Exception e) {
+            log.warn("Could not navigate to artisan through relationships: {}", e.getMessage());
+        }
+        
+        // Fallback: Query artisan by custom order ID
+        try {
+            UUID customOrderId = stage.getCustomOrder().getCustomOrderId();
+            return artisanRepository.findByCustomOrderId(customOrderId).orElse(null);
+        } catch (Exception e) {
+            log.error("Failed to find artisan for stage {}: {}", stage.getStageId(), e.getMessage());
+            return null;
+        }
     }
 
     private StagePaymentResponse mapToPaymentResponse(StagePayment payment) {

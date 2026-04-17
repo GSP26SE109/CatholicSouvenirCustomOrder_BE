@@ -28,6 +28,7 @@ public class WalletServiceImp implements WalletService {
     private final org.example.catholicsouvenircustomorder.repository.ArtisanRepository artisanRepository;
     private final org.example.catholicsouvenircustomorder.repository.OrderRepository orderRepository;
     private final org.example.catholicsouvenircustomorder.repository.PaymentRepository paymentRepository;
+    private final org.example.catholicsouvenircustomorder.repository.StagePaymentRepository stagePaymentRepository;
     
     // Platform fee rate: 10%
     private static final BigDecimal PLATFORM_FEE_RATE = new BigDecimal("0.10");
@@ -164,6 +165,11 @@ public class WalletServiceImp implements WalletService {
             throw new IllegalStateException("StagePayment must be SUCCESS to distribute money");
         }
         
+        if (artisan == null) {
+            log.error("Cannot distribute stage payment - artisan is null");
+            throw new IllegalStateException("Artisan not found for stage payment distribution");
+        }
+        
         BigDecimal totalAmount = stagePayment.getAmount();
         
         // Calculate platform fee (10%)
@@ -173,18 +179,30 @@ public class WalletServiceImp implements WalletService {
         // Calculate artisan amount (90%)
         BigDecimal artisanAmount = totalAmount.subtract(platformFee);
         
-        log.info("Distributing stage payment: Total={}, PlatformFee={}, ArtisanAmount={}", 
-                totalAmount, platformFee, artisanAmount);
+        log.info("Distributing stage payment {}: Total={}, PlatformFee={}, ArtisanAmount={}", 
+                stagePayment.getPaymentId(), totalAmount, platformFee, artisanAmount);
+        
+        // Get stage ID safely without navigating through lazy-loaded relationships
+        UUID stageId = null;
+        try {
+            if (stagePayment.getStage() != null) {
+                stageId = stagePayment.getStage().getStageId();
+            }
+        } catch (Exception e) {
+            log.warn("Could not get stageId: {}", e.getMessage());
+        }
+        
+        String stageIdStr = stageId != null ? stageId.toString() : "unknown";
         
         // 1. Deposit to artisan wallet (90%)
         depositToWallet(artisan.getAccount(), artisanAmount, WalletTransactionType.DEPOSIT, null, stagePayment,
-                "Nạp tiền từ custom order stage #" + stagePayment.getStage().getStageId());
+                "Nạp tiền từ custom order stage #" + stageIdStr);
         
         // 2. Collect platform fee to admin wallet (10%)
         depositToWallet(platformAdmin, platformFee, WalletTransactionType.PLATFORM_FEE, null, stagePayment,
-                "Phí sàn 10% từ custom order stage #" + stagePayment.getStage().getStageId());
+                "Phí sàn 10% từ custom order stage #" + stageIdStr);
         
-        log.info("Stage payment distribution completed for stage: {}", stagePayment.getStage().getStageId());
+        log.info("Stage payment distribution completed for stage: {}", stageIdStr);
     }
     
     /**

@@ -26,4 +26,13 @@ public interface StagePaymentRepository extends JpaRepository<StagePayment, UUID
     
     // Find successful payment for a stage
     Optional<StagePayment> findFirstByStage_StageIdAndStatusOrderByPaidAtDesc(UUID stageId, PaymentStatus status);
+    
+    // Fetch stage payment with all necessary data for distribution (avoid lazy loading)
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT sp FROM StagePayment sp " +
+           "LEFT JOIN FETCH sp.stage s " +
+           "LEFT JOIN FETCH s.customOrder co " +
+           "LEFT JOIN FETCH co.request cr " +
+           "LEFT JOIN FETCH cr.selectedArtisan a " +
+           "WHERE sp.paymentId = :paymentId")
+    Optional<StagePayment> findByIdWithDetailsForDistribution(@org.springframework.data.repository.query.Param("paymentId") UUID paymentId);
 }
