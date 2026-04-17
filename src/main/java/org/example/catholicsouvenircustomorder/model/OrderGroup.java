@@ -1,5 +1,6 @@
 package org.example.catholicsouvenircustomorder.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -27,11 +28,11 @@ public class OrderGroup {
     private Account customer;
     
     @OneToMany(mappedBy = "orderGroup", cascade = CascadeType.ALL)
-    @com.fasterxml.jackson.annotation.JsonManagedReference("orderGroup-orders")
+    @JsonIgnore
     private List<Order> orders = new ArrayList<>();
     
     @OneToMany(mappedBy = "orderGroup", cascade = CascadeType.ALL)
-    @com.fasterxml.jackson.annotation.JsonManagedReference
+    @JsonIgnore
     private List<Payment> payments = new ArrayList<>();
     
     @Column(nullable = false, precision = 18, scale = 2)

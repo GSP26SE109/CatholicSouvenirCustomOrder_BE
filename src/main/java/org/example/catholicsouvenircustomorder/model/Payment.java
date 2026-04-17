@@ -1,5 +1,6 @@
 package org.example.catholicsouvenircustomorder.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -19,7 +20,7 @@ public class Payment {
     // Order group payment - always use this for checkout payments
     @ManyToOne(optional = false)
     @JoinColumn(name = "order_group_id", nullable = false)
-    @com.fasterxml.jackson.annotation.JsonBackReference
+    @JsonIgnore
     private OrderGroup orderGroup;
     
     @Column(nullable = false, precision = 18, scale = 2)

@@ -1,5 +1,6 @@
 package org.example.catholicsouvenircustomorder.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -21,7 +22,7 @@ public class OrderTemplateDetail {
     
     @ManyToOne(optional = false)
     @JoinColumn(name = "order_id")
-    @com.fasterxml.jackson.annotation.JsonBackReference("order-template-details")
+    @JsonIgnore
     private Order order;
     
     @ManyToOne(optional = false)
