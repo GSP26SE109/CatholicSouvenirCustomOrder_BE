@@ -165,7 +165,7 @@ public class VNPayUtil {
                 if (hashData.length() > 0) {
                     hashData.append("&");
                 }
-                // CRITICAL: Hash data uses URL-encoded values
+                // CRITICAL: Per VNPay docs, hash data uses URL-encoded values with US_ASCII
                 hashData.append(key)
                         .append("=")
                         .append(encodeValue(value));
@@ -192,8 +192,18 @@ public class VNPayUtil {
         return result.toString();
     }
 
+    /**
+     * Encode value for VNPay URL
+     * VNPay specification requires US_ASCII encoding
+     */
     private String encodeValue(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8)
-                .replace("+", "%20");  // ✅ VNPay dùng %20 không dùng +
+        try {
+            // VNPay uses US_ASCII encoding per their documentation
+            return URLEncoder.encode(value, StandardCharsets.US_ASCII.toString());
+        } catch (Exception e) {
+            log.error("Error encoding value: {}", value, e);
+            // Fallback to UTF-8 if US_ASCII fails
+            return URLEncoder.encode(value, StandardCharsets.UTF_8);
+        }
     }
 }
