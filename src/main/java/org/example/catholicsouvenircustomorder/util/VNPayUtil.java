@@ -61,8 +61,19 @@ public class VNPayUtil {
         params.put("vnp_CreateDate", getVNPayDate());
         params.put("vnp_ExpireDate", getExpireDate(15));
         
+        // DEBUG: Log all params before hash
+        log.info("=== All params before hash calculation ===");
+        params.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(e -> log.info("  {} = {}", e.getKey(), e.getValue()));
+        
         // Generate secure hash AFTER adding vnp_IpnUrl
-        String secureHash = generateSecureHash(params, vnPayConfig.getHashSecret());
+        String hashData = buildHashData(params);
+        log.info("Hash data string: {}", hashData);
+        
+        String secureHash = hmacSHA512(hashData, vnPayConfig.getHashSecret());
+        log.info("Generated secure hash: {}", secureHash);
+        
         params.put("vnp_SecureHash", secureHash);
         
         // Build URL
@@ -154,11 +165,14 @@ public class VNPayUtil {
                 if (hashData.length() > 0) {
                     hashData.append("&");
                 }
+                // CRITICAL: Hash data uses URL-encoded values
                 hashData.append(key)
                         .append("=")
                         .append(encodeValue(value));
             }
         }
+        
+        log.info("Built hash data (length={}): {}", hashData.length(), hashData.toString());
         return hashData.toString();
     }
     
