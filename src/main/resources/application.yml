@@ -79,6 +79,8 @@ vnpay:
   # Return URL: MUST point to backend /vnpay/return endpoint
   # Backend will then redirect to frontend based on platform
   return-url: ${VNPAY_RETURN_URL:https://catholic-souvenir-api.southeastasia.cloudapp.azure.com/api/payments/vnpay/return}
+  # Stage payment return URL (separate endpoint for stage payments)
+  stage-return-url: ${VNPAY_STAGE_RETURN_URL:https://catholic-souvenir-api.southeastasia.cloudapp.azure.com/api/stage-payments/vnpay/return}
   # IPN URL: server-to-server callback for DB update (REQUIRED for production)
   ipn-url: ${VNPAY_IPN_URL:https://catholic-souvenir-api.southeastasia.cloudapp.azure.com/api/payments/vnpay/ipn}
   version: ${VNPAY_VERSION:2.1.0}
