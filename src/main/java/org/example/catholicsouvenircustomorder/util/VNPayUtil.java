@@ -31,7 +31,7 @@ public class VNPayUtil {
     public String createPaymentUrl(String transactionId, BigDecimal amount,
                                    String description, String customerEmail,
                                    String returnUrl) throws Exception {
-        // ✅ Dùng TreeMap để tự sort theo key alphabet
+        // ✅ Dùng TreeMap để tự sort theo key alphabetically
         Map<String, String> params = new TreeMap<>();
         params.put("vnp_Version",   vnPayConfig.getVersion());
         params.put("vnp_Command",   vnPayConfig.getCommand());
@@ -75,7 +75,7 @@ public class VNPayUtil {
      * Tính HMAC-SHA512 hash cho tập params
      * - Loại bỏ vnp_SecureHash, vnp_SecureHashType
      * - GIỮ LẠI vnp_IpnUrl (có trong hash theo chuẩn VNPay)
-     * - Sort key theo alphabet
+     * - Sort key theo alphabetically
      * - Encode value bằng UTF-8, space thành %20
      */
     public String generateSecureHash(Map<String, String> params, String secretKey) throws Exception {
@@ -94,8 +94,7 @@ public class VNPayUtil {
                 // ✅ key KHÔNG encode, value encode UTF-8, space → %20
                 hashData.append(key)
                         .append("=")
-                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8)
-                                .replace("+", "%20"));
+                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
             }
         }
 
@@ -147,8 +146,7 @@ public class VNPayUtil {
                 if (query.length() > 0) query.append("&");
                 query.append(key)
                         .append("=")
-                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8)
-                                .replace("+", "%20"));
+                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
             }
         }
         return query.toString();
