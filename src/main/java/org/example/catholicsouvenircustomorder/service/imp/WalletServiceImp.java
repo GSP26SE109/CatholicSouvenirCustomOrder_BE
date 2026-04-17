@@ -115,30 +115,21 @@ public class WalletServiceImp implements WalletService {
     
     /**
      * Helper method to find artisan from order
-     * IMPORTANT: Use IDs only to avoid circular reference
+     * NOTE: This method may cause circular reference if called
+     * Currently not used because distribution is disabled
      */
     private Artisan findArtisanByOrder(Order order) {
-        // Try to find artisan from order details
         if (order.getOrderDetails() != null && !order.getOrderDetails().isEmpty()) {
-            OrderDetail firstDetail = order.getOrderDetails().get(0);
-            if (firstDetail != null && firstDetail.getProduct() != null) {
-                // Get product ID only, don't navigate full object
-                UUID productId = firstDetail.getProduct().getProductId();
-                if (productId != null) {
-                    // Query artisan separately to avoid circular reference
-                    return artisanRepository.findByProduct_ProductId(productId).orElse(null);
-                }
+            Product product = order.getOrderDetails().get(0).getProduct();
+            if (product != null && product.getArtisan() != null) {
+                return product.getArtisan();
             }
         }
         
-        // Try to find artisan from template details
         if (order.getTemplateDetails() != null && !order.getTemplateDetails().isEmpty()) {
-            OrderTemplateDetail firstTemplate = order.getTemplateDetails().get(0);
-            if (firstTemplate != null && firstTemplate.getTemplate() != null) {
-                UUID templateId = firstTemplate.getTemplate().getTemplateId();
-                if (templateId != null) {
-                    return artisanRepository.findByTemplate_TemplateId(templateId).orElse(null);
-                }
+            ProductTemplate template = order.getTemplateDetails().get(0).getTemplate();
+            if (template != null && template.getArtisan() != null) {
+                return template.getArtisan();
             }
         }
         
