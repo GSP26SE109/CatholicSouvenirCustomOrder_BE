@@ -88,12 +88,17 @@ public class CustomOrderServiceImp implements CustomOrderService {
         for (int i = 0; i < dto.getStages().size(); i++) {
             StageDTO stageDTO = dto.getStages().get(i);
 
+            // Calculate amount from totalPrice * paymentPercentage
+            BigDecimal amount = dto.getTotalPrice()
+                    .multiply(new BigDecimal(stageDTO.getPaymentPercentage()))
+                    .divide(new BigDecimal(100), 2, java.math.RoundingMode.HALF_UP);
+
             CustomOrderStage stage = new CustomOrderStage();
             stage.setCustomOrder(customOrder);
             stage.setStageOrder(i + 1);
             stage.setName(stageDTO.getName());
             stage.setDescription(stageDTO.getDescription());
-            stage.setAmount(stageDTO.getAmount());
+            stage.setAmount(amount);  // Calculated automatically
             stage.setPaymentPercentage(stageDTO.getPaymentPercentage());
             stage.setEstimatedDays(stageDTO.getEstimatedDays());
             stage.setStatus(StageStatus.PENDING);
@@ -257,17 +262,8 @@ public class CustomOrderServiceImp implements CustomOrderService {
             );
         }
 
-        // Validate amounts sum to totalPrice
-        BigDecimal totalAmount = stages.stream()
-                .map(StageDTO::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (totalAmount.compareTo(totalPrice) != 0) {
-            throw new BadRequestException(
-                    String.format("Tổng số tiền các giai đoạn (%s) phải bằng tổng giá đơn hàng (%s)",
-                            totalAmount, totalPrice)
-            );
-        }
+        // Amount will be calculated automatically from totalPrice * paymentPercentage
+        // No need to validate amount sum anymore
     }
 
     private void validateUserAccess(CustomOrder order, UUID userId) {
