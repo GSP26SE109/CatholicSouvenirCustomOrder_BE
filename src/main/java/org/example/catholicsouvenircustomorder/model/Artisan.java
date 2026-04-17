@@ -47,8 +47,10 @@ public class Artisan {
     private List<Product> products = new ArrayList<>();
 
     @OneToMany(mappedBy = "artisan")
+    @JsonIgnore
     private List<CustomOrder> customOrders = new ArrayList<>();
     
     @OneToMany(mappedBy = "selectedArtisan")
+    @JsonIgnore
     private List<CustomRequest> selectedRequests = new ArrayList<>();
 }

@@ -1,5 +1,6 @@
 package org.example.catholicsouvenircustomorder.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -29,18 +30,18 @@ public class Order {
     
     @ManyToOne
     @JoinColumn(name = "order_group_id")
-    @com.fasterxml.jackson.annotation.JsonBackReference("orderGroup-orders")
+    @JsonIgnore
     private OrderGroup orderGroup;
 
     @OneToMany(mappedBy = "order",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
-    @com.fasterxml.jackson.annotation.JsonManagedReference("order-details")
+    @JsonIgnore
     private List<OrderDetail> orderDetails = new ArrayList<>();
     
     @OneToMany(mappedBy = "order",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
-    @com.fasterxml.jackson.annotation.JsonManagedReference("order-template-details")
+    @JsonIgnore
     private List<OrderTemplateDetail> templateDetails = new ArrayList<>();
 }
