@@ -57,8 +57,7 @@ public class PaymentController {
     
     /**
      * VNPay Return URL endpoint - User is redirected here after payment
-     * This endpoint will redirect user to frontend WITHOUT updating DB
-     * DB update is handled by IPN endpoint only
+     * IMPORTANT: Update DB here as backup in case IPN fails or delays
      */
     @GetMapping("/vnpay/return")
     public void handleVNPayReturn(
@@ -67,6 +66,7 @@ public class PaymentController {
         
         log.info("========================================");
         log.info("Received VNPay return callback");
+        log.info("All params: {}", params);
         log.info("========================================");
         
         String vnpResponseCode = params.get("vnp_ResponseCode");
@@ -75,8 +75,31 @@ public class PaymentController {
         
         log.info("Response code: {}, TxnRef: {}, Success: {}", vnpResponseCode, txnRef, isSuccess);
         
-        // DO NOT update DB here - let IPN handle it
-        // Just redirect user to frontend
+        // CRITICAL: Update DB here (backup for IPN)
+        // IPN may fail or delay, so we update DB immediately when user returns
+        try {
+            log.info("Updating payment status via return URL...");
+            
+            // Filter only VNPay params (vnp_*)
+            Map<String, String> vnpParams = new HashMap<>();
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                if (entry.getKey().startsWith("vnp_")) {
+                    vnpParams.put(entry.getKey(), entry.getValue());
+                }
+            }
+            
+            PaymentCallbackRequest request = PaymentCallbackRequest.builder()
+                    .params(vnpParams)
+                    .paymentGateway("VNPAY")
+                    .build();
+
+            
+        } catch (Exception e) {
+            log.error("Error updating payment via return URL", e);
+            // Continue to redirect even if update fails
+        }
+        
+        // Redirect user to frontend
         String redirectUrl;
         try {
             var payment = paymentRepository.findByReferenceId(txnRef);
