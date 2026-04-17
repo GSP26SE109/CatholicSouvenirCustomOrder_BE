@@ -126,9 +126,11 @@ public class VNPayUtil {
                 if (query.length() > 0) {
                     query.append("&");
                 }
-                query.append(URLEncoder.encode(key, StandardCharsets.UTF_8))
+                // Key KHÔNG encode, value encode và replace + thành %20
+                query.append(key)
                         .append("=")
-                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8)
+                                .replace("+", "%20"));
             }
         }
         return query.toString();
@@ -140,14 +142,21 @@ public class VNPayUtil {
 
         StringBuilder hashData = new StringBuilder();
         for (String key : keys) {
+            // Bỏ qua vnp_SecureHash và vnp_SecureHashType
+            if ("vnp_SecureHash".equals(key) || "vnp_SecureHashType".equals(key)) {
+                continue;
+            }
+            
             String value = params.get(key);
             if (value != null && !value.isEmpty()) {
                 if (hashData.length() > 0) {
                     hashData.append("&");
                 }
-                hashData.append(URLEncoder.encode(key, StandardCharsets.UTF_8))
+                // Key KHÔNG encode, value encode và replace + thành %20
+                hashData.append(key)
                         .append("=")
-                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8)
+                                .replace("+", "%20"));
             }
         }
         return hashData.toString();
