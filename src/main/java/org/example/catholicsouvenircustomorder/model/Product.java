@@ -30,9 +30,11 @@ public class Product {
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("product-images")
     private List<ProductImage> images = new ArrayList<>();
 
     @OneToMany(mappedBy = "product")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<OrderDetail> orderDetails;
 
     @ManyToOne
