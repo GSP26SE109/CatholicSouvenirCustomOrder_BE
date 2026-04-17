@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 /**
  * DTO for stage information when creating a Request-Based custom order.
  * Used by artisan to define payment stages after negotiation.
+ * Amount will be calculated automatically from totalPrice * paymentPercentage.
  */
 @Data
 @Builder
@@ -30,9 +31,8 @@ public class StageDTO {
     @Max(value = 100, message = "Phần trăm thanh toán không được vượt quá 100")
     private Integer paymentPercentage;
     
-    @NotNull(message = "Số tiền không được để trống")
-    @DecimalMin(value = "0.01", message = "Số tiền phải lớn hơn 0")
-    private BigDecimal amount;
+    // Amount is calculated automatically: totalPrice * paymentPercentage / 100
+    // No need for artisan to input this manually
     
     @Min(value = 1, message = "Số ngày ước tính phải lớn hơn 0")
     private Integer estimatedDays;

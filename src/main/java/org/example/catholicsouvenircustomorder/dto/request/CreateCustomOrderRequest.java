@@ -38,9 +38,8 @@ public class CreateCustomOrderRequest {
         @Size(max = 500, message = "Mô tả không được quá 500 ký tự")
         private String description;
         
-        @NotNull(message = "Số tiền không được để trống")
-        @DecimalMin(value = "0.01", message = "Số tiền phải lớn hơn 0")
-        private BigDecimal amount;
+        // Amount will be calculated automatically from totalPrice * paymentPercentage
+        // No need for artisan to input this manually
         
         @NotNull(message = "Phần trăm thanh toán không được để trống")
         @Min(value = 1, message = "Phần trăm phải từ 1-100")
