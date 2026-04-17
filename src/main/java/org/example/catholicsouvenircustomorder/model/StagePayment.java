@@ -58,6 +58,10 @@ public class StagePayment {
     @Column(columnDefinition = "TEXT")
     private String failureReason;
     
+    // Frontend return URL (where to redirect after payment)
+    @Column(length = 500)
+    private String returnUrl;
+    
     // Transaction relationship (1:1)
     
     @PreUpdate

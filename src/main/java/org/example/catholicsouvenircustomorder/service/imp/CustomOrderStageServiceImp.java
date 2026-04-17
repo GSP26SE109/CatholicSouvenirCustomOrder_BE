@@ -193,14 +193,16 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
             throw new BadRequestException("Giai đoạn trước phải được hoàn thành và thanh toán trước");
         }
         
-        // Use StagePaymentService to create payment
+        // Use StagePaymentService to create payment with returnUrl
         String paymentMethodStr = paymentRequest.getPaymentMethod() != null ? 
                 paymentRequest.getPaymentMethod().name() : "VNPAY";
         
-        StagePaymentResponse paymentResponse = paymentService.createStagePayment(
+        // Call the overloaded method that accepts returnUrl
+        StagePaymentResponse paymentResponse = ((StagePaymentServiceImp) paymentService).createStagePayment(
                 stageId, 
                 customerId, 
-                paymentMethodStr
+                paymentMethodStr,
+                paymentRequest.getReturnUrl()  // Pass returnUrl from request
         );
         
         // Convert StagePaymentResponse to PaymentInitiationResponse

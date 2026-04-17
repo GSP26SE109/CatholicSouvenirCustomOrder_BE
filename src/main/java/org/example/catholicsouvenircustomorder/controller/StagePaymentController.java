@@ -50,7 +50,76 @@ public class StagePaymentController {
     }
     
     /**
+     * VNPay return endpoint for stage payments (GET method)
+     * This is called by VNPay after payment, processes the payment, then redirects to frontend
+     * IMPORTANT: Update DB here as backup in case IPN/callback fails or delays
+     */
+    @GetMapping("/vnpay/return")
+    public ResponseEntity<?> handleVNPayReturn(@RequestParam Map<String, String> params) {
+        log.info("========================================");
+        log.info("VNPay return callback for stage payment");
+        log.info("Params: {}", params);
+        log.info("========================================");
+        
+        try {
+            // Extract parameters
+            String referenceId = params.get("vnp_TxnRef");
+            String responseCode = params.get("vnp_ResponseCode");
+            String transactionId = params.get("vnp_TransactionNo");
+            
+            if (referenceId == null) {
+                log.error("Missing vnp_TxnRef in return callback");
+                return ResponseEntity.status(302)
+                        .header("Location", "http://localhost:3000/payment/error?message=Missing_transaction_reference")
+                        .build();
+            }
+            
+            // Determine status
+            String status = "00".equals(responseCode) ? "SUCCESS" : "FAILED";
+            
+            // CRITICAL: Update DB here (backup for IPN/callback)
+            // IPN may fail or delay, so we update DB immediately when user returns
+            StagePaymentResponse paymentResponse = null;
+            try {
+                log.info("Updating stage payment status via return URL...");
+                paymentResponse = stagePaymentService.handleStagePaymentCallback(referenceId, status);
+                log.info("Stage payment status updated successfully via return URL");
+            } catch (Exception e) {
+                log.error("Error updating stage payment via return URL", e);
+                // Continue to redirect even if update fails
+            }
+            
+            // Get the saved returnUrl from payment
+            String returnUrl = getReturnUrlFromPayment(referenceId);
+            
+            // Build redirect URL with payment result
+            String redirectUrl;
+            if (returnUrl != null && !returnUrl.isEmpty()) {
+                redirectUrl = buildRedirectUrl(returnUrl, paymentResponse, responseCode);
+            } else {
+                // Default frontend URL if no returnUrl was saved
+                redirectUrl = buildDefaultRedirectUrl(paymentResponse, responseCode);
+            }
+            
+            log.info("Redirecting to: {}", redirectUrl);
+            log.info("DB will also be updated by IPN/callback if configured");
+            log.info("========================================");
+            
+            return ResponseEntity.status(302)
+                    .header("Location", redirectUrl)
+                    .build();
+                    
+        } catch (Exception e) {
+            log.error("Error handling VNPay return: ", e);
+            return ResponseEntity.status(302)
+                    .header("Location", "http://localhost:3000/payment/error?message=" + e.getMessage())
+                    .build();
+        }
+    }
+    
+    /**
      * VNPay callback endpoint for stage payments (GET method)
+     * This is for IPN (Instant Payment Notification) - optional webhook
      */
     @GetMapping("/vnpay/callback")
     public ResponseEntity<BaseResponse<StagePaymentResponse>> handleVNPayCallback(
@@ -151,5 +220,50 @@ public class StagePaymentController {
                     .message("Không tìm thấy payment: " + e.getMessage())
                     .build());
         }
+    }
+    
+    /**
+     * Helper method to get returnUrl from payment
+     */
+    private String getReturnUrlFromPayment(String referenceId) {
+        try {
+            return stagePaymentService.getReturnUrlByReferenceId(referenceId);
+        } catch (Exception e) {
+            log.warn("Could not get returnUrl for payment: {}", referenceId);
+            return null;
+        }
+    }
+    
+    /**
+     * Build redirect URL with payment result parameters
+     */
+    private String buildRedirectUrl(String baseUrl, StagePaymentResponse payment, String responseCode) {
+        StringBuilder url = new StringBuilder(baseUrl);
+        
+        // Add query separator
+        url.append(baseUrl.contains("?") ? "&" : "?");
+        
+        // Add payment result parameters
+        url.append("paymentId=").append(payment.getPaymentId());
+        url.append("&status=").append(payment.getPaymentStatus());
+        url.append("&responseCode=").append(responseCode);
+        
+        if (payment.getTransactionId() != null) {
+            url.append("&transactionId=").append(payment.getTransactionId());
+        }
+        
+        if (payment.getStageId() != null) {
+            url.append("&stageId=").append(payment.getStageId());
+        }
+        
+        return url.toString();
+    }
+    
+    /**
+     * Build default redirect URL when no returnUrl is provided
+     */
+    private String buildDefaultRedirectUrl(StagePaymentResponse payment, String responseCode) {
+        String baseUrl = "http://localhost:3000/stage-payment/result";
+        return buildRedirectUrl(baseUrl, payment, responseCode);
     }
 }
