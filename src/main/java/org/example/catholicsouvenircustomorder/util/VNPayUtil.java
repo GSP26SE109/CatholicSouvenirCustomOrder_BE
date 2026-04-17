@@ -35,7 +35,8 @@ public class VNPayUtil {
         log.info("Version: {}", vnPayConfig.getVersion());
         log.info("Command: {}", vnPayConfig.getCommand());
 
-        Map<String, String> params = new HashMap<>();
+        // Use TreeMap to ensure alphabetical order
+        Map<String, String> params = new TreeMap<>();
         params.put("vnp_Version", vnPayConfig.getVersion());
         params.put("vnp_Command", vnPayConfig.getCommand());
         params.put("vnp_TmnCode", vnPayConfig.getTmnCode());
