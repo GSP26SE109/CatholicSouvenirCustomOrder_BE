@@ -19,6 +19,7 @@ public class Payment {
     // Order group payment - always use this for checkout payments
     @ManyToOne(optional = false)
     @JoinColumn(name = "order_group_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonBackReference
     private OrderGroup orderGroup;
     
     @Column(nullable = false, precision = 18, scale = 2)

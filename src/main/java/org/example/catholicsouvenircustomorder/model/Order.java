@@ -29,6 +29,7 @@ public class Order {
     
     @ManyToOne
     @JoinColumn(name = "order_group_id")
+    @com.fasterxml.jackson.annotation.JsonBackReference("orderGroup-orders")
     private OrderGroup orderGroup;
 
     @OneToMany(mappedBy = "order",
