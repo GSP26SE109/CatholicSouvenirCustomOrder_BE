@@ -51,14 +51,11 @@ public class VNPayUtil {
         // VNPay will redirect user here with payment params in URL
         params.put("vnp_ReturnUrl", returnUrl != null ? returnUrl : vnPayConfig.getReturnUrl());
 
-        // IPN URL: backend callback for DB update (server-to-server)
-        // VNPay will call this via GET to notify payment result - THIS IS THE AUTHORITATIVE SOURCE
-        if (vnPayConfig.getIpnUrl() != null && !vnPayConfig.getIpnUrl().isEmpty()) {
-            params.put("vnp_IpnUrl", vnPayConfig.getIpnUrl());
-            log.info("IPN URL configured: {}", vnPayConfig.getIpnUrl());
-        } else {
-            log.warn("IPN URL not configured - payment status will only update via returnUrl callback");
-        }
+        // CRITICAL: vnp_IpnUrl KHÔNG được gửi trong payment URL!
+        // IPN URL phải được đăng ký trước trong VNPay merchant portal
+        // Nếu gửi vnp_IpnUrl trong params → VNPay sẽ tính hash sai → Code 70
+        // VNPay sẽ dùng IPN URL đã đăng ký để callback
+        log.info("IPN URL (registered in VNPay portal): {}", vnPayConfig.getIpnUrl());
 
         params.put("vnp_IpAddr", "127.0.0.1");
         params.put("vnp_CreateDate", getVNPayDate());
