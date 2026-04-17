@@ -26,6 +26,8 @@ public class WalletServiceImp implements WalletService {
     private final WalletTransactionRepository walletTransactionRepository;
     private final AccountRepository accountRepository;
     private final org.example.catholicsouvenircustomorder.repository.ArtisanRepository artisanRepository;
+    private final org.example.catholicsouvenircustomorder.repository.OrderRepository orderRepository;
+    private final org.example.catholicsouvenircustomorder.repository.PaymentRepository paymentRepository;
     
     // Platform fee rate: 10%
     private static final BigDecimal PLATFORM_FEE_RATE = new BigDecimal("0.10");
@@ -59,28 +61,49 @@ public class WalletServiceImp implements WalletService {
         log.info("Starting payment distribution for OrderGroup: {}", orderGroup.getGroupId());
         log.info("Total payment amount: {}", payment.getAmount());
         
-        // Group orders by artisan and calculate total per artisan
-        var ordersByArtisan = orderGroup.getOrders().stream()
-                .collect(java.util.stream.Collectors.groupingBy(
-                        this::findArtisanByOrder,
-                        java.util.stream.Collectors.toList()
-                ));
+        // Extract order IDs to avoid navigating through lazy-loaded relationships
+        List<UUID> orderIds = orderGroup.getOrders().stream()
+                .map(Order::getOrderId)
+                .collect(java.util.stream.Collectors.toList());
+        
+        log.info("Processing {} orders for distribution", orderIds.size());
+        
+        // Group orders by artisan using direct queries (no lazy loading)
+        java.util.Map<UUID, java.util.List<UUID>> ordersByArtisanId = new java.util.HashMap<>();
+        java.util.Map<UUID, Artisan> artisanCache = new java.util.HashMap<>();
+        java.util.Map<UUID, BigDecimal> orderTotals = new java.util.HashMap<>();
+        
+        for (UUID orderId : orderIds) {
+            // Find artisan for this order using queries
+            Artisan artisan = findArtisanByOrderId(orderId);
+            
+            if (artisan == null) {
+                log.error("Skipping order {} - no artisan found", orderId);
+                continue;
+            }
+            
+            UUID artisanId = artisan.getArtisanUuid();
+            artisanCache.put(artisanId, artisan);
+            
+            // Get order total using query to avoid lazy loading
+            BigDecimal orderTotal = getOrderTotal(orderId);
+            orderTotals.put(orderId, orderTotal);
+            
+            // Group by artisan
+            ordersByArtisanId.computeIfAbsent(artisanId, k -> new java.util.ArrayList<>()).add(orderId);
+        }
         
         BigDecimal totalPlatformFee = BigDecimal.ZERO;
         
         // Distribute to each artisan
-        for (var entry : ordersByArtisan.entrySet()) {
-            Artisan artisan = entry.getKey();
-            List<Order> artisanOrders = entry.getValue();
-            
-            if (artisan == null) {
-                log.error("Skipping orders with no artisan: {}", artisanOrders.size());
-                continue;
-            }
+        for (var entry : ordersByArtisanId.entrySet()) {
+            UUID artisanId = entry.getKey();
+            List<UUID> artisanOrderIds = entry.getValue();
+            Artisan artisan = artisanCache.get(artisanId);
             
             // Calculate total amount for this artisan's orders
-            BigDecimal artisanOrdersTotal = artisanOrders.stream()
-                    .map(Order::getTotal)
+            BigDecimal artisanOrdersTotal = artisanOrderIds.stream()
+                    .map(orderTotals::get)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             
             // Calculate platform fee (10% of artisan's orders)
@@ -93,16 +116,12 @@ public class WalletServiceImp implements WalletService {
             totalPlatformFee = totalPlatformFee.add(platformFee);
             
             log.info("Artisan {}: OrdersTotal={}, PlatformFee={}, ArtisanAmount={}", 
-                    artisan.getArtisanUuid(), artisanOrdersTotal, platformFee, artisanAmount);
+                    artisanId, artisanOrdersTotal, platformFee, artisanAmount);
             
             // Deposit to artisan wallet (90%)
-            String orderIds = artisanOrders.stream()
-                    .map(o -> o.getOrderId().toString())
-                    .collect(java.util.stream.Collectors.joining(", "));
-            
             depositToWallet(artisan.getAccount(), artisanAmount, WalletTransactionType.DEPOSIT, payment, null,
                     String.format("Nạp tiền từ %d đơn hàng (OrderGroup #%s)", 
-                            artisanOrders.size(), orderGroup.getGroupId()));
+                            artisanOrderIds.size(), orderGroup.getGroupId()));
         }
         
         // Collect total platform fee to admin wallet (10%)
@@ -118,16 +137,24 @@ public class WalletServiceImp implements WalletService {
     /**
      * Helper method to find artisan from order using queries (no circular reference)
      */
-    private Artisan findArtisanByOrder(Order order) {
+    private Artisan findArtisanByOrderId(UUID orderId) {
         // Try to find artisan from product (order details)
-        Optional<Artisan> artisanFromProduct = artisanRepository.findByOrderIdFromProduct(order.getOrderId());
+        Optional<Artisan> artisanFromProduct = artisanRepository.findByOrderIdFromProduct(orderId);
         if (artisanFromProduct.isPresent()) {
             return artisanFromProduct.get();
         }
         
         // Try to find artisan from template (order template details)
-        Optional<Artisan> artisanFromTemplate = artisanRepository.findByOrderIdFromTemplate(order.getOrderId());
+        Optional<Artisan> artisanFromTemplate = artisanRepository.findByOrderIdFromTemplate(orderId);
         return artisanFromTemplate.orElse(null);
+    }
+    
+    /**
+     * Get order total using direct query to avoid lazy loading
+     */
+    private BigDecimal getOrderTotal(UUID orderId) {
+        BigDecimal total = orderRepository.findTotalByOrderId(orderId);
+        return total != null ? total : BigDecimal.ZERO;
     }
     
     @Override
