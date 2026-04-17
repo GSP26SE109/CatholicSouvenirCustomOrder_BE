@@ -57,9 +57,8 @@ public class PaymentController {
     
     /**
      * VNPay Return URL endpoint - User is redirected here after payment
-     * This endpoint will:
-     * 1. Update DB with payment result
-     * 2. Redirect user to frontend
+     * This endpoint will redirect user to frontend WITHOUT updating DB
+     * DB update is handled by IPN endpoint only
      */
     @GetMapping("/vnpay/return")
     public void handleVNPayReturn(
@@ -76,29 +75,8 @@ public class PaymentController {
         
         log.info("Response code: {}, TxnRef: {}, Success: {}", vnpResponseCode, txnRef, isSuccess);
         
-        // Update DB first
-        try {
-            log.info("Updating payment status...");
-            
-            Map<String, String> vnpParams = new HashMap<>();
-            for (Map.Entry<String, String> entry : params.entrySet()) {
-                if (entry.getKey().startsWith("vnp_")) {
-                    vnpParams.put(entry.getKey(), entry.getValue());
-                }
-            }
-            
-            PaymentCallbackRequest request = PaymentCallbackRequest.builder()
-                    .params(vnpParams)
-                    .paymentGateway("VNPAY")
-                    .build();
-            
-            paymentService.handlePaymentCallback(request);
-            log.info("Payment status updated successfully");
-        } catch (Exception e) {
-            log.error("Error updating payment status", e);
-        }
-        
-        // Redirect to frontend
+        // DO NOT update DB here - let IPN handle it
+        // Just redirect user to frontend
         String redirectUrl;
         try {
             var payment = paymentRepository.findByReferenceId(txnRef);
@@ -119,6 +97,7 @@ public class PaymentController {
         }
         
         log.info("Redirecting to: {}", redirectUrl);
+        log.info("DB will be updated by IPN callback");
         log.info("========================================");
         response.sendRedirect(redirectUrl);
     }
