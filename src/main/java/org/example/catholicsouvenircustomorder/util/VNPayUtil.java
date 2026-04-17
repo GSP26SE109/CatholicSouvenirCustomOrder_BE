@@ -93,10 +93,20 @@ public class VNPayUtil {
     public boolean verifySecureHash(Map<String, String> params, String secretKey) {
         try {
             String receivedHash = params.get("vnp_SecureHash");
-            params.remove("vnp_SecureHash");
-            params.remove("vnp_SecureHashType");
+            
+            // CRITICAL: Tạo copy để không mutate map gốc
+            Map<String, String> paramsCopy = new TreeMap<>(params);
+            paramsCopy.remove("vnp_SecureHash");
+            paramsCopy.remove("vnp_SecureHashType");
 
-            String calculatedHash = generateSecureHash(params, secretKey);
+            String calculatedHash = generateSecureHash(paramsCopy, secretKey);
+            
+            log.info("=== VNPay Signature Verification ===");
+            log.info("Received hash: {}", receivedHash);
+            log.info("Calculated hash: {}", calculatedHash);
+            log.info("Match: {}", calculatedHash.equals(receivedHash));
+            log.info("===================================");
+            
             return calculatedHash.equals(receivedHash);
         } catch (Exception e) {
             log.error("Error verifying VNPay secure hash", e);
@@ -153,11 +163,12 @@ public class VNPayUtil {
                 if (hashData.length() > 0) {
                     hashData.append("&");
                 }
-                // Key KHÔNG encode, value encode và replace + thành %20
+                // CRITICAL: Theo VNPay docs v2.1.0
+                // Hash data = key1=value1&key2=value2 (URL encoded)
+                // Key KHÔNG encode, value PHẢI encode
                 hashData.append(key)
                         .append("=")
-                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8)
-                                .replace("+", "%20"));
+                        .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
             }
         }
         return hashData.toString();
