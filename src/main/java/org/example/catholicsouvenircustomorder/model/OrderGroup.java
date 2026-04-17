@@ -27,9 +27,11 @@ public class OrderGroup {
     private Account customer;
     
     @OneToMany(mappedBy = "orderGroup", cascade = CascadeType.ALL)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("orderGroup-orders")
     private List<Order> orders = new ArrayList<>();
     
     @OneToMany(mappedBy = "orderGroup", cascade = CascadeType.ALL)
+    @com.fasterxml.jackson.annotation.JsonManagedReference
     private List<Payment> payments = new ArrayList<>();
     
     @Column(nullable = false, precision = 18, scale = 2)
