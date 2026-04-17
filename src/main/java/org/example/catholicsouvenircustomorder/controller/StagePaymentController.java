@@ -28,6 +28,9 @@ public class StagePaymentController {
     private final org.example.catholicsouvenircustomorder.util.VNPayUtil vnPayUtil;
     private final org.example.catholicsouvenircustomorder.config.VNPayConfig vnPayConfig;
     
+    @org.springframework.beans.factory.annotation.Value("${app.frontend-url}")
+    private String frontendUrl;
+    
     /**
      * Initiate payment for a stage
      * POST /api/stage-payments/{stageId}/initiate
@@ -71,8 +74,10 @@ public class StagePaymentController {
             
             if (referenceId == null) {
                 log.error("Missing vnp_TxnRef in return callback");
+                // Use configured frontend URL for error redirect
+                String errorUrl = frontendUrl + "/payment/error?message=Missing_transaction_reference";
                 return ResponseEntity.status(302)
-                        .header("Location", "http://localhost:3000/payment/error?message=Missing_transaction_reference")
+                        .header("Location", errorUrl)
                         .build();
             }
             
@@ -84,10 +89,17 @@ public class StagePaymentController {
             StagePaymentResponse paymentResponse = null;
             try {
                 log.info("Updating stage payment status via return URL...");
+                log.info("Reference ID: {}", referenceId);
+                log.info("Response Code: {}", responseCode);
+                log.info("Transaction ID: {}", transactionId);
+                log.info("Status: {}", status);
+                
                 paymentResponse = stagePaymentService.handleStagePaymentCallback(referenceId, status);
                 log.info("Stage payment status updated successfully via return URL");
             } catch (Exception e) {
                 log.error("Error updating stage payment via return URL", e);
+                log.error("Exception type: {}", e.getClass().getName());
+                log.error("Exception message: {}", e.getMessage());
                 // Continue to redirect even if update fails
             }
             
@@ -96,11 +108,15 @@ public class StagePaymentController {
             
             // Build redirect URL with payment result
             String redirectUrl;
-            if (returnUrl != null && !returnUrl.isEmpty()) {
+            if (paymentResponse != null && returnUrl != null && !returnUrl.isEmpty()) {
                 redirectUrl = buildRedirectUrl(returnUrl, paymentResponse, responseCode);
-            } else {
+            } else if (paymentResponse != null) {
                 // Default frontend URL if no returnUrl was saved
                 redirectUrl = buildDefaultRedirectUrl(paymentResponse, responseCode);
+            } else {
+                // Payment update failed, redirect to error page
+                log.error("Payment response is null, redirecting to error page");
+                redirectUrl = frontendUrl + "/payment/error?message=Payment_update_failed&ref=" + referenceId;
             }
             
             log.info("Redirecting to: {}", redirectUrl);
@@ -113,8 +129,10 @@ public class StagePaymentController {
                     
         } catch (Exception e) {
             log.error("Error handling VNPay return: ", e);
+            // Use configured frontend URL for error redirect
+            String errorUrl = frontendUrl + "/payment/error?message=" + e.getMessage();
             return ResponseEntity.status(302)
-                    .header("Location", "http://localhost:3000/payment/error?message=" + e.getMessage())
+                    .header("Location", errorUrl)
                     .build();
         }
     }
@@ -300,9 +318,12 @@ public class StagePaymentController {
     
     /**
      * Build default redirect URL when no returnUrl is provided
+     * Uses configured frontend URL from application.yml
      */
     private String buildDefaultRedirectUrl(StagePaymentResponse payment, String responseCode) {
-        String baseUrl = "http://localhost:3000/stage-payment/result";
+        // Use configured frontend URL instead of hardcoded localhost
+        String baseUrl = frontendUrl + "/stage-payment/result";
+        log.warn("No returnUrl found in payment, using default: {}", baseUrl);
         return buildRedirectUrl(baseUrl, payment, responseCode);
     }
 }
