@@ -35,10 +35,12 @@ public class Order {
     @OneToMany(mappedBy = "order",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("order-details")
     private List<OrderDetail> orderDetails = new ArrayList<>();
     
     @OneToMany(mappedBy = "order",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("order-template-details")
     private List<OrderTemplateDetail> templateDetails = new ArrayList<>();
 }
