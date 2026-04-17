@@ -15,5 +15,6 @@ public class ProductImage {
     private String publicId;
     @ManyToOne
     @JoinColumn(name = "product_id")
+    @com.fasterxml.jackson.annotation.JsonBackReference("product-images")
     private Product product;
 }
