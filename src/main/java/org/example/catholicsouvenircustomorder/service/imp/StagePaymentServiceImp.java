@@ -46,6 +46,9 @@ public class StagePaymentServiceImp implements StagePaymentService {
     
     @Autowired
     private org.example.catholicsouvenircustomorder.repository.ArtisanRepository artisanRepository;
+    
+    @Autowired
+    private org.example.catholicsouvenircustomorder.config.VNPayConfig vnPayConfig;
 
     @Override
     @Transactional
@@ -117,7 +120,7 @@ public class StagePaymentServiceImp implements StagePaymentService {
         try {
             // IMPORTANT: Use BACKEND callback URL for VNPay/ZaloPay to process payment
             // Backend will update DB and then redirect to frontend returnUrl
-            String backendReturnUrl = "http://localhost:8080/api/stage-payments/vnpay/return";
+            String backendReturnUrl = vnPayConfig.getStageReturnUrl();
             
             log.info("Using backend callback URL: {}", backendReturnUrl);
             if (returnUrl != null) {
