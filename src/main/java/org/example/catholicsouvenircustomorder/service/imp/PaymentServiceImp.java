@@ -225,23 +225,15 @@ public class PaymentServiceImp implements PaymentService {
                         orderGroup.getOrders().size(), orderGroup.getGroupId());
                 
                 // Distribute payment to all artisans (once for the entire order group)
-                // TEMPORARILY DISABLED due to circular reference issue
-                // TODO: Fix circular reference in findArtisanByOrder method
-                /*
                 try {
                     Account platformAdmin = walletService.getPlatformAdminAccount();
                     walletService.processPaymentDistribution(payment, platformAdmin);
                     log.info("Payment distribution completed for order group: {}", orderGroup.getGroupId());
-                } catch (StackOverflowError e) {
-                    log.error("StackOverflowError during payment distribution - skipping distribution", e);
-                    // Payment is still SUCCESS, just distribution failed
-                    // Can be retried later manually
                 } catch (Exception e) {
                     log.error("Error distributing payment for order group {}: {}", 
                             orderGroup.getGroupId(), e.getMessage(), e);
+                    // Payment is still SUCCESS, distribution can be retried later
                 }
-                */
-                log.info("Payment distribution skipped (will be processed separately)");
             }
             
         } else {

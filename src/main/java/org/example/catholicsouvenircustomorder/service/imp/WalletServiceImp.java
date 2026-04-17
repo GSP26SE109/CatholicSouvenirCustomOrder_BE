@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -24,6 +25,7 @@ public class WalletServiceImp implements WalletService {
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final AccountRepository accountRepository;
+    private final org.example.catholicsouvenircustomorder.repository.ArtisanRepository artisanRepository;
     
     // Platform fee rate: 10%
     private static final BigDecimal PLATFORM_FEE_RATE = new BigDecimal("0.10");
@@ -114,26 +116,18 @@ public class WalletServiceImp implements WalletService {
     }
     
     /**
-     * Helper method to find artisan from order
-     * NOTE: This method may cause circular reference if called
-     * Currently not used because distribution is disabled
+     * Helper method to find artisan from order using queries (no circular reference)
      */
     private Artisan findArtisanByOrder(Order order) {
-        if (order.getOrderDetails() != null && !order.getOrderDetails().isEmpty()) {
-            Product product = order.getOrderDetails().get(0).getProduct();
-            if (product != null && product.getArtisan() != null) {
-                return product.getArtisan();
-            }
+        // Try to find artisan from product (order details)
+        Optional<Artisan> artisanFromProduct = artisanRepository.findByOrderIdFromProduct(order.getOrderId());
+        if (artisanFromProduct.isPresent()) {
+            return artisanFromProduct.get();
         }
         
-        if (order.getTemplateDetails() != null && !order.getTemplateDetails().isEmpty()) {
-            ProductTemplate template = order.getTemplateDetails().get(0).getTemplate();
-            if (template != null && template.getArtisan() != null) {
-                return template.getArtisan();
-            }
-        }
-        
-        return null;
+        // Try to find artisan from template (order template details)
+        Optional<Artisan> artisanFromTemplate = artisanRepository.findByOrderIdFromTemplate(order.getOrderId());
+        return artisanFromTemplate.orElse(null);
     }
     
     @Override
