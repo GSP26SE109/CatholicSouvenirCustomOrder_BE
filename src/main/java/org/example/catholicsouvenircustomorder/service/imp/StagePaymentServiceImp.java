@@ -115,12 +115,14 @@ public class StagePaymentServiceImp implements StagePaymentService {
         String paymentUrl;
 
         try {
-            // IMPORTANT: Use BACKEND callback URL, not frontend
-            // Backend will update DB and then redirect to frontend
+            // IMPORTANT: Use BACKEND callback URL for VNPay/ZaloPay to process payment
+            // Backend will update DB and then redirect to frontend returnUrl
             String backendReturnUrl = "http://localhost:8080/api/stage-payments/vnpay/return";
             
-            log.info("Using backend return URL: {}", backendReturnUrl);
-            log.info("Frontend return URL saved: {}", returnUrl);
+            log.info("Using backend callback URL: {}", backendReturnUrl);
+            if (returnUrl != null) {
+                log.info("Frontend return URL saved in DB: {}", returnUrl);
+            }
             
             if (paymentMethod.equalsIgnoreCase("VNPAY")) {
                 paymentUrl = vnPayUtil.createPaymentUrl(
@@ -128,7 +130,7 @@ public class StagePaymentServiceImp implements StagePaymentService {
                         stage.getAmount(),
                         "Thanh toán stage: " + stage.getName(),
                         customer.getEmail(),
-                        backendReturnUrl  // Use backend URL, not frontend
+                        backendReturnUrl  // Backend processes callback first
                 );
             } else if (paymentMethod.equalsIgnoreCase("ZALOPAY")) {
                 String zaloCallbackUrl = "http://localhost:8080/api/stage-payments/zalopay/callback";
