@@ -15,6 +15,7 @@ import org.example.catholicsouvenircustomorder.repository.PaymentRepository;
 import org.example.catholicsouvenircustomorder.service.PaymentService;
 import org.example.catholicsouvenircustomorder.util.VNPayUtil;
 import org.example.catholicsouvenircustomorder.util.ZaloPayUtil;
+import org.example.catholicsouvenircustomorder.config.VNPayConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,7 @@ public class PaymentServiceImp implements PaymentService {
     private final OrderGroupRepository orderGroupRepository;
     private final OrderRepository orderRepository;
     private final VNPayUtil vnPayUtil;
+    private final VNPayConfig vnPayConfig;
     private final ZaloPayUtil zaloPayUtil;
     private final WalletServiceImp walletService;
     @Value("${app.base-url}")
@@ -155,7 +157,7 @@ public class PaymentServiceImp implements PaymentService {
             // IMPORTANT: Pass a COPY of params because verifySecureHash mutates the map
             boolean isValidSignature = vnPayUtil.verifySecureHash(
                 new java.util.HashMap<>(request.getParams()), 
-                vnPayUtil.getHashSecret()
+                vnPayConfig.getHashSecret()
             );
             
             if (!isValidSignature) {
