@@ -69,13 +69,12 @@ public class PaymentServiceImp implements PaymentService {
         ).orElse(null);
         
         if (existingPayment != null) {
-            log.info("Returning existing pending payment: {}", existingPayment.getPaymentId());
-            return PaymentInitiationResponse.builder()
-                    .paymentId(existingPayment.getPaymentId())
-                    .paymentUrl(existingPayment.getPaymentUrl())
-                    .transactionId(existingPayment.getReferenceId())
-                    .amount(existingPayment.getAmount())
-                    .build();
+            // Cancel old pending payment and create new one
+            log.info("Found existing pending payment: {}, cancelling it", existingPayment.getPaymentId());
+            existingPayment.setStatus(PaymentStatus.CANCELLED);
+            existingPayment.setFailureReason("Replaced by new payment request");
+            paymentRepository.save(existingPayment);
+            log.info("Old payment cancelled, creating new one");
         }
         
         // Create new payment
