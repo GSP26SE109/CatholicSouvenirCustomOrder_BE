@@ -54,6 +54,18 @@ public class ArtisanServiceImp implements ArtisanService {
             artisan.setBio(request.getBio());
         }
 
+        if (request.getExperienceYears() != null) {
+            artisan.setExperience_year(request.getExperienceYears());
+        }
+
+        if (request.getPortfolioUrl() != null) {
+            artisan.setPortfolioUrl(request.getPortfolioUrl());
+        }
+
+        if (request.getSpecialization() != null && !request.getSpecialization().trim().isEmpty()) {
+            artisan.setSpecialization(request.getSpecialization());
+        }
+
         Artisan updatedArtisan = artisanRepository.save(artisan);
         return mapToDTO(updatedArtisan);
     }

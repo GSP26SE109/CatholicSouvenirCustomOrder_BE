@@ -32,6 +32,22 @@ public class ProductTemplateController {
     // ==================== ARTISAN ENDPOINTS ====================
     
     /**
+     * Get my templates (Artisan only)
+     * GET /api/templates/my-templates
+     */
+    @GetMapping("/my-templates")
+    @PreAuthorize("hasAuthority('ARTISAN')")
+    public ResponseEntity<BaseResponse> getMyTemplates(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Authentication authentication) {
+        UUID artisanId = (UUID) authentication.getPrincipal();
+        Pageable pageable = PageRequest.of(page, size);
+        Page<TemplateResponse> response = templateService.getArtisanTemplates(artisanId, pageable);
+        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách mẫu của tôi thành công", response));
+    }
+    
+    /**
      * Create a new product template (Artisan only)
      * POST /api/templates
      */

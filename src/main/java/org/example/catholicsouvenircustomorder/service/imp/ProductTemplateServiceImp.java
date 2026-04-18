@@ -54,6 +54,11 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         template.setName(request.getName());
         template.setDescription(request.getDescription());
         template.setBasePrice(request.getBasePrice());
+        template.setMaterial(request.getMaterial());
+        template.setStyle(request.getStyle());
+        if (request.getBaseImages() != null) {
+            template.setBaseImages(request.getBaseImages());
+        }
         template.setIsActive(true);
         
         ProductTemplate savedTemplate = templateRepository.save(template);
@@ -110,6 +115,18 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
                 throw new IllegalArgumentException("Base price must be greater than 0");
             }
             template.setBasePrice(request.getBasePrice());
+        }
+        
+        if (request.getMaterial() != null) {
+            template.setMaterial(request.getMaterial());
+        }
+        
+        if (request.getStyle() != null) {
+            template.setStyle(request.getStyle());
+        }
+        
+        if (request.getBaseImages() != null) {
+            template.setBaseImages(request.getBaseImages());
         }
         
         if (request.getIsActive() != null) {
@@ -391,6 +408,9 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         response.setName(template.getName());
         response.setDescription(template.getDescription());
         response.setBasePrice(template.getBasePrice());
+        response.setMaterial(template.getMaterial());
+        response.setStyle(template.getStyle());
+        response.setBaseImages(template.getBaseImages());
         response.setIsActive(template.getIsActive());
         response.setCreatedAt(template.getCreatedAt());
         response.setUpdatedAt(template.getUpdatedAt());
@@ -407,6 +427,9 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         response.setName(template.getName());
         response.setDescription(template.getDescription());
         response.setBasePrice(template.getBasePrice());
+        response.setMaterial(template.getMaterial());
+        response.setStyle(template.getStyle());
+        response.setBaseImages(template.getBaseImages());
         response.setIsActive(template.getIsActive());
         response.setCreatedAt(template.getCreatedAt());
         response.setUpdatedAt(template.getUpdatedAt());
