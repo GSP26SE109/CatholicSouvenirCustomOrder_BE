@@ -79,6 +79,7 @@ public class PaymentController {
         // IPN may fail or delay, so we update DB immediately when user returns
         try {
             log.info("Updating payment status via return URL...");
+            log.info("TxnRef: {}, ResponseCode: {}", txnRef, vnpResponseCode);
             
             // Filter only VNPay params (vnp_*)
             Map<String, String> vnpParams = new HashMap<>();
@@ -88,16 +89,28 @@ public class PaymentController {
                 }
             }
             
+            log.info("Filtered VNPay params count: {}", vnpParams.size());
+            log.info("VNPay params: {}", vnpParams);
+            
             PaymentCallbackRequest request = PaymentCallbackRequest.builder()
                     .params(vnpParams)
                     .paymentGateway("VNPAY")
                     .build();
 
+            log.info("Calling paymentService.handlePaymentCallback...");
             paymentService.handlePaymentCallback(request);
-            log.info("Payment status updated successfully via return URL");
+            log.info("✅ Payment status updated successfully via return URL");
             
         } catch (Exception e) {
-            log.error("Error updating payment via return URL", e);
+            log.error("========================================");
+            log.error("❌ Error updating payment via return URL for txnRef: {}", txnRef);
+            log.error("Exception type: {}", e.getClass().getName());
+            log.error("Exception message: {}", e.getMessage());
+            if (e.getCause() != null) {
+                log.error("Caused by: {}", e.getCause().getMessage());
+            }
+            log.error("Stack trace:", e);
+            log.error("========================================");
             // Continue to redirect even if update fails
         }
         

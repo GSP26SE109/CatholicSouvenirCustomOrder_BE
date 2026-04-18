@@ -87,6 +87,7 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       APP_BASE_URL: ${APP_BASE_URL}
+      OPEN_AI_KEY: ${OPEN_AI_KEY}
     depends_on:
       postgres:
         condition: service_healthy

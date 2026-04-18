@@ -63,6 +63,9 @@ ai:
 huggingface:
   api:
     key: ${HUGGINGFACE_API_KEY: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}
+    url: ${HUGGINGFACE_API_URL:https://router.huggingface.co/v1/chat/completions}
+  text:
+    model: ${HUGGINGFACE_TEXT_MODEL:meta-llama/Llama-3.1-8B-Instruct:novita}
 
 zalopay:
   app-id: ${ZALOPAY_APP_ID:554}
@@ -106,6 +109,11 @@ ghn:
   from-ward-code: ${GHN_FROM_WARD_CODE:21211}
   callback-url: ${GHN_CALLBACK_URL:https://catholic-souvenir-api.southeastasia.cloudapp.azure.com/api/webhook/ghn}
 
+openai:
+  api:
+    key: ${OPEN_AI_API_KEY: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}
+    url: https://api.openai.com/v1/chat/completions
+  model: gpt-4.1-mini
 
 
 ##########################LOCAL HOST#################################

@@ -67,9 +67,16 @@ public class StagePaymentController {
     @GetMapping("/vnpay/return")
     public ResponseEntity<?> handleVNPayReturn(@RequestParam Map<String, String> params) {
         try {
+            log.info("========================================");
+            log.info("Received VNPay return callback");
+            log.info("All return params: {}", params);
+            
             String referenceId = params.get("vnp_TxnRef");
             String responseCode = params.get("vnp_ResponseCode");
             String transactionId = params.get("vnp_TransactionNo");
+            
+            log.info("Extracted - referenceId: {}, responseCode: {}, transactionId: {}", 
+                    referenceId, responseCode, transactionId);
             
             if (referenceId == null) {
                 log.error("Missing vnp_TxnRef in return callback");
@@ -80,32 +87,51 @@ public class StagePaymentController {
             }
             
             String status = "00".equals(responseCode) ? "SUCCESS" : "FAILED";
+            log.info("Determined payment status: {}", status);
             
             StagePaymentResponse paymentResponse = null;
             try {
+                log.info("Calling handleStagePaymentCallback with referenceId: {}", referenceId);
                 paymentResponse = stagePaymentService.handleStagePaymentCallback(referenceId, status);
+                log.info("Payment callback handled successfully: {}", paymentResponse);
             } catch (Exception e) {
-                log.error("Error updating stage payment: {}", e.getMessage());
+                log.error("Error updating stage payment for ref: {}", referenceId, e);
+                log.error("Exception type: {}", e.getClass().getName());
+                log.error("Exception message: {}", e.getMessage());
+                if (e.getCause() != null) {
+                    log.error("Caused by: {}", e.getCause().getMessage());
+                }
             }
             
             String returnUrl = getReturnUrlFromPayment(referenceId);
+            log.info("Retrieved returnUrl: {}", returnUrl);
             
             String redirectUrl;
             if (paymentResponse != null && returnUrl != null && !returnUrl.isEmpty()) {
                 redirectUrl = buildRedirectUrl(returnUrl, paymentResponse, responseCode);
+                log.info("Built custom redirect URL: {}", redirectUrl);
             } else if (paymentResponse != null) {
                 redirectUrl = buildDefaultRedirectUrl(paymentResponse, responseCode);
+                log.info("Built default redirect URL: {}", redirectUrl);
             } else {
                 log.error("Payment update failed for ref: {}", referenceId);
                 redirectUrl = frontendUrl + "/payment/error?message=Payment_update_failed&ref=" + referenceId;
+                log.info("Built error redirect URL: {}", redirectUrl);
             }
+            
+            log.info("Redirecting to: {}", redirectUrl);
+            log.info("========================================");
             
             return ResponseEntity.status(302)
                     .header("Location", redirectUrl)
                     .build();
                     
         } catch (Exception e) {
-            log.error("Error handling VNPay return: {}", e.getMessage());
+            log.error("========================================");
+            log.error("Unexpected error handling VNPay return", e);
+            log.error("Exception type: {}", e.getClass().getName());
+            log.error("Exception message: {}", e.getMessage());
+            log.error("========================================");
             String errorUrl = frontendUrl + "/payment/error?message=" + e.getMessage();
             return ResponseEntity.status(302)
                     .header("Location", errorUrl)
