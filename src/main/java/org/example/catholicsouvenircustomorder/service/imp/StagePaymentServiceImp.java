@@ -163,7 +163,7 @@ public class StagePaymentServiceImp implements StagePaymentService {
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = Exception.class)
     public StagePaymentResponse handleStagePaymentCallback(String referenceId, String status) {
         log.info("========================================");
         log.info("Processing payment callback - referenceId: {}, status: {}", referenceId, status);

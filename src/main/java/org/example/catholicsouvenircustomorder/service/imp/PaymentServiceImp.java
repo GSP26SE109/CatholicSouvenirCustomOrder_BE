@@ -153,7 +153,7 @@ public class PaymentServiceImp implements PaymentService {
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = Exception.class)
     public PaymentResponse handlePaymentCallback(PaymentCallbackRequest request) {
         log.info("========================================");
         log.info("Processing payment callback");
