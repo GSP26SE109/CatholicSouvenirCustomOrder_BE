@@ -102,7 +102,6 @@ public class CustomOrderServiceImp implements CustomOrderService {
             stage.setPaymentPercentage(stageDTO.getPaymentPercentage());
             stage.setEstimatedDays(stageDTO.getEstimatedDays());
             stage.setStatus(StageStatus.PENDING);
-            
             // Workflow: Stage 1 can be paid immediately, others are locked
             stage.setCanPay(i == 0);  // Only first stage can be paid
             stage.setIsPaid(false);

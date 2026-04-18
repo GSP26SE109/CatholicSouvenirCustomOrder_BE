@@ -44,7 +44,7 @@ public class DashboardServiceImp implements DashboardService {
         return orderRepository.getOrderStatusRaw(artisanId)
                 .stream()
                 .collect(Collectors.toMap(
-                        row -> (OrderStatus) row[0],
+                        row -> OrderStatus.valueOf((String) row[0]),
                         row -> ((Long) row[1]).intValue()
                 ));
     }
@@ -92,7 +92,7 @@ public class DashboardServiceImp implements DashboardService {
         return orderRepository.getAdminOrderStatusRaw()
                 .stream()
                 .collect(Collectors.toMap(
-                        row -> (OrderStatus) row[0],
+                        row -> OrderStatus.valueOf((String) row[0]),
                         row -> ((Long) row[1]).intValue()
                 ));
     }
