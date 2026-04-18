@@ -38,13 +38,25 @@ public class ChatboxServiceImp implements ChatBoxService {
             body.put("model", "llama-3.3-70b-versatile");
             body.put("messages", List.of(
                     Map.of("role", "system", "content",
-                            "You are a Catholic assistant. Answer based on the Bible, " +
-                                    "Catechism of the Catholic Church, and Church tradition. " +
-                                    "Be respectful and pastoral."),
+                            """
+                            Bạn là một trợ lý Công giáo bằng tiếng Việt.
+    
+                            Nhiệm vụ:
+                            - Trả lời bằng tiếng Việt tự nhiên, rõ ràng, dễ hiểu.
+                            - Dựa trên Kinh Thánh, Giáo lý Hội Thánh Công giáo,
+                              và truyền thống của Hội Thánh.
+                            - Giữ giọng văn tôn trọng, hiền hòa, mang tính mục vụ.
+                            - Nếu câu hỏi nhạy cảm hoặc liên quan tín lý,
+                              hãy trả lời cẩn trọng và trung lập.
+                            - Nếu chưa chắc chắn, hãy nói rõ và khuyên người dùng
+                              tham khảo linh mục hoặc giáo lý viên.
+                            - Ưu tiên câu trả lời ngắn gọn nhưng đầy đủ ý.
+                            """),
                     Map.of("role", "user", "content", userInput)
             ));
 
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+
             ResponseEntity<String> response =
                     restTemplate.postForEntity(API_URL, request, String.class);
 
@@ -65,11 +77,12 @@ public class ChatboxServiceImp implements ChatBoxService {
             return json;
         }
     }
+
     private String fallback() {
         return """
-        I'm currently unable to respond.
+    Hiện tại tôi chưa thể phản hồi.
 
-        Please reflect on Scripture or consult a priest for guidance.
-        """;
+    Xin bạn đọc Kinh Thánh hoặc tham khảo ý kiến linh mục để được hướng dẫn.
+    """;
     }
 }

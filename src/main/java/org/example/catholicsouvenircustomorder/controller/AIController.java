@@ -3,10 +3,14 @@ package org.example.catholicsouvenircustomorder.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
+import org.example.catholicsouvenircustomorder.dto.request.AIPromptRequest;
+import org.example.catholicsouvenircustomorder.dto.request.GenerateConceptImageRequest;
 import org.example.catholicsouvenircustomorder.dto.request.GenerateDesignRequest;
+import org.example.catholicsouvenircustomorder.dto.response.AIImageResponse;
 import org.example.catholicsouvenircustomorder.service.AIImageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -44,5 +48,27 @@ public class AIController {
         }
         
         return ResponseEntity.ok(BaseResponse.success("Tạo thiết kế thành công", imageBase64));
+    }
+    
+    @PostMapping("/generate-concept")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse<AIImageResponse>> generateConceptImage(
+            @Valid @RequestBody GenerateConceptImageRequest request) {
+        
+        // Build AIPromptRequest with the description
+        AIPromptRequest aiPromptRequest = AIPromptRequest.builder()
+                .additionalDescription(request.getDescription())
+                .build();
+        
+        // Use existing service method
+        AIImageResponse response = aiImageService.generateConceptImage(aiPromptRequest);
+        
+        if (!response.isSuccess()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(BaseResponse.error(503, response.getErrorMessage() != null ? 
+                    response.getErrorMessage() : "Dịch vụ AI tạm thời không khả dụng. Vui lòng thử lại sau."));
+        }
+        
+        return ResponseEntity.ok(BaseResponse.success("Tạo ảnh concept thành công", response));
     }
 }
