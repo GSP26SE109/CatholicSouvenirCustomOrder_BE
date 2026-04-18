@@ -35,8 +35,8 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     List<Payment> findByCustomerId(@Param("customerId") UUID customerId);
     
     // Check if order group is fully paid
-    @Query("SELECT CASE WHEN COUNT(p) > 0 AND p.status = 'SUCCESS' THEN true ELSE false END " +
-           "FROM Payment p WHERE p.orderGroup.groupId = :orderGroupId")
+    @Query("SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END " +
+           "FROM Payment p WHERE p.orderGroup.groupId = :orderGroupId AND p.status = 'SUCCESS'")
     boolean isOrderGroupPaid(@Param("orderGroupId") UUID orderGroupId);
     
     // Get total paid amount for order group
