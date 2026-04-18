@@ -84,7 +84,18 @@ public class StagePaymentServiceImp implements StagePaymentService {
 
         // Check if stage already paid
         if (stage.getStatus() == StageStatus.PAID || stage.getStatus() == StageStatus.COMPLETED) {
+            log.warn("⚠️ Stage {} is already PAID, cannot create new payment", stageId);
             throw new BadRequestException("Stage đã được thanh toán");
+        }
+        
+        // Check if already has successful payment
+        boolean hasSuccessfulPayment = paymentRepository.findByStage_StageIdAndStatus(
+                stageId, PaymentStatus.SUCCESS
+        ).isPresent();
+        
+        if (hasSuccessfulPayment) {
+            log.warn("⚠️ Stage {} already has successful payment", stageId);
+            throw new BadRequestException("Stage này đã được thanh toán");
         }
 
         // Check if previous stages are paid (except for first stage)
@@ -103,9 +114,23 @@ public class StagePaymentServiceImp implements StagePaymentService {
                 .orElse(null);
 
         if (existingPayment != null) {
-            existingPayment.setStatus(PaymentStatus.CANCELLED);
-            existingPayment.setFailureReason("Replaced by new payment request");
-            paymentRepository.save(existingPayment);
+            // Check if existing payment is recent (within 15 minutes)
+            LocalDateTime fifteenMinutesAgo = LocalDateTime.now().minusMinutes(15);
+            if (existingPayment.getCreatedAt().isAfter(fifteenMinutesAgo)) {
+                // Payment is recent, reuse it
+                log.info("⚠️ Found recent pending payment (created {}), reusing it", 
+                        existingPayment.getCreatedAt());
+                
+                return mapToPaymentResponse(existingPayment);
+            } else {
+                // Payment is old, cancel it
+                log.info("Found old pending payment: {} (created {}), cancelling it", 
+                        existingPayment.getPaymentId(), existingPayment.getCreatedAt());
+                existingPayment.setStatus(PaymentStatus.CANCELLED);
+                existingPayment.setFailureReason("Replaced by new payment request (expired)");
+                paymentRepository.save(existingPayment);
+                log.info("Old payment cancelled, creating new one");
+            }
         }
 
         // Create payment
@@ -166,32 +191,54 @@ public class StagePaymentServiceImp implements StagePaymentService {
     @Transactional(noRollbackFor = Exception.class)
     public StagePaymentResponse handleStagePaymentCallback(String referenceId, String status) {
         log.info("========================================");
-        log.info("Processing payment callback - referenceId: {}, status: {}", referenceId, status);
+        log.info("🔵 Processing stage payment callback");
+        log.info("🔵 ReferenceId: {}, Status: {}", referenceId, status);
         
         // Find payment by our reference ID
         StagePayment payment = paymentRepository.findByReferenceId(referenceId)
                 .orElseThrow(() -> {
-                    log.error("Payment not found for referenceId: {}", referenceId);
+                    log.error("❌ Payment not found for referenceId: {}", referenceId);
                     return new ResourceNotFoundException("Không tìm thấy payment với referenceId: " + referenceId);
                 });
         
-        log.info("Found payment: paymentId={}, currentStatus={}, amount={}", 
+        log.info("✅ Found payment: paymentId={}, currentStatus={}, amount={}", 
                 payment.getPaymentId(), payment.getStatus(), payment.getAmount());
+        
+        // IDEMPOTENCY CHECK
+        if (payment.getStatus() == PaymentStatus.SUCCESS) {
+            log.info("⚠️ Payment already processed successfully, returning existing result");
+            return mapToPaymentResponse(payment);
+        }
+        
+        if (payment.getStatus() == PaymentStatus.FAILED) {
+            log.info("⚠️ Payment already marked as failed, returning existing result");
+            return mapToPaymentResponse(payment);
+        }
 
         if (status.equalsIgnoreCase("SUCCESS") || status.equals("00")) {
-            log.info("Processing SUCCESS payment");
+            log.info("✅ Payment successful, updating status");
+            
+            // Set payment status
             payment.setStatus(PaymentStatus.SUCCESS);
             payment.setPaidAt(LocalDateTime.now());
+            
+            // CRITICAL: Save payment IMMEDIATELY
+            log.info("💾 Saving payment with SUCCESS status BEFORE distribution");
+            payment = paymentRepository.save(payment);
+            log.info("✅ Payment saved successfully with status: {}", payment.getStatus());
 
             // Update stage status and workflow flags
             CustomOrderStage stage = payment.getStage();
+            log.info("📝 Updating stage status to PAID");
             stage.setStatus(StageStatus.PAID);
             stage.setPaidAt(LocalDateTime.now());
             stage.setIsPaid(true);
             stage.setCanPay(false);
             stageRepository.save(stage);
+            log.info("✅ Stage {} status updated to PAID", stage.getStageId());
 
-            // Distribute money: 90% to artisan, 10% platform fee
+            // Distribute money with commission deduction
+            log.info("💰 Starting payment distribution process");
             try {
                 log.info("Starting payment distribution for paymentId: {}", payment.getPaymentId());
                 
@@ -265,7 +312,7 @@ public class StagePaymentServiceImp implements StagePaymentService {
 
             // Update custom order status
             CustomOrder customOrder = stage.getCustomOrder();
-            log.info("Checking if all stages are paid for customOrderId: {}", customOrder.getCustomOrderId());
+            log.info("📋 Checking if all stages are paid for customOrderId: {}", customOrder.getCustomOrderId());
             
             boolean allStagesPaid = customOrder.getStages().stream()
                     .allMatch(s -> s.getIsPaid());
@@ -274,22 +321,21 @@ public class StagePaymentServiceImp implements StagePaymentService {
             
             if (allStagesPaid) {
                 customOrder.setStatus(CustomOrderStatus.IN_PROGRESS);
-                log.info("Updated custom order status to IN_PROGRESS (all stages paid)");
+                log.info("✅ Updated custom order status to IN_PROGRESS (all stages paid)");
             } else {
                 customOrder.setStatus(CustomOrderStatus.IN_PROGRESS);
-                log.info("Updated custom order status to IN_PROGRESS (partial payment)");
+                log.info("✅ Updated custom order status to IN_PROGRESS (partial payment)");
             }
 
         } else {
-            log.info("Processing FAILED payment");
+            log.warn("❌ Payment failed with status: {}", status);
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason("Payment failed with status: " + status);
         }
 
-        log.info("Saving payment with final status: {}", payment.getStatus());
+        log.info("💾 Final save of payment record");
         payment = paymentRepository.save(payment);
-        
-        log.info("Payment callback processing completed successfully");
+        log.info("✅ Stage payment callback processing completed with final status: {}", payment.getStatus());
         log.info("========================================");
         
         return mapToPaymentResponse(payment);

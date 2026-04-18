@@ -73,18 +73,47 @@ public class PaymentServiceImp implements PaymentService {
             throw new BadRequestException("Nhóm đơn hàng không có đơn hàng nào");
         }
         
+        // CRITICAL: Check if order group is already paid
+        if ("PAID".equalsIgnoreCase(orderGroup.getStatus())) {
+            log.warn("⚠️ Order group {} is already PAID, cannot create new payment", orderGroup.getGroupId());
+            throw new BadRequestException("Nhóm đơn hàng này đã được thanh toán");
+        }
+        
+        // Check if already has successful payment
+        boolean hasSuccessfulPayment = paymentRepository.isOrderGroupPaid(dto.getOrderGroupId());
+        if (hasSuccessfulPayment) {
+            log.warn("⚠️ Order group {} already has successful payment", orderGroup.getGroupId());
+            throw new BadRequestException("Nhóm đơn hàng này đã được thanh toán");
+        }
+        
         // Check if already has pending payment
         Payment existingPayment = paymentRepository.findByOrderGroup_GroupIdAndStatus(
                 dto.getOrderGroupId(), PaymentStatus.PENDING
         ).orElse(null);
         
         if (existingPayment != null) {
-            // Cancel old pending payment and create new one
-            log.info("Found existing pending payment: {}, cancelling it", existingPayment.getPaymentId());
-            existingPayment.setStatus(PaymentStatus.CANCELLED);
-            existingPayment.setFailureReason("Replaced by new payment request");
-            paymentRepository.save(existingPayment);
-            log.info("Old payment cancelled, creating new one");
+            // Check if existing payment is recent (within 15 minutes)
+            LocalDateTime fifteenMinutesAgo = LocalDateTime.now().minusMinutes(15);
+            if (existingPayment.getCreatedAt().isAfter(fifteenMinutesAgo)) {
+                // Payment is recent, reuse it instead of creating new one
+                log.info("⚠️ Found recent pending payment (created {}), reusing it instead of creating new one", 
+                        existingPayment.getCreatedAt());
+                
+                return PaymentInitiationResponse.builder()
+                        .paymentId(existingPayment.getPaymentId())
+                        .paymentUrl(existingPayment.getPaymentUrl())
+                        .transactionId(existingPayment.getReferenceId())
+                        .amount(existingPayment.getAmount())
+                        .build();
+            } else {
+                // Payment is old (>15 minutes), cancel it and create new one
+                log.info("Found old pending payment: {} (created {}), cancelling it", 
+                        existingPayment.getPaymentId(), existingPayment.getCreatedAt());
+                existingPayment.setStatus(PaymentStatus.CANCELLED);
+                existingPayment.setFailureReason("Replaced by new payment request (expired)");
+                paymentRepository.save(existingPayment);
+                log.info("Old payment cancelled, creating new one");
+            }
         }
         
         // Create new payment
