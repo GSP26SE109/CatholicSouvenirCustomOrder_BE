@@ -32,4 +32,9 @@ public interface ShippingService {
     List<Map<String, Object>> getWards(Integer districtId);
     Map<String, Object> searchDistrict(Integer provinceId, String districtName);
     Map<String, Object> searchWard(Integer districtId, String wardName);
+    
+    // Return Shipment Methods
+    ShipmentResponse createReturnShipment(UUID complaintId, CreateShipmentRequest request, UUID customerId);
+    ShipmentResponse confirmReturnReceipt(UUID shipmentId, UUID artisanId);
+    ShipmentResponse getReturnShipmentByComplaint(UUID complaintId);
 }

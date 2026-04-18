@@ -42,6 +42,14 @@ public class WalletTransaction {
     @JoinColumn(name = "stage_payment_id")
     private StagePayment stagePayment;
     
+    // Related entity for tracking (e.g., COMPLAINT for refunds)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "related_entity_type")
+    private RelatedEntityType relatedEntityType;
+    
+    @Column(name = "related_entity_id")
+    private UUID relatedEntityId;
+    
     @Column(columnDefinition = "TEXT")
     private String description;
     

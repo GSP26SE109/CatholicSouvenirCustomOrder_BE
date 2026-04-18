@@ -2,6 +2,7 @@ package org.example.catholicsouvenircustomorder.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
+import org.example.catholicsouvenircustomorder.dto.request.UpdateArtisanProfileRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Dashboard.DashboardResponse;
 import org.example.catholicsouvenircustomorder.dto.response.account.ArtisanResponseDTO;
 import org.example.catholicsouvenircustomorder.service.ArtisanService;
@@ -47,6 +48,26 @@ public class ArtisanController {
 
         return ResponseEntity.ok(BaseResponse.success("Lấy thông tin thợ thủ công thành công", artisan));
     }
+
+    @GetMapping("/profile")
+    public ResponseEntity<BaseResponse<ArtisanResponseDTO>> getArtisanProfile(
+            @AuthenticationPrincipal UUID artisanId) {
+
+        ArtisanResponseDTO artisan = artisanService.getArtisanProfile(artisanId);
+
+        return ResponseEntity.ok(BaseResponse.success("Lấy hồ sơ cá nhân thành công", artisan));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<BaseResponse<ArtisanResponseDTO>> updateArtisanProfile(
+            @AuthenticationPrincipal UUID artisanId,
+            @RequestBody UpdateArtisanProfileRequest request) {
+
+        ArtisanResponseDTO artisan = artisanService.updateArtisanProfile(artisanId, request);
+
+        return ResponseEntity.ok(BaseResponse.success("Cập nhật hồ sơ cá nhân thành công", artisan));
+    }
+
     @GetMapping("/dashboard")
     public ResponseEntity<BaseResponse> getDashboard(
             @AuthenticationPrincipal UUID artisanId,

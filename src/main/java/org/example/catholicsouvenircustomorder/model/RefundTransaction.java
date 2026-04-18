@@ -1,0 +1,60 @@
+package org.example.catholicsouvenircustomorder.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Data
+@Table(name = "refund_transactions")
+public class RefundTransaction {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID refundTransactionId;
+    
+    @OneToOne(optional = false)
+    @JoinColumn(name = "complaint_id", unique = true)
+    private Complaint complaint;
+    
+    @Column(nullable = false, precision = 18, scale = 2)
+    private BigDecimal amount;
+    
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "from_wallet_id")
+    private Wallet fromWallet; // Artisan wallet
+    
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "to_wallet_id")
+    private Wallet toWallet; // Customer wallet
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private RefundStatus status = RefundStatus.PENDING;
+    
+    @Column(length = 500)
+    private String failureReason;
+    
+    // Reference to WalletTransaction entries
+    @OneToOne
+    @JoinColumn(name = "debit_transaction_id")
+    private WalletTransaction debitTransaction;
+    
+    @OneToOne
+    @JoinColumn(name = "credit_transaction_id")
+    private WalletTransaction creditTransaction;
+    
+    @Column(nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+    
+    private LocalDateTime completedAt;
+    
+    @PreUpdate
+    public void preUpdate() {
+        if (status == RefundStatus.COMPLETED || status == RefundStatus.FAILED) {
+            this.completedAt = LocalDateTime.now();
+        }
+    }
+}
