@@ -111,20 +111,22 @@ public class PaymentServiceImp implements PaymentService {
                 : "Thanh toan " + orderCount + " don hang";
             
             if (dto.getMethod() == PaymentMethod.VNPAY) {
-                // IMPORTANT: vnp_ReturnUrl MUST point to BACKEND, not frontend
+                // CRITICAL: vnp_ReturnUrl MUST point to BACKEND
                 // Backend will update DB and then redirect to frontend
                 // Save frontend URL to payment.returnUrl for later redirect
                 String backendReturnUrl = baseUrl + "/api/payments/vnpay/return";
                 
-                log.info("Using backend return URL: {}", backendReturnUrl);
-                log.info("Frontend return URL saved: {}", dto.getReturnUrl());
+                log.info("Creating VNPay payment URL");
+                log.info("Backend return URL (for VNPay): {}", backendReturnUrl);
+                log.info("Frontend return URL (saved in DB): {}", dto.getReturnUrl());
                 
+                // IMPORTANT: Always use backend URL for VNPay, ignore frontend URL
                 paymentUrl = vnPayUtil.createPaymentUrl(
                         referenceId,
                         orderGroup.getTotalAmount(),
                         description,
                         orderGroup.getCustomer().getEmail(),
-                        backendReturnUrl  // Use backend URL, not frontend
+                        backendReturnUrl  // Always use backend URL
                 );
             } else if (dto.getMethod() == PaymentMethod.ZALOPAY) {
                 throw new BadRequestException("ZaloPay không được hỗ trợ. Vui lòng sử dụng VNPay");
@@ -210,75 +212,80 @@ public class PaymentServiceImp implements PaymentService {
         
         if ("00".equals(status) || "SUCCESS".equalsIgnoreCase(status) || "1".equals(status)) {
             log.info("Payment successful, updating status");
-            payment.setStatus(PaymentStatus.SUCCESS);
-            payment.setTransactionId(gatewayTransactionId);
-            payment.setPaidAt(LocalDateTime.now());
             
+            // Validate order group exists FIRST
             OrderGroup orderGroup = payment.getOrderGroup();
             if (orderGroup == null) {
                 log.error("Payment {} has no associated order group!", payment.getPaymentId());
                 payment.setStatus(PaymentStatus.FAILED);
                 payment.setFailureReason("No order group associated with payment");
-            } else {
-                // Update order group status
-                orderGroup.setStatus("PAID");
-                orderGroup.setUpdatedAt(LocalDateTime.now());
-                orderGroupRepository.save(orderGroup);
-                log.info("Order group {} status updated to PAID", orderGroup.getGroupId());
+                payment = paymentRepository.save(payment);
+                log.error("Payment marked as FAILED and saved");
+                return mapToPaymentResponse(payment);
+            }
+            
+            // Now we know orderGroup is not null, proceed with success flow
+            payment.setStatus(PaymentStatus.SUCCESS);
+            payment.setTransactionId(gatewayTransactionId);
+            payment.setPaidAt(LocalDateTime.now());
+            
+            // Update order group status
+            orderGroup.setStatus("PAID");
+            orderGroup.setUpdatedAt(LocalDateTime.now());
+            orderGroupRepository.save(orderGroup);
+            log.info("Order group {} status updated to PAID", orderGroup.getGroupId());
+            
+            // Update ALL orders in the group
+            for (Order order : orderGroup.getOrders()) {
+                order.setStatus("PAID");
+                order.setUpdateAt(LocalDateTime.now());
+                orderRepository.save(order);
+                log.info("Order {} status updated to PAID", order.getOrderId());
+            }
+            
+            log.info("Updated {} orders in group {}", 
+                    orderGroup.getOrders().size(), orderGroup.getGroupId());
+            
+            // Distribute payment to all artisans with commission deduction
+            try {
+                // Re-fetch payment with JOIN FETCH to avoid lazy loading issues
+                Payment paymentForDistribution = paymentRepository
+                        .findByIdWithOrdersForDistribution(payment.getPaymentId())
+                        .orElse(payment);
                 
-                // Update ALL orders in the group
-                for (Order order : orderGroup.getOrders()) {
-                    order.setStatus("PAID");
-                    order.setUpdateAt(LocalDateTime.now());
-                    orderRepository.save(order);
-                    log.info("Order {} status updated to PAID", order.getOrderId());
+                Account platformAdmin = walletService.getPlatformAdminAccount();
+                
+                // Calculate commission from the rate saved in Payment entity
+                BigDecimal commissionRate = paymentForDistribution.getCommissionRate();
+                if (commissionRate == null) {
+                    commissionRate = BigDecimal.ZERO;
+                    log.warn("Payment {} has null commission rate, using 0", payment.getPaymentId());
                 }
                 
-                log.info("Updated {} orders in group {}", 
-                        orderGroup.getOrders().size(), orderGroup.getGroupId());
+                CommissionCalculation commissionCalc = commissionService.calculateCommission(
+                    paymentForDistribution.getAmount(), 
+                    commissionRate
+                );
                 
-                // Distribute payment to all artisans with commission deduction
-                try {
-                    // Re-fetch payment with JOIN FETCH to avoid lazy loading issues
-                    Payment paymentForDistribution = paymentRepository
-                            .findByIdWithOrdersForDistribution(payment.getPaymentId())
-                            .orElse(payment);
-                    
-                    Account platformAdmin = walletService.getPlatformAdminAccount();
-                    
-                    // Calculate commission from the rate saved in Payment entity
-                    BigDecimal commissionRate = paymentForDistribution.getCommissionRate();
-                    if (commissionRate == null) {
-                        commissionRate = BigDecimal.ZERO;
-                        log.warn("Payment {} has null commission rate, using 0", payment.getPaymentId());
-                    }
-                    
-                    CommissionCalculation commissionCalc = commissionService.calculateCommission(
-                        paymentForDistribution.getAmount(), 
-                        commissionRate
-                    );
-                    
-                    log.info("Commission calculated for payment {}: original={}, commission={}, net={}", 
-                        payment.getPaymentId(), 
-                        commissionCalc.getOriginalAmount(),
-                        commissionCalc.getCommissionAmount(),
-                        commissionCalc.getNetAmount());
-                    
-                    // Process payment distribution with commission-adjusted amount
-                    // The distribution will use the net amount after commission
-                    walletService.processPaymentDistribution(
-                        paymentForDistribution, 
-                        platformAdmin,
-                        commissionCalc.getCommissionAmount(),
-                        commissionRate
-                    );
-                    
-                    log.info("Payment distribution completed for order group: {}", orderGroup.getGroupId());
-                } catch (Exception e) {
-                    log.error("Error distributing payment for order group {}: {}", 
-                            orderGroup.getGroupId(), e.getMessage(), e);
-                    // Payment is still SUCCESS, distribution can be retried later via admin endpoint
-                }
+                log.info("Commission calculated for payment {}: original={}, commission={}, net={}", 
+                    payment.getPaymentId(), 
+                    commissionCalc.getOriginalAmount(),
+                    commissionCalc.getCommissionAmount(),
+                    commissionCalc.getNetAmount());
+                
+                // Process payment distribution with commission-adjusted amount
+                walletService.processPaymentDistribution(
+                    paymentForDistribution, 
+                    platformAdmin,
+                    commissionCalc.getCommissionAmount(),
+                    commissionRate
+                );
+                
+                log.info("Payment distribution completed for order group: {}", orderGroup.getGroupId());
+            } catch (Exception e) {
+                log.error("Error distributing payment for order group {}: {}", 
+                        orderGroup.getGroupId(), e.getMessage(), e);
+                // Payment is still SUCCESS, distribution can be retried later via admin endpoint
             }
             
         } else {
