@@ -211,69 +211,83 @@ public class PaymentServiceImp implements PaymentService {
         }
         
         if ("00".equals(status) || "SUCCESS".equalsIgnoreCase(status) || "1".equals(status)) {
-            log.info("Payment successful, updating status");
+            log.info("✅ Payment successful, updating status");
             
             // Validate order group exists FIRST
             OrderGroup orderGroup = payment.getOrderGroup();
             if (orderGroup == null) {
-                log.error("Payment {} has no associated order group!", payment.getPaymentId());
+                log.error("❌ Payment {} has no associated order group!", payment.getPaymentId());
                 payment.setStatus(PaymentStatus.FAILED);
                 payment.setFailureReason("No order group associated with payment");
                 payment = paymentRepository.save(payment);
-                log.error("Payment marked as FAILED and saved");
+                log.error("❌ Payment marked as FAILED and saved");
                 return mapToPaymentResponse(payment);
             }
             
+            log.info("📝 Setting payment status to SUCCESS");
             // Now we know orderGroup is not null, proceed with success flow
             payment.setStatus(PaymentStatus.SUCCESS);
             payment.setTransactionId(gatewayTransactionId);
             payment.setPaidAt(LocalDateTime.now());
             
+            // CRITICAL: Save payment IMMEDIATELY to ensure status is persisted
+            // This happens BEFORE distribution to prevent rollback issues
+            log.info("💾 Saving payment with SUCCESS status BEFORE distribution");
+            payment = paymentRepository.save(payment);
+            log.info("✅ Payment saved successfully with status: {}", payment.getStatus());
+            
             // Update order group status
+            log.info("📝 Updating order group status to PAID");
             orderGroup.setStatus("PAID");
             orderGroup.setUpdatedAt(LocalDateTime.now());
             orderGroupRepository.save(orderGroup);
-            log.info("Order group {} status updated to PAID", orderGroup.getGroupId());
+            log.info("✅ Order group {} status updated to PAID", orderGroup.getGroupId());
             
             // Update ALL orders in the group
+            log.info("📝 Updating {} orders in group", orderGroup.getOrders().size());
             for (Order order : orderGroup.getOrders()) {
                 order.setStatus("PAID");
                 order.setUpdateAt(LocalDateTime.now());
                 orderRepository.save(order);
-                log.info("Order {} status updated to PAID", order.getOrderId());
+                log.info("✅ Order {} status updated to PAID", order.getOrderId());
             }
             
-            log.info("Updated {} orders in group {}", 
+            log.info("✅ Updated {} orders in group {}", 
                     orderGroup.getOrders().size(), orderGroup.getGroupId());
             
             // Distribute payment to all artisans with commission deduction
+            log.info("💰 Starting payment distribution process");
             try {
                 // Re-fetch payment with JOIN FETCH to avoid lazy loading issues
+                log.info("🔄 Re-fetching payment with orders for distribution");
                 Payment paymentForDistribution = paymentRepository
                         .findByIdWithOrdersForDistribution(payment.getPaymentId())
                         .orElse(payment);
                 
+                log.info("👤 Getting platform admin account");
                 Account platformAdmin = walletService.getPlatformAdminAccount();
                 
                 // Calculate commission from the rate saved in Payment entity
                 BigDecimal commissionRate = paymentForDistribution.getCommissionRate();
                 if (commissionRate == null) {
                     commissionRate = BigDecimal.ZERO;
-                    log.warn("Payment {} has null commission rate, using 0", payment.getPaymentId());
+                    log.warn("⚠️ Payment {} has null commission rate, using 0", payment.getPaymentId());
                 }
                 
+                log.info("🧮 Calculating commission with rate: {}%", commissionRate);
                 CommissionCalculation commissionCalc = commissionService.calculateCommission(
                     paymentForDistribution.getAmount(), 
                     commissionRate
                 );
                 
-                log.info("Commission calculated for payment {}: original={}, commission={}, net={}", 
+                log.info("💵 Commission calculated for payment {}: original={}, commission={}, net={}", 
                     payment.getPaymentId(), 
                     commissionCalc.getOriginalAmount(),
                     commissionCalc.getCommissionAmount(),
                     commissionCalc.getNetAmount());
                 
                 // Process payment distribution with commission-adjusted amount
+                log.info("🚀 Calling walletService.processPaymentDistribution");
                 walletService.processPaymentDistribution(
                     paymentForDistribution, 
                     platformAdmin,
@@ -281,21 +295,27 @@ public class PaymentServiceImp implements PaymentService {
                     commissionRate
                 );
                 
-                log.info("Payment distribution completed for order group: {}", orderGroup.getGroupId());
+                log.info("✅ Payment distribution completed for order group: {}", orderGroup.getGroupId());
             } catch (Exception e) {
-                log.error("Error distributing payment for order group {}: {}", 
+                log.error("❌ Error distributing payment for order group {}: {}", 
                         orderGroup.getGroupId(), e.getMessage(), e);
+                log.error("❌ Exception type: {}", e.getClass().getName());
+                if (e.getCause() != null) {
+                    log.error("❌ Caused by: {}", e.getCause().getMessage());
+                }
                 // Payment is still SUCCESS, distribution can be retried later via admin endpoint
+                log.warn("⚠️ Payment status remains SUCCESS despite distribution error");
             }
             
         } else {
-            log.warn("Payment failed with status: {}", status);
+            log.warn("❌ Payment failed with status: {}", status);
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason("Payment failed with status: " + status);
         }
         
+        log.info("💾 Final save of payment record");
         payment = paymentRepository.save(payment);
-        log.info("Payment callback processing completed");
+        log.info("✅ Payment callback processing completed with final status: {}", payment.getStatus());
         log.info("========================================");
         
         return mapToPaymentResponse(payment);
