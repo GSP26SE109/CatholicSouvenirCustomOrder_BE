@@ -6,8 +6,11 @@ import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.AIPromptRequest;
 import org.example.catholicsouvenircustomorder.dto.request.GenerateConceptImageRequest;
 import org.example.catholicsouvenircustomorder.dto.request.GenerateDesignRequest;
+import org.example.catholicsouvenircustomorder.dto.request.ScriptureRecommendRequest;
 import org.example.catholicsouvenircustomorder.dto.response.AIImageResponse;
+import org.example.catholicsouvenircustomorder.dto.response.ScriptureRecommendResponse;
 import org.example.catholicsouvenircustomorder.service.AIImageService;
+import org.example.catholicsouvenircustomorder.service.AIScriptureService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class AIController {
     
     private final AIImageService aiImageService;
+    private final AIScriptureService aiScriptureService;
     
     @PostMapping("/generate-design")
     public ResponseEntity<BaseResponse<String>> generateDesign(
@@ -79,4 +83,45 @@ public class AIController {
         
         return ResponseEntity.ok(BaseResponse.success("Tạo ảnh concept thành công", response));
     }
+    
+    /**
+     * AI Scripture Recommender
+     * Recommend Bible verses for engraving on Catholic souvenir items
+     * POST /api/ai/recommend-scripture
+     */
+    @PostMapping("/recommend-scripture")
+    public ResponseEntity<BaseResponse<ScriptureRecommendResponse>> recommendScripture(
+            @Valid @RequestBody ScriptureRecommendRequest request) {
+        
+        ScriptureRecommendResponse response = aiScriptureService.recommendScriptures(request);
+        
+        if (!response.isSuccess()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(BaseResponse.error(503, response.getErrorMessage() != null ? 
+                    response.getErrorMessage() : "Không thể gợi ý câu Kinh Thánh. Vui lòng thử lại sau."));
+        }
+        
+        return ResponseEntity.ok(BaseResponse.success(response.getMessage(), response));
+    }
+    
+    /**
+     * Get popular scriptures for a specific occasion
+     * GET /api/ai/popular-scriptures?occasion={occasion}&language={language}
+     */
+    @GetMapping("/popular-scriptures")
+    public ResponseEntity<BaseResponse<ScriptureRecommendResponse>> getPopularScriptures(
+            @RequestParam String occasion,
+            @RequestParam(defaultValue = "en") String language) {
+        
+        ScriptureRecommendResponse response = aiScriptureService.getPopularScripturesForOccasion(occasion, language);
+        
+        if (!response.isSuccess()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(BaseResponse.error(503, response.getErrorMessage() != null ? 
+                    response.getErrorMessage() : "Không thể lấy câu Kinh Thánh. Vui lòng thử lại sau."));
+        }
+        
+        return ResponseEntity.ok(BaseResponse.success(response.getMessage(), response));
+    }
 }
+

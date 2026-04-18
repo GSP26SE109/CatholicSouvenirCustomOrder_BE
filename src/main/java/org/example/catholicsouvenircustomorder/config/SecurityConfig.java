@@ -74,7 +74,8 @@ public class SecurityConfig {
                             "/api/stage-payments/**",  // Allow stage payment callbacks
                             "/api/webhook/ghn",
                             "/ws/**",
-                            "/api/artisan-applications/register"
+                            "/api/artisan-applications/register",
+                            "/api/chat"
                     ).permitAll();
 
                     request.requestMatchers(HttpMethod.GET).permitAll();
