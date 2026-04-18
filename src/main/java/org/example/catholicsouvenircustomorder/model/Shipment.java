@@ -25,7 +25,7 @@ public class Shipment {
     private CustomOrder customOrder;
     
     // NEW FIELDS for return shipment support
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean isReturn = false;
     
     @ManyToOne
