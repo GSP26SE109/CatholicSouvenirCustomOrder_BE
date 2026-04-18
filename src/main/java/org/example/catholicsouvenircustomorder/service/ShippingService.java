@@ -2,14 +2,7 @@ package org.example.catholicsouvenircustomorder.service;
 
 import org.example.catholicsouvenircustomorder.dto.request.CreateShipmentRequest;
 import org.example.catholicsouvenircustomorder.dto.response.ShipmentResponse;
-
-import java.math.BigDecimal;
-import java.util.Map;
-import java.util.UUID;
-
-
-import org.example.catholicsouvenircustomorder.dto.request.CreateShipmentRequest;
-import org.example.catholicsouvenircustomorder.dto.response.ShipmentResponse;
+import org.example.catholicsouvenircustomorder.dto.response.ShippingTimelineResponse;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,6 +18,9 @@ public interface ShippingService {
     BigDecimal calculateShippingFee(CreateShipmentRequest request);
     void cancelShipment(UUID shipmentId);
     void handleGHNWebhook(Map<String, Object> webhookData);
+    
+    // Timeline for FE display
+    ShippingTimelineResponse getShippingTimeline(UUID shipmentId);
     
     // GHN Master Data APIs
     List<Map<String, Object>> getProvinces();

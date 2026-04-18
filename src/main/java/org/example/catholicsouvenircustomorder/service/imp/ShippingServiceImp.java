@@ -764,4 +764,135 @@ public class ShippingServiceImp implements ShippingService {
         
         return ghnRequest;
     }
+    
+    /**
+     * Get shipping timeline for FE display
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public org.example.catholicsouvenircustomorder.dto.response.ShippingTimelineResponse getShippingTimeline(UUID shipmentId) {
+        log.info("Getting shipping timeline for shipment: {}", shipmentId);
+        
+        Shipment shipment = shipmentRepository.findById(shipmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn vận chuyển"));
+        
+        ShippingStatus currentStatus = shipment.getStatus();
+        
+        // Define all possible steps in order
+        List<org.example.catholicsouvenircustomorder.dto.response.ShippingTimelineResponse.TimelineStep> timeline = new ArrayList<>();
+        
+        // Parse status history to get completion times
+        Map<ShippingStatus, LocalDateTime> statusTimes = parseStatusHistory(shipment.getStatusHistory());
+        
+        // Build timeline steps
+        addTimelineStep(timeline, ShippingStatus.PENDING, "Chờ lấy hàng", 
+                "Đơn hàng đã được tạo, chờ shipper đến lấy", currentStatus, statusTimes);
+        addTimelineStep(timeline, ShippingStatus.PICKING, "Đang lấy hàng", 
+                "Shipper đang trên đường đến lấy hàng", currentStatus, statusTimes);
+        addTimelineStep(timeline, ShippingStatus.PICKED, "Đã lấy hàng", 
+                "Đã lấy hàng từ người gửi", currentStatus, statusTimes);
+        addTimelineStep(timeline, ShippingStatus.STORING, "Nhập kho", 
+                "Hàng đang được lưu tại kho trung chuyển", currentStatus, statusTimes);
+        addTimelineStep(timeline, ShippingStatus.TRANSPORTING, "Đang vận chuyển", 
+                "Hàng đang được vận chuyển đến kho đích", currentStatus, statusTimes);
+        addTimelineStep(timeline, ShippingStatus.DELIVERING, "Đang giao hàng", 
+                "Shipper đang giao hàng đến người nhận", currentStatus, statusTimes);
+        addTimelineStep(timeline, ShippingStatus.DELIVERED, "Đã giao hàng", 
+                "Giao hàng thành công", currentStatus, statusTimes);
+        
+        return org.example.catholicsouvenircustomorder.dto.response.ShippingTimelineResponse.builder()
+                .currentStatus(currentStatus)
+                .currentStatusLabel(getStatusLabel(currentStatus))
+                .currentStatusDescription(getStatusDescription(currentStatus))
+                .timeline(timeline)
+                .statusHistory(shipment.getStatusHistory())
+                .build();
+    }
+    
+    private void addTimelineStep(
+            List<org.example.catholicsouvenircustomorder.dto.response.ShippingTimelineResponse.TimelineStep> timeline,
+            ShippingStatus status,
+            String label,
+            String description,
+            ShippingStatus currentStatus,
+            Map<ShippingStatus, LocalDateTime> statusTimes) {
+        
+        int currentOrder = getStatusOrder(currentStatus);
+        int stepOrder = getStatusOrder(status);
+        
+        timeline.add(org.example.catholicsouvenircustomorder.dto.response.ShippingTimelineResponse.TimelineStep.builder()
+                .status(status)
+                .label(label)
+                .description(description)
+                .completed(stepOrder < currentOrder)
+                .current(status == currentStatus)
+                .completedAt(statusTimes.get(status))
+                .build());
+    }
+    
+    private int getStatusOrder(ShippingStatus status) {
+        return switch (status) {
+            case PENDING -> 1;
+            case PICKING -> 2;
+            case PICKED -> 3;
+            case STORING -> 4;
+            case TRANSPORTING -> 5;
+            case DELIVERING -> 6;
+            case DELIVERED -> 7;
+            case RETURNED, CANCELLED -> 99; // Special cases
+        };
+    }
+    
+    private String getStatusLabel(ShippingStatus status) {
+        return switch (status) {
+            case PENDING -> "Chờ lấy hàng";
+            case PICKING -> "Đang lấy hàng";
+            case PICKED -> "Đã lấy hàng";
+            case STORING -> "Nhập kho";
+            case TRANSPORTING -> "Đang vận chuyển";
+            case DELIVERING -> "Đang giao hàng";
+            case DELIVERED -> "Đã giao hàng";
+            case RETURNED -> "Hoàn trả";
+            case CANCELLED -> "Đã hủy";
+        };
+    }
+    
+    private String getStatusDescription(ShippingStatus status) {
+        return switch (status) {
+            case PENDING -> "Đơn hàng đã được tạo, chờ shipper đến lấy";
+            case PICKING -> "Shipper đang trên đường đến lấy hàng";
+            case PICKED -> "Đã lấy hàng từ người gửi";
+            case STORING -> "Hàng đang được lưu tại kho trung chuyển";
+            case TRANSPORTING -> "Hàng đang được vận chuyển đến kho đích";
+            case DELIVERING -> "Shipper đang giao hàng đến người nhận";
+            case DELIVERED -> "Giao hàng thành công";
+            case RETURNED -> "Hàng bị trả lại";
+            case CANCELLED -> "Đơn hàng đã bị hủy";
+        };
+    }
+    
+    private Map<ShippingStatus, LocalDateTime> parseStatusHistory(String statusHistory) {
+        Map<ShippingStatus, LocalDateTime> result = new HashMap<>();
+        if (statusHistory == null || statusHistory.isEmpty()) {
+            return result;
+        }
+        
+        // Parse format: "2024-01-15T10:30:00: picking\n2024-01-15T11:00:00: picked"
+        String[] lines = statusHistory.split("\n");
+        for (String line : lines) {
+            try {
+                String[] parts = line.split(": ", 2);
+                if (parts.length == 2) {
+                    LocalDateTime time = LocalDateTime.parse(parts[0].trim());
+                    ShippingStatus status = mapGHNStatus(parts[1].trim());
+                    result.put(status, time);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to parse status history line: {}", line);
+            }
+        }
+        
+        return result;
+    }
 }
+
