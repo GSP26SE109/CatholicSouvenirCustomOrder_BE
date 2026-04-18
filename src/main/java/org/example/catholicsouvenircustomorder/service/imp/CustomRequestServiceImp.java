@@ -44,6 +44,11 @@ public class CustomRequestServiceImp implements CustomRequestService {
             throw new BadRequestException("Mô tả phải có ít nhất 50 ký tự");
         }
         
+        // Validate AI concept image URL is required
+        if (request.getAiConceptImageUrl() == null || request.getAiConceptImageUrl().trim().isEmpty()) {
+            throw new BadRequestException("Vui lòng tạo ảnh AI trước khi lưu yêu cầu");
+        }
+        
         // Validate budget range
         if (request.getMinBudget() == null || request.getMaxBudget() == null) {
             throw new BadRequestException("Ngân sách tối thiểu và tối đa không được để trống");
@@ -56,32 +61,15 @@ public class CustomRequestServiceImp implements CustomRequestService {
         // Create custom request
         CustomRequest customRequest = new CustomRequest();
         customRequest.setCustomer(customer);
-        customRequest.setTitle(request.getTitle());  // Set title
+        customRequest.setTitle(request.getTitle());
         customRequest.setDescription(request.getDescription());
         customRequest.setRequestType(RequestType.REQUEST_BASED);
         customRequest.setStatus(CustomRequestStatus.DRAFT); // Start as DRAFT
         customRequest.setMinBudget(request.getMinBudget());
         customRequest.setMaxBudget(request.getMaxBudget());
+        customRequest.setAiConceptImageUrl(request.getAiConceptImageUrl());
+        customRequest.setAiImagePrompt(request.getAiImagePrompt());
         customRequest.setImageGenCount(0);
-        
-        // Generate AI concept image if requested
-        if (Boolean.TRUE.equals(request.getGenerateAiImage())) {
-            try {
-                AIPromptRequest aiRequest = new AIPromptRequest();
-                aiRequest.setAdditionalDescription(request.getDescription());
-                
-                AIImageResponse aiResponse = aiImageService.generateConceptImage(aiRequest);
-                
-                if (aiResponse.isSuccess()) {
-                    customRequest.setAiConceptImageUrl(aiResponse.getImageUrl());
-                    customRequest.setAiImagePrompt(aiResponse.getPrompt());
-                    customRequest.setImageGenCount(1);
-                }
-            } catch (Exception e) {
-                log.warn("Failed to generate AI image: {}", e.getMessage());
-                // Continue without AI image
-            }
-        }
         
         customRequest = customRequestRepository.save(customRequest);
         

@@ -77,11 +77,7 @@ public class SecurityConfig {
                             "/api/artisan-applications/register"
                     ).permitAll();
 
-                    request.requestMatchers(
-                            HttpMethod.GET,
-                            "/api/product/**",
-                            "/api/artisans"
-                    ).permitAll();
+                    request.requestMatchers(HttpMethod.GET).permitAll();
 
                     // Withdrawal endpoints - protected by @PreAuthorize in controllers
                     request.anyRequest().authenticated();
