@@ -55,6 +55,7 @@ public class VNPayUtil {
         // IPN URL phải được đăng ký trước trong VNPay merchant portal
         // Nếu gửi vnp_IpnUrl trong params → VNPay sẽ tính hash sai → Code 70
         // VNPay sẽ dùng IPN URL đã đăng ký để callback
+        // DO NOT add vnp_IpnUrl to params!
         log.info("IPN URL (registered in VNPay portal): {}", vnPayConfig.getIpnUrl());
 
         params.put("vnp_IpAddr", "127.0.0.1");
