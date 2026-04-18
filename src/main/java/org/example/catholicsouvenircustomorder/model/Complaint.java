@@ -86,8 +86,9 @@ public class Complaint {
     private RefundTransaction refundTransaction;
     
     // Relationship to Return Shipment (reuse existing Shipment entity)
-    @OneToOne(mappedBy = "complaint", cascade = CascadeType.ALL)
-    private Shipment returnShipment;
+    // Note: Shipment uses @ManyToOne, so we use @OneToMany here
+    @OneToMany(mappedBy = "complaint", cascade = CascadeType.ALL)
+    private List<Shipment> returnShipments = new ArrayList<>();
     
     @PreUpdate
     public void preUpdate() {
