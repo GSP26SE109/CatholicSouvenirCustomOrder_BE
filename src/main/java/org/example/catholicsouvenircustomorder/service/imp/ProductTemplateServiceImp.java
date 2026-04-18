@@ -157,7 +157,12 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
 
     @Override
     public Page<TemplateResponse> getTemplatesByCategory(UUID categoryId, Pageable pageable) {
-        Page<ProductTemplate> templates = templateRepository.findByCategory_CategoryIdAndIsActiveTrue(categoryId, pageable);
+        Page<ProductTemplate> templates;
+        if (categoryId != null) {
+            templates = templateRepository.findByCategory_CategoryIdAndIsActiveTrue(categoryId, pageable);
+        } else {
+            templates = templateRepository.findByIsActiveTrue(pageable);
+        }
         return templates.map(this::mapToTemplateResponse);
     }
 

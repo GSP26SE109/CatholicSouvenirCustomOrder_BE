@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -39,7 +40,7 @@ public class RefundServiceImp implements RefundService {
     
     /**
      * Process refund for approved complaint
-     * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 11.4, 11.5
+     * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 9.2, 11.4, 11.5
      */
     @Override
     @Transactional
@@ -54,7 +55,58 @@ public class RefundServiceImp implements RefundService {
         log.info("Artisan wallet balance: {}, Customer wallet balance: {}", 
                 artisanWallet.getBalance(), customerWallet.getBalance());
         
-        // 2. Check artisan wallet balance
+        // 2. Find original payment transaction to get commission info
+        BigDecimal originalCommissionFee = BigDecimal.ZERO;
+        BigDecimal originalCommissionRate = null;
+        
+        // Check if this is a regular order or custom order
+        if (complaint.getOrder() != null && complaint.getOrder().getOrderGroup() != null) {
+            // Regular order - find payment transaction
+            List<WalletTransaction> artisanTransactions = walletTransactionRepository
+                .findByWallet_WalletIdOrderByCreatedAtDesc(artisanWallet.getWalletId());
+            
+            // Look for the payment transaction related to this order group
+            UUID orderGroupId = complaint.getOrder().getOrderGroup().getGroupId();
+            for (WalletTransaction tx : artisanTransactions) {
+                if (tx.getPayment() != null && 
+                    tx.getPayment().getOrderGroup() != null &&
+                    tx.getPayment().getOrderGroup().getGroupId().equals(orderGroupId) &&
+                    tx.getCommissionFee() != null) {
+                    originalCommissionFee = tx.getCommissionFee();
+                    originalCommissionRate = tx.getCommissionRate();
+                    log.info("Found original commission from payment: fee={}, rate={}%", 
+                        originalCommissionFee, originalCommissionRate);
+                    break;
+                }
+            }
+        } else if (complaint.getCustomOrder() != null) {
+            // Custom order - find stage payment transactions
+            List<WalletTransaction> artisanTransactions = walletTransactionRepository
+                .findByWallet_WalletIdOrderByCreatedAtDesc(artisanWallet.getWalletId());
+            
+            // Sum up all commission fees from stage payments for this custom order
+            UUID customOrderId = complaint.getCustomOrder().getCustomOrderId();
+            for (WalletTransaction tx : artisanTransactions) {
+                if (tx.getStagePayment() != null && 
+                    tx.getStagePayment().getStage() != null &&
+                    tx.getStagePayment().getStage().getCustomOrder() != null &&
+                    tx.getStagePayment().getStage().getCustomOrder().getCustomOrderId().equals(customOrderId) &&
+                    tx.getCommissionFee() != null) {
+                    originalCommissionFee = originalCommissionFee.add(tx.getCommissionFee());
+                    if (originalCommissionRate == null && tx.getCommissionRate() != null) {
+                        originalCommissionRate = tx.getCommissionRate();
+                    }
+                    log.info("Found commission from stage payment: fee={}, rate={}%", 
+                        tx.getCommissionFee(), tx.getCommissionRate());
+                }
+            }
+            if (originalCommissionFee.compareTo(BigDecimal.ZERO) > 0) {
+                log.info("Total commission from all stage payments: fee={}, rate={}%", 
+                    originalCommissionFee, originalCommissionRate);
+            }
+        }
+        
+        // 3. Check artisan wallet balance
         if (artisanWallet.getBalance().compareTo(amount) < 0) {
             log.error("Insufficient balance in artisan wallet. Required: {}, Available: {}", 
                     amount, artisanWallet.getBalance());
@@ -66,8 +118,8 @@ public class RefundServiceImp implements RefundService {
             failedTransaction.setFromWallet(artisanWallet);
             failedTransaction.setToWallet(customerWallet);
             failedTransaction.setStatus(RefundStatus.FAILED);
-            failedTransaction.setFailureReason("Insufficient balance in artisan wallet. Required: " 
-                    + amount + ", Available: " + artisanWallet.getBalance());
+            failedTransaction.setFailureReason("Số dư ví nghệ nhân không đủ. Yêu cầu: " 
+                    + amount + ", Khả dụng: " + artisanWallet.getBalance());
             
             refundTransactionRepository.save(failedTransaction);
             
@@ -77,8 +129,8 @@ public class RefundServiceImp implements RefundService {
                 notificationService.sendNotification(
                     platformAdmin.getAccountId(),
                     NotificationType.REFUND_FAILED,
-                    "Refund Failed - Insufficient Balance",
-                    String.format("Refund for complaint #%s failed. Artisan %s does not have sufficient balance. Required: %s, Available: %s",
+                    "Hoàn tiền thất bại - Số dư không đủ",
+                    String.format("Hoàn tiền cho khiếu nại #%s thất bại. Nghệ nhân %s không có đủ số dư. Yêu cầu: %s, Khả dụng: %s",
                             complaint.getComplaintId(),
                             complaint.getArtisan().getAccount().getFullName(),
                             amount,
@@ -89,10 +141,10 @@ public class RefundServiceImp implements RefundService {
                 log.error("Failed to send notification to admin: {}", e.getMessage());
             }
             
-            throw new InsufficientBalanceException("Artisan wallet does not have sufficient balance for refund");
+            throw new InsufficientBalanceException("Ví nghệ nhân không có đủ số dư để hoàn tiền");
         }
         
-        // 3. Create refund transaction with PENDING status
+        // 4. Create refund transaction with PENDING status
         RefundTransaction refundTransaction = new RefundTransaction();
         refundTransaction.setComplaint(complaint);
         refundTransaction.setAmount(amount);
@@ -103,7 +155,8 @@ public class RefundServiceImp implements RefundService {
         refundTransaction = refundTransactionRepository.save(refundTransaction);
         log.info("Created refund transaction: {}", refundTransaction.getRefundTransactionId());
         
-        // 4. Create debit transaction for artisan (negative amount)
+        // 5. Create debit transaction for artisan (negative amount)
+        // This deducts the refund amount from artisan's wallet
         BigDecimal artisanBalanceBefore = artisanWallet.getBalance();
         BigDecimal artisanBalanceAfter = artisanBalanceBefore.subtract(amount);
         
@@ -115,17 +168,27 @@ public class RefundServiceImp implements RefundService {
         debitTx.setBalanceAfter(artisanBalanceAfter);
         debitTx.setRelatedEntityType(RelatedEntityType.COMPLAINT);
         debitTx.setRelatedEntityId(complaint.getComplaintId());
-        debitTx.setDescription("Refund debit for complaint #" + complaint.getComplaintId());
+        debitTx.setDescription("Hoàn tiền cho khiếu nại #" + complaint.getComplaintId());
+        
+        // Set negative commission fee to refund the commission back to artisan
+        // This represents commission being returned to the artisan
+        if (originalCommissionFee.compareTo(BigDecimal.ZERO) > 0) {
+            debitTx.setCommissionFee(originalCommissionFee.negate());
+            debitTx.setCommissionRate(originalCommissionRate);
+            log.info("Refunding commission to artisan: -{} (rate: {}%)", 
+                originalCommissionFee, originalCommissionRate);
+        }
         
         debitTx = walletTransactionRepository.save(debitTx);
         log.info("Created debit transaction: {}, Artisan balance: {} -> {}", 
                 debitTx.getTransactionId(), artisanBalanceBefore, artisanBalanceAfter);
         
-        // 5. Update artisan wallet balance
+        // 6. Update artisan wallet balance
         artisanWallet.setBalance(artisanBalanceAfter);
         walletRepository.save(artisanWallet);
         
-        // 6. Create credit transaction for customer (positive amount)
+        // 7. Create credit transaction for customer (positive amount)
+        // Customer receives the FULL original amount (including commission)
         BigDecimal customerBalanceBefore = customerWallet.getBalance();
         BigDecimal customerBalanceAfter = customerBalanceBefore.add(amount);
         
@@ -137,17 +200,20 @@ public class RefundServiceImp implements RefundService {
         creditTx.setBalanceAfter(customerBalanceAfter);
         creditTx.setRelatedEntityType(RelatedEntityType.COMPLAINT);
         creditTx.setRelatedEntityId(complaint.getComplaintId());
-        creditTx.setDescription("Refund credit for complaint #" + complaint.getComplaintId());
+        creditTx.setDescription("Nhận hoàn tiền cho khiếu nại #" + complaint.getComplaintId());
+        
+        // Customer transaction doesn't need commission info (they get full amount back)
+        creditTx.setCommissionFee(BigDecimal.ZERO);
         
         creditTx = walletTransactionRepository.save(creditTx);
         log.info("Created credit transaction: {}, Customer balance: {} -> {}", 
                 creditTx.getTransactionId(), customerBalanceBefore, customerBalanceAfter);
         
-        // 7. Update customer wallet balance
+        // 8. Update customer wallet balance
         customerWallet.setBalance(customerBalanceAfter);
         walletRepository.save(customerWallet);
         
-        // 8. Update refund transaction with transaction references and COMPLETED status
+        // 9. Update refund transaction with transaction references and COMPLETED status
         refundTransaction.setDebitTransaction(debitTx);
         refundTransaction.setCreditTransaction(creditTx);
         refundTransaction.setStatus(RefundStatus.COMPLETED);
@@ -158,6 +224,9 @@ public class RefundServiceImp implements RefundService {
         log.info("Refund process completed successfully for complaint: {}", complaint.getComplaintId());
         log.info("Final balances - Artisan: {}, Customer: {}", 
                 artisanWallet.getBalance(), customerWallet.getBalance());
+        if (originalCommissionFee.compareTo(BigDecimal.ZERO) > 0) {
+            log.info("Commission refunded to artisan: {}", originalCommissionFee);
+        }
         
         return refundTransaction;
     }
@@ -173,11 +242,11 @@ public class RefundServiceImp implements RefundService {
         
         // 1. Validate refund transaction exists
         RefundTransaction failedTransaction = refundTransactionRepository.findById(refundTransactionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Refund transaction not found: " + refundTransactionId));
+                .orElseThrow(() -> new ResourceNotFoundException("Giao dịch hoàn tiền không tồn tại: " + refundTransactionId));
         
         // 2. Validate status is FAILED
         if (failedTransaction.getStatus() != RefundStatus.FAILED) {
-            throw new IllegalStateException("Can only retry failed refund transactions. Current status: " 
+            throw new IllegalStateException("Chỉ có thể thử lại giao dịch hoàn tiền thất bại. Trạng thái hiện tại: " 
                     + failedTransaction.getStatus());
         }
         
@@ -206,7 +275,7 @@ public class RefundServiceImp implements RefundService {
     @Override
     public RefundTransactionResponse getRefundTransaction(UUID refundTransactionId) {
         RefundTransaction transaction = refundTransactionRepository.findById(refundTransactionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Refund transaction not found: " + refundTransactionId));
+                .orElseThrow(() -> new ResourceNotFoundException("Giao dịch hoàn tiền không tồn tại: " + refundTransactionId));
         
         return mapToResponse(transaction);
     }

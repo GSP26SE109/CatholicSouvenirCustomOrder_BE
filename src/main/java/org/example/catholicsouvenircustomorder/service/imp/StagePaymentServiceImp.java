@@ -1,5 +1,6 @@
 package org.example.catholicsouvenircustomorder.service.imp;
 
+import org.example.catholicsouvenircustomorder.dto.CommissionCalculation;
 import org.example.catholicsouvenircustomorder.dto.response.StagePaymentResponse;
 import org.example.catholicsouvenircustomorder.exception.BadRequestException;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
@@ -16,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -49,6 +51,15 @@ public class StagePaymentServiceImp implements StagePaymentService {
     
     @Autowired
     private org.example.catholicsouvenircustomorder.config.VNPayConfig vnPayConfig;
+    
+    @Autowired
+    private SystemConfigServiceImp systemConfigService;
+    
+    @Autowired
+    private CommissionServiceImp commissionService;
+    
+    @Autowired
+    private NotificationServiceImp notificationService;
 
     @Override
     @Transactional
@@ -105,6 +116,11 @@ public class StagePaymentServiceImp implements StagePaymentService {
         payment.setMethod(PaymentMethod.valueOf(paymentMethod.toUpperCase()));
         payment.setPaymentType(determinePaymentType(stage));
         payment.setReturnUrl(returnUrl);
+        
+        // TỰ ĐỘNG lấy commission rate từ SystemConfigService
+        BigDecimal commissionRate = systemConfigService.getCommissionRate();
+        payment.setCommissionRate(commissionRate);
+        log.info("StagePayment created with commission_rate={}%", commissionRate);
 
         // Generate reference ID for internal tracking
         String referenceId = "STAGE_" + stageId + "_" + System.currentTimeMillis();
@@ -174,8 +190,46 @@ public class StagePaymentServiceImp implements StagePaymentService {
                 Artisan artisan = findArtisanByStage(stage);
                 
                 if (artisan != null) {
+                    // Lấy commission_rate từ StagePayment entity (đã lưu trước đó)
+                    BigDecimal commissionRate = payment.getCommissionRate();
+                    
+                    // Tính commission và net amount
+                    CommissionCalculation calc = commissionService.calculateCommission(
+                        payment.getAmount(),
+                        commissionRate
+                    );
+                    
+                    log.info("Stage payment {}: Original={}, Commission={}, Net={}", 
+                        payment.getPaymentId(), calc.getOriginalAmount(), 
+                        calc.getCommissionAmount(), calc.getNetAmount());
+                    
+                    // Cộng NET AMOUNT vào wallet (đã trừ commission)
                     Account platformAdmin = walletService.getPlatformAdminAccount();
-                    walletService.processStagePaymentDistribution(paymentForDistribution, artisan, platformAdmin);
+                    
+                    // Create a custom distribution that adds net amount to artisan wallet
+                    // and applies commission to the wallet transaction
+                    WalletTransaction walletTx = distributeStagePaymentWithCommission(
+                        paymentForDistribution, 
+                        artisan, 
+                        platformAdmin,
+                        calc
+                    );
+                    
+                    // Gửi notification cho artisan về commission
+                    try {
+                        UUID customOrderId = stage.getCustomOrder().getCustomOrderId();
+                        notificationService.notifyArtisanCommissionDeducted(
+                            artisan.getArtisanUuid(),
+                            customOrderId,
+                            calc.getOriginalAmount(),
+                            calc.getCommissionAmount(),
+                            calc.getNetAmount(),
+                            walletTx.getTransactionId()
+                        );
+                    } catch (Exception e) {
+                        log.error("Failed to send commission notification: {}", e.getMessage());
+                        // Continue processing even if notification fails
+                    }
                 } else {
                     log.warn("No artisan found for stage: {}, skipping distribution", stage.getStageId());
                 }
@@ -274,6 +328,29 @@ public class StagePaymentServiceImp implements StagePaymentService {
             log.error("Failed to find artisan for stage {}: {}", stage.getStageId(), e.getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Distribute stage payment with commission deduction
+     * This method handles the wallet distribution after commission calculation
+     */
+    private WalletTransaction distributeStagePaymentWithCommission(StagePayment stagePayment, 
+                                                     Artisan artisan, 
+                                                     Account platformAdmin,
+                                                     CommissionCalculation calc) {
+        // Use the new wallet service method that supports commission
+        WalletTransaction walletTx = walletService.processStagePaymentDistributionWithCommission(
+            stagePayment, 
+            artisan, 
+            platformAdmin,
+            calc.getCommissionAmount(),
+            stagePayment.getCommissionRate()
+        );
+        
+        log.info("Stage payment distribution completed with commission tracking: Original={}, Commission={}, Net={}", 
+                calc.getOriginalAmount(), calc.getCommissionAmount(), calc.getNetAmount());
+        
+        return walletTx;
     }
 
     private StagePaymentResponse mapToPaymentResponse(StagePayment payment) {

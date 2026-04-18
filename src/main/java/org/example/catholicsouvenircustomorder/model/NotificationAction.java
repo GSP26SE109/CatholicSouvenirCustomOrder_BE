@@ -18,6 +18,9 @@ public enum NotificationAction {
     // Communication Actions
     VIEW_CONVERSATION,       // View conversation/chat messages
     
+    // Wallet Actions
+    VIEW_WALLET_TRANSACTION, // View wallet transaction details
+    
     // General Actions
     VIEW_NOTIFICATION        // View notification details
 }

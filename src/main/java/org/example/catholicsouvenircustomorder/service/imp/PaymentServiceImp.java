@@ -13,6 +13,10 @@ import org.example.catholicsouvenircustomorder.repository.OrderGroupRepository;
 import org.example.catholicsouvenircustomorder.repository.OrderRepository;
 import org.example.catholicsouvenircustomorder.repository.PaymentRepository;
 import org.example.catholicsouvenircustomorder.service.PaymentService;
+import org.example.catholicsouvenircustomorder.service.SystemConfigService;
+import org.example.catholicsouvenircustomorder.service.CommissionService;
+import org.example.catholicsouvenircustomorder.service.NotificationService;
+import org.example.catholicsouvenircustomorder.dto.CommissionCalculation;
 import org.example.catholicsouvenircustomorder.util.VNPayUtil;
 import org.example.catholicsouvenircustomorder.util.ZaloPayUtil;
 import org.example.catholicsouvenircustomorder.config.VNPayConfig;
@@ -20,6 +24,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -41,6 +46,9 @@ public class PaymentServiceImp implements PaymentService {
     private final VNPayConfig vnPayConfig;
     private final ZaloPayUtil zaloPayUtil;
     private final WalletServiceImp walletService;
+    private final SystemConfigService systemConfigService;
+    private final CommissionService commissionService;
+    private final NotificationService notificationService;
     @Value("${app.base-url}")
     private String baseUrl;
 
@@ -86,6 +94,11 @@ public class PaymentServiceImp implements PaymentService {
         payment.setAmount(orderGroup.getTotalAmount());
         payment.setStatus(PaymentStatus.PENDING);
         payment.setReturnUrl(dto.getReturnUrl());
+        
+        // TỰ ĐỘNG lấy commission rate từ SystemConfigService và lưu vào Payment
+        BigDecimal commissionRate = systemConfigService.getCommissionRate();
+        payment.setCommissionRate(commissionRate);
+        log.info("Payment created with commission_rate={}%", commissionRate);
         
         String referenceId = "GROUP_" + orderGroup.getGroupId() + "_" + System.currentTimeMillis();
         payment.setReferenceId(referenceId);
@@ -224,7 +237,7 @@ public class PaymentServiceImp implements PaymentService {
                 log.info("Updated {} orders in group {}", 
                         orderGroup.getOrders().size(), orderGroup.getGroupId());
                 
-                // Distribute payment to all artisans (once for the entire order group)
+                // Distribute payment to all artisans with commission deduction
                 try {
                     // Re-fetch payment with JOIN FETCH to avoid lazy loading issues
                     Payment paymentForDistribution = paymentRepository
@@ -232,7 +245,34 @@ public class PaymentServiceImp implements PaymentService {
                             .orElse(payment);
                     
                     Account platformAdmin = walletService.getPlatformAdminAccount();
-                    walletService.processPaymentDistribution(paymentForDistribution, platformAdmin);
+                    
+                    // Calculate commission from the rate saved in Payment entity
+                    BigDecimal commissionRate = paymentForDistribution.getCommissionRate();
+                    if (commissionRate == null) {
+                        commissionRate = BigDecimal.ZERO;
+                        log.warn("Payment {} has null commission rate, using 0", payment.getPaymentId());
+                    }
+                    
+                    CommissionCalculation commissionCalc = commissionService.calculateCommission(
+                        paymentForDistribution.getAmount(), 
+                        commissionRate
+                    );
+                    
+                    log.info("Commission calculated for payment {}: original={}, commission={}, net={}", 
+                        payment.getPaymentId(), 
+                        commissionCalc.getOriginalAmount(),
+                        commissionCalc.getCommissionAmount(),
+                        commissionCalc.getNetAmount());
+                    
+                    // Process payment distribution with commission-adjusted amount
+                    // The distribution will use the net amount after commission
+                    walletService.processPaymentDistribution(
+                        paymentForDistribution, 
+                        platformAdmin,
+                        commissionCalc.getCommissionAmount(),
+                        commissionRate
+                    );
+                    
                     log.info("Payment distribution completed for order group: {}", orderGroup.getGroupId());
                 } catch (Exception e) {
                     log.error("Error distributing payment for order group {}: {}", 

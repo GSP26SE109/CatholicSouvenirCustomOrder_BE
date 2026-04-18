@@ -1,6 +1,7 @@
 package org.example.catholicsouvenircustomorder.service;
 
 import org.example.catholicsouvenircustomorder.dto.request.CreateFreeFormRequestDTO;
+import org.example.catholicsouvenircustomorder.dto.request.UpdateDraftRequestDTO;
 import org.example.catholicsouvenircustomorder.dto.response.CustomRequestResponse;
 import org.example.catholicsouvenircustomorder.model.CustomRequestStatus;
 import org.springframework.data.domain.Page;
@@ -11,6 +12,7 @@ import java.util.UUID;
 public interface CustomRequestService {
     // Request-Based flow methods (CustomRequest only for request-based)
     CustomRequestResponse createFreeFormRequest(CreateFreeFormRequestDTO request, UUID customerId);
+    CustomRequestResponse updateDraftRequest(UUID requestId, UpdateDraftRequestDTO request, UUID customerId);
     CustomRequestResponse publishRequest(UUID requestId, UUID customerId);
     CustomRequestResponse regenerateAIImage(UUID requestId, UUID customerId);
     Page<CustomRequestResponse> getOpenRequests(Pageable pageable);

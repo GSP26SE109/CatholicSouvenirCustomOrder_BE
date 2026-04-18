@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.dto.request.AIPromptRequest;
 import org.example.catholicsouvenircustomorder.dto.request.CreateFreeFormRequestDTO;
+import org.example.catholicsouvenircustomorder.dto.request.UpdateDraftRequestDTO;
 import org.example.catholicsouvenircustomorder.dto.response.AIImageResponse;
 import org.example.catholicsouvenircustomorder.dto.response.CustomRequestResponse;
 import org.example.catholicsouvenircustomorder.exception.*;
@@ -78,6 +79,38 @@ public class CustomRequestServiceImp implements CustomRequestService {
 
     @Override
     @Transactional
+    public CustomRequestResponse updateDraftRequest(UUID requestId, UpdateDraftRequestDTO request, UUID customerId) {
+        CustomRequest customRequest = customRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));
+        
+        // Verify customer ownership
+        if (!customRequest.getCustomer().getAccountId().equals(customerId)) {
+            throw new UnauthorizedTemplateAccessException("Bạn không có quyền với yêu cầu này");
+        }
+        
+        // Verify request is in DRAFT status
+        if (customRequest.getStatus() != CustomRequestStatus.DRAFT) {
+            throw new BadRequestException("Chỉ có thể cập nhật yêu cầu ở trạng thái nháp");
+        }
+        
+        // Update title if provided
+        if (request.getTitle() != null && !request.getTitle().trim().isEmpty()) {
+            customRequest.setTitle(request.getTitle());
+        }
+        
+        // Update description if provided
+        if (request.getDescription() != null && !request.getDescription().trim().isEmpty()) {
+            customRequest.setDescription(request.getDescription());
+        }
+        
+        // Do NOT reset imageGenCount when updating
+        customRequest = customRequestRepository.save(customRequest);
+        
+        return mapToResponse(customRequest);
+    }
+
+    @Override
+    @Transactional
     public CustomRequestResponse regenerateAIImage(UUID requestId, UUID customerId) {
         CustomRequest customRequest = customRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));
@@ -129,6 +162,11 @@ public class CustomRequestServiceImp implements CustomRequestService {
             throw new BadRequestException("Chỉ có thể publish yêu cầu ở trạng thái nháp");
         }
         
+        // Validate AI concept image is present
+        if (customRequest.getAiConceptImageUrl() == null || customRequest.getAiConceptImageUrl().trim().isEmpty()) {
+            throw new BadRequestException("Yêu cầu phải có ảnh concept");
+        }
+        
         // Update status to OPEN
         customRequest.setStatus(CustomRequestStatus.OPEN);
         customRequest = customRequestRepository.save(customRequest);
@@ -145,7 +183,8 @@ public class CustomRequestServiceImp implements CustomRequestService {
                     artisan.getAccount().getAccountId(),
                     customRequest.getRequestId(),
                     customRequest.getCustomer().getFullName(),
-                    customRequest.getDescription()
+                    customRequest.getDescription(),
+                    customRequest.getAiConceptImageUrl()
                 );
             } catch (Exception e) {
                 log.error("Failed to notify artisan {}: {}", 

@@ -101,7 +101,12 @@ public class WalletController {
         List<WalletTransaction> transactions = walletService.getTransactionHistory(wallet.getWalletId());
         
         List<WalletTransactionResponse> response = transactions.stream()
-                .map(tx -> WalletTransactionResponse.builder()
+                .map(tx -> {
+                    // Ensure commission_fee is never null (default to 0)
+                    BigDecimal commissionFee = tx.getCommissionFee() != null ? 
+                        tx.getCommissionFee() : BigDecimal.ZERO;
+                    
+                    return WalletTransactionResponse.builder()
                         .transactionId(tx.getTransactionId())
                         .walletId(tx.getWallet().getWalletId())
                         .type(tx.getType())
@@ -111,8 +116,11 @@ public class WalletController {
                         .description(tx.getDescription())
                         .paymentId(tx.getPayment() != null ? tx.getPayment().getPaymentId() : null)
                         .stagePaymentId(tx.getStagePayment() != null ? tx.getStagePayment().getPaymentId() : null)
+                        .commissionFee(commissionFee)
+                        .commissionRate(tx.getCommissionRate())
                         .createdAt(tx.getCreatedAt())
-                        .build())
+                        .build();
+                })
                 .collect(Collectors.toList());
         
         return ResponseEntity.ok(BaseResponse.<List<WalletTransactionResponse>>builder()

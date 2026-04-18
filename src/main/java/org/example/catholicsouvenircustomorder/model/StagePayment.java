@@ -62,6 +62,10 @@ public class StagePayment {
     @Column(length = 500)
     private String returnUrl;
     
+    // Commission rate snapshot at stage payment creation time (%)
+    @Column(name = "commission_rate", precision = 5, scale = 2)
+    private BigDecimal commissionRate = BigDecimal.ZERO;
+    
     // Transaction relationship (1:1)
     
     @PreUpdate

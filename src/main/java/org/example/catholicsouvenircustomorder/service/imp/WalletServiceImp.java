@@ -29,6 +29,7 @@ public class WalletServiceImp implements WalletService {
     private final org.example.catholicsouvenircustomorder.repository.OrderRepository orderRepository;
     private final org.example.catholicsouvenircustomorder.repository.PaymentRepository paymentRepository;
     private final org.example.catholicsouvenircustomorder.repository.StagePaymentRepository stagePaymentRepository;
+    private final org.example.catholicsouvenircustomorder.service.NotificationService notificationService;
     
     // Platform fee rate: 10%
     private static final BigDecimal PLATFORM_FEE_RATE = new BigDecimal("0.10");
@@ -49,7 +50,8 @@ public class WalletServiceImp implements WalletService {
     
     @Override
     @Transactional
-    public void processPaymentDistribution(Payment payment, Account platformAdmin) {
+    public void processPaymentDistribution(Payment payment, Account platformAdmin, 
+                                          BigDecimal totalCommissionFee, BigDecimal commissionRate) {
         if (payment.getStatus() != PaymentStatus.SUCCESS) {
             throw new IllegalStateException("Payment must be SUCCESS to distribute money");
         }
@@ -60,7 +62,8 @@ public class WalletServiceImp implements WalletService {
         }
         
         log.info("Starting payment distribution for OrderGroup: {}", orderGroup.getGroupId());
-        log.info("Total payment amount: {}", payment.getAmount());
+        log.info("Total payment amount: {}, Commission fee: {}, Commission rate: {}%", 
+            payment.getAmount(), totalCommissionFee, commissionRate);
         
         // Extract order IDs to avoid navigating through lazy-loaded relationships
         List<UUID> orderIds = orderGroup.getOrders().stream()
@@ -73,6 +76,8 @@ public class WalletServiceImp implements WalletService {
         java.util.Map<UUID, java.util.List<UUID>> ordersByArtisanId = new java.util.HashMap<>();
         java.util.Map<UUID, Artisan> artisanCache = new java.util.HashMap<>();
         java.util.Map<UUID, BigDecimal> orderTotals = new java.util.HashMap<>();
+        
+        BigDecimal totalOrderAmount = BigDecimal.ZERO;
         
         for (UUID orderId : orderIds) {
             // Find artisan for this order using queries
@@ -89,6 +94,7 @@ public class WalletServiceImp implements WalletService {
             // Get order total using query to avoid lazy loading
             BigDecimal orderTotal = getOrderTotal(orderId);
             orderTotals.put(orderId, orderTotal);
+            totalOrderAmount = totalOrderAmount.add(orderTotal);
             
             // Group by artisan
             ordersByArtisanId.computeIfAbsent(artisanId, k -> new java.util.ArrayList<>()).add(orderId);
@@ -111,24 +117,61 @@ public class WalletServiceImp implements WalletService {
             BigDecimal platformFee = artisanOrdersTotal.multiply(PLATFORM_FEE_RATE)
                     .setScale(2, RoundingMode.HALF_UP);
             
-            // Calculate artisan amount (90% of artisan's orders)
-            BigDecimal artisanAmount = artisanOrdersTotal.subtract(platformFee);
+            // Calculate artisan amount before commission (90% of artisan's orders)
+            BigDecimal artisanAmountBeforeCommission = artisanOrdersTotal.subtract(platformFee);
+            
+            // Calculate commission for this artisan proportionally
+            BigDecimal artisanCommissionFee = BigDecimal.ZERO;
+            if (totalCommissionFee != null && totalCommissionFee.compareTo(BigDecimal.ZERO) > 0 
+                && totalOrderAmount.compareTo(BigDecimal.ZERO) > 0) {
+                // Commission is proportional to artisan's share of total orders
+                artisanCommissionFee = totalCommissionFee
+                    .multiply(artisanOrdersTotal)
+                    .divide(totalOrderAmount, 2, RoundingMode.HALF_UP);
+            }
+            
+            // Calculate final artisan amount (after platform fee and commission)
+            BigDecimal artisanNetAmount = artisanAmountBeforeCommission.subtract(artisanCommissionFee);
             
             totalPlatformFee = totalPlatformFee.add(platformFee);
             
-            log.info("Artisan {}: OrdersTotal={}, PlatformFee={}, ArtisanAmount={}", 
-                    artisanId, artisanOrdersTotal, platformFee, artisanAmount);
+            log.info("Artisan {}: OrdersTotal={}, PlatformFee={}, CommissionFee={}, NetAmount={}", 
+                    artisanId, artisanOrdersTotal, platformFee, artisanCommissionFee, artisanNetAmount);
             
-            // Deposit to artisan wallet (90%)
-            depositToWallet(artisan.getAccount(), artisanAmount, WalletTransactionType.DEPOSIT, payment, null,
+            // Deposit NET AMOUNT to artisan wallet (after both platform fee and commission)
+            WalletTransaction walletTx = depositToWallet(artisan.getAccount(), artisanNetAmount, WalletTransactionType.DEPOSIT, 
+                    payment, null,
                     String.format("Nạp tiền từ %d đơn hàng (OrderGroup #%s)", 
-                            artisanOrderIds.size(), orderGroup.getGroupId()));
+                            artisanOrderIds.size(), orderGroup.getGroupId()),
+                    artisanCommissionFee, commissionRate);
+            
+            // Send notification to artisan about commission deduction
+            if (artisanCommissionFee.compareTo(BigDecimal.ZERO) > 0) {
+                try {
+                    // Use the first order ID as reference for the notification
+                    UUID firstOrderId = artisanOrderIds.get(0);
+                    notificationService.notifyArtisanCommissionDeducted(
+                        artisanId,
+                        firstOrderId,
+                        artisanAmountBeforeCommission.add(artisanCommissionFee), // original amount before commission
+                        artisanCommissionFee,
+                        artisanNetAmount,
+                        walletTx.getTransactionId()
+                    );
+                } catch (Exception e) {
+                    log.error("Failed to send commission notification to artisan {}: {}", 
+                        artisanId, e.getMessage());
+                    // Continue processing even if notification fails
+                }
+            }
         }
         
         // Collect total platform fee to admin wallet (10%)
         if (totalPlatformFee.compareTo(BigDecimal.ZERO) > 0) {
-            depositToWallet(platformAdmin, totalPlatformFee, WalletTransactionType.PLATFORM_FEE, payment, null,
-                    String.format("Phí sàn 10%% từ OrderGroup #%s", orderGroup.getGroupId()));
+            depositToWallet(platformAdmin, totalPlatformFee, WalletTransactionType.PLATFORM_FEE, 
+                    payment, null,
+                    String.format("Phí sàn 10%% từ OrderGroup #%s", orderGroup.getGroupId()),
+                    BigDecimal.ZERO, null);
             log.info("Total platform fee collected: {}", totalPlatformFee);
         }
         
@@ -196,20 +239,75 @@ public class WalletServiceImp implements WalletService {
         
         // 1. Deposit to artisan wallet (90%)
         depositToWallet(artisan.getAccount(), artisanAmount, WalletTransactionType.DEPOSIT, null, stagePayment,
-                "Nạp tiền từ custom order stage #" + stageIdStr);
+                "Nạp tiền từ custom order stage #" + stageIdStr, BigDecimal.ZERO, null);
         
         // 2. Collect platform fee to admin wallet (10%)
         depositToWallet(platformAdmin, platformFee, WalletTransactionType.PLATFORM_FEE, null, stagePayment,
-                "Phí sàn 10% từ custom order stage #" + stageIdStr);
+                "Phí sàn 10% từ custom order stage #" + stageIdStr, BigDecimal.ZERO, null);
         
         log.info("Stage payment distribution completed for stage: {}", stageIdStr);
+    }
+    
+    @Override
+    @Transactional
+    public WalletTransaction processStagePaymentDistributionWithCommission(StagePayment stagePayment, Artisan artisan, 
+                                                             Account platformAdmin, BigDecimal commissionFee, 
+                                                             BigDecimal commissionRate) {
+        if (stagePayment.getStatus() != PaymentStatus.SUCCESS) {
+            throw new IllegalStateException("StagePayment must be SUCCESS to distribute money");
+        }
+        
+        if (artisan == null) {
+            log.error("Cannot distribute stage payment - artisan is null");
+            throw new IllegalStateException("Artisan not found for stage payment distribution");
+        }
+        
+        BigDecimal totalAmount = stagePayment.getAmount();
+        
+        // Calculate platform fee (10%)
+        BigDecimal platformFee = totalAmount.multiply(PLATFORM_FEE_RATE)
+                .setScale(2, RoundingMode.HALF_UP);
+        
+        // Calculate artisan amount before commission (90%)
+        BigDecimal artisanAmountBeforeCommission = totalAmount.subtract(platformFee);
+        
+        // Calculate artisan net amount (after commission deduction)
+        BigDecimal artisanNetAmount = artisanAmountBeforeCommission.subtract(commissionFee);
+        
+        log.info("Distributing stage payment {} with commission: Total={}, PlatformFee={}, Commission={}, ArtisanNet={}", 
+                stagePayment.getPaymentId(), totalAmount, platformFee, commissionFee, artisanNetAmount);
+        
+        // Get stage ID safely
+        UUID stageId = null;
+        try {
+            if (stagePayment.getStage() != null) {
+                stageId = stagePayment.getStage().getStageId();
+            }
+        } catch (Exception e) {
+            log.warn("Could not get stageId: {}", e.getMessage());
+        }
+        
+        String stageIdStr = stageId != null ? stageId.toString() : "unknown";
+        
+        // 1. Deposit NET AMOUNT to artisan wallet (90% - commission)
+        WalletTransaction artisanTransaction = depositToWallet(artisan.getAccount(), artisanNetAmount, WalletTransactionType.DEPOSIT, null, stagePayment,
+                "Nạp tiền từ custom order stage #" + stageIdStr, commissionFee, commissionRate);
+        
+        // 2. Collect platform fee to admin wallet (10%)
+        depositToWallet(platformAdmin, platformFee, WalletTransactionType.PLATFORM_FEE, null, stagePayment,
+                "Phí sàn 10% từ custom order stage #" + stageIdStr, BigDecimal.ZERO, null);
+        
+        log.info("Stage payment distribution with commission completed for stage: {}", stageIdStr);
+        
+        return artisanTransaction;
     }
     
     /**
      * Internal method to deposit money to wallet
      */
-    private void depositToWallet(Account account, BigDecimal amount, WalletTransactionType type,
-                                  Payment payment, StagePayment stagePayment, String description) {
+    private WalletTransaction depositToWallet(Account account, BigDecimal amount, WalletTransactionType type,
+                                  Payment payment, StagePayment stagePayment, String description,
+                                  BigDecimal commissionFee, BigDecimal commissionRate) {
         Wallet wallet = getOrCreateWallet(account);
         
         BigDecimal balanceBefore = wallet.getBalance();
@@ -230,10 +328,19 @@ public class WalletServiceImp implements WalletService {
         transaction.setStagePayment(stagePayment);
         transaction.setDescription(description);
         
-        walletTransactionRepository.save(transaction);
+        // Apply commission if provided
+        if (commissionFee != null && commissionFee.compareTo(BigDecimal.ZERO) > 0) {
+            transaction.setCommissionFee(commissionFee);
+            transaction.setCommissionRate(commissionRate);
+            log.info("Commission applied to transaction: fee={}, rate={}%", commissionFee, commissionRate);
+        }
+        
+        transaction = walletTransactionRepository.save(transaction);
         
         log.info("Deposited {} to wallet {}: {} -> {}", amount, wallet.getWalletId(), 
                 balanceBefore, balanceAfter);
+        
+        return transaction;
     }
     
     @Override
