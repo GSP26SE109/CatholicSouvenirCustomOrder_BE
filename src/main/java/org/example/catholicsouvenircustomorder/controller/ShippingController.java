@@ -75,6 +75,44 @@ public class ShippingController {
         return ResponseEntity.ok(BaseResponse.success("Webhook processed successfully"));
     }
     
+    /**
+     * DEMO ONLY: Simulate GHN webhook for testing
+     * This endpoint allows you to manually trigger shipment status updates
+     * 
+     * Usage:
+     * POST /api/shipments/demo/update-status
+     * {
+     *   "orderCode": "GHN_ORDER_CODE",
+     *   "status": "ready_to_pick|picking|picked|storing|transporting|delivering|delivered|return"
+     * }
+     */
+    @PostMapping("/shipments/demo/update-status")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<BaseResponse<Void>> simulateGHNWebhook(@RequestBody Map<String, Object> request) {
+        String orderCode = (String) request.get("orderCode");
+        String status = (String) request.get("status");
+        
+        if (orderCode == null || status == null) {
+            return ResponseEntity.badRequest()
+                    .body(BaseResponse.error(400, "orderCode and status are required"));
+        }
+        
+        // Simulate GHN webhook payload
+        Map<String, Object> webhookData = Map.of(
+            "OrderCode", orderCode,
+            "Status", status,
+            "Description", "Demo: Manual status update",
+            "Time", System.currentTimeMillis() / 1000
+        );
+        
+        log.info("DEMO: Simulating GHN webhook for order: {}, status: {}", orderCode, status);
+        shippingService.handleGHNWebhook(webhookData);
+        
+        return ResponseEntity.ok(BaseResponse.success(
+            "Demo webhook processed successfully. Order " + orderCode + " updated to " + status
+        ));
+    }
+    
     @GetMapping("/shipments/my-shipments")
     @PreAuthorize("hasAuthority('CUSTOMER')")
     public ResponseEntity<BaseResponse> getMyShipments(

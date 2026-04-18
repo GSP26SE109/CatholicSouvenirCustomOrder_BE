@@ -24,6 +24,14 @@ public class Shipment {
     @JoinColumn(name = "custom_order_id")
     private CustomOrder customOrder;
     
+    // NEW FIELDS for return shipment support
+    @Column(nullable = false)
+    private Boolean isReturn = false;
+    
+    @ManyToOne
+    @JoinColumn(name = "complaint_id")
+    private Complaint complaint; // Only set if isReturn = true
+    
     @Column(unique = true)
     private String ghnOrderCode;
     

@@ -35,6 +35,11 @@ public class StagePaymentController {
      * Initiate payment for a stage
      * POST /api/stage-payments/{stageId}/initiate
      * Requirements: RB-5 (Request-Based payment flow)
+     * 
+     * returnUrl supports:
+     * - Web: https://your-domain.com/payment/result
+     * - Mobile deep link: myapp://payment/result
+     * - Custom scheme: yourapp://callback
      */
     @PostMapping("/{stageId}/initiate")
     @PreAuthorize("hasAuthority('CUSTOMER')")
@@ -61,75 +66,46 @@ public class StagePaymentController {
      */
     @GetMapping("/vnpay/return")
     public ResponseEntity<?> handleVNPayReturn(@RequestParam Map<String, String> params) {
-        log.info("========================================");
-        log.info("VNPay return callback for stage payment");
-        log.info("Params: {}", params);
-        log.info("========================================");
-        
         try {
-            // Extract parameters
             String referenceId = params.get("vnp_TxnRef");
             String responseCode = params.get("vnp_ResponseCode");
             String transactionId = params.get("vnp_TransactionNo");
             
             if (referenceId == null) {
                 log.error("Missing vnp_TxnRef in return callback");
-                // Use configured frontend URL for error redirect
                 String errorUrl = frontendUrl + "/payment/error?message=Missing_transaction_reference";
                 return ResponseEntity.status(302)
                         .header("Location", errorUrl)
                         .build();
             }
             
-            // Determine status
             String status = "00".equals(responseCode) ? "SUCCESS" : "FAILED";
             
-            // CRITICAL: Update DB here (backup for IPN/callback)
-            // IPN may fail or delay, so we update DB immediately when user returns
             StagePaymentResponse paymentResponse = null;
             try {
-                log.info("Updating stage payment status via return URL...");
-                log.info("Reference ID: {}", referenceId);
-                log.info("Response Code: {}", responseCode);
-                log.info("Transaction ID: {}", transactionId);
-                log.info("Status: {}", status);
-                
                 paymentResponse = stagePaymentService.handleStagePaymentCallback(referenceId, status);
-                log.info("Stage payment status updated successfully via return URL");
             } catch (Exception e) {
-                log.error("Error updating stage payment via return URL", e);
-                log.error("Exception type: {}", e.getClass().getName());
-                log.error("Exception message: {}", e.getMessage());
-                // Continue to redirect even if update fails
+                log.error("Error updating stage payment: {}", e.getMessage());
             }
             
-            // Get the saved returnUrl from payment
             String returnUrl = getReturnUrlFromPayment(referenceId);
             
-            // Build redirect URL with payment result
             String redirectUrl;
             if (paymentResponse != null && returnUrl != null && !returnUrl.isEmpty()) {
                 redirectUrl = buildRedirectUrl(returnUrl, paymentResponse, responseCode);
             } else if (paymentResponse != null) {
-                // Default frontend URL if no returnUrl was saved
                 redirectUrl = buildDefaultRedirectUrl(paymentResponse, responseCode);
             } else {
-                // Payment update failed, redirect to error page
-                log.error("Payment response is null, redirecting to error page");
+                log.error("Payment update failed for ref: {}", referenceId);
                 redirectUrl = frontendUrl + "/payment/error?message=Payment_update_failed&ref=" + referenceId;
             }
-            
-            log.info("Redirecting to: {}", redirectUrl);
-            log.info("DB will also be updated by IPN/callback if configured");
-            log.info("========================================");
             
             return ResponseEntity.status(302)
                     .header("Location", redirectUrl)
                     .build();
                     
         } catch (Exception e) {
-            log.error("Error handling VNPay return: ", e);
-            // Use configured frontend URL for error redirect
+            log.error("Error handling VNPay return: {}", e.getMessage());
             String errorUrl = frontendUrl + "/payment/error?message=" + e.getMessage();
             return ResponseEntity.status(302)
                     .header("Location", errorUrl)
@@ -293,6 +269,11 @@ public class StagePaymentController {
     
     /**
      * Build redirect URL with payment result parameters
+     * Supports both web URLs and mobile deep links
+     * 
+     * Examples:
+     * - Web: https://domain.com/result?paymentId=xxx&status=SUCCESS
+     * - Mobile: myapp://payment/result?paymentId=xxx&status=SUCCESS
      */
     private String buildRedirectUrl(String baseUrl, StagePaymentResponse payment, String responseCode) {
         StringBuilder url = new StringBuilder(baseUrl);
@@ -318,12 +299,9 @@ public class StagePaymentController {
     
     /**
      * Build default redirect URL when no returnUrl is provided
-     * Uses configured frontend URL from application.yml
      */
     private String buildDefaultRedirectUrl(StagePaymentResponse payment, String responseCode) {
-        // Use configured frontend URL instead of hardcoded localhost
         String baseUrl = frontendUrl + "/stage-payment/result";
-        log.warn("No returnUrl found in payment, using default: {}", baseUrl);
         return buildRedirectUrl(baseUrl, payment, responseCode);
     }
 }

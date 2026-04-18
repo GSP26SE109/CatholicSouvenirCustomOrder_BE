@@ -1,6 +1,7 @@
 package org.example.catholicsouvenircustomorder.service.imp;
 
 import lombok.RequiredArgsConstructor;
+import org.example.catholicsouvenircustomorder.dto.request.UpdateArtisanProfileRequest;
 import org.example.catholicsouvenircustomorder.dto.response.account.ArtisanResponseDTO;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.model.Artisan;
@@ -9,6 +10,7 @@ import org.example.catholicsouvenircustomorder.service.ArtisanService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -29,6 +31,31 @@ public class ArtisanServiceImp implements ArtisanService {
         Artisan artisan = artisanRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thợ thủ công với ID: " + artisanId));
         return mapToDTO(artisan);
+    }
+
+    @Override
+    public ArtisanResponseDTO getArtisanProfile(UUID artisanId) {
+        Artisan artisan = artisanRepository.findById(artisanId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ thợ thủ công"));
+        return mapToDTO(artisan);
+    }
+
+    @Override
+    @Transactional
+    public ArtisanResponseDTO updateArtisanProfile(UUID artisanId, UpdateArtisanProfileRequest request) {
+        Artisan artisan = artisanRepository.findById(artisanId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ thợ thủ công"));
+
+        if (request.getArtisanName() != null && !request.getArtisanName().trim().isEmpty()) {
+            artisan.setArtisanName(request.getArtisanName());
+        }
+
+        if (request.getBio() != null) {
+            artisan.setBio(request.getBio());
+        }
+
+        Artisan updatedArtisan = artisanRepository.save(artisan);
+        return mapToDTO(updatedArtisan);
     }
 
     private ArtisanResponseDTO mapToDTO(Artisan artisan) {

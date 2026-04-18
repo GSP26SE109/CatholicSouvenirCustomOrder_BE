@@ -26,6 +26,14 @@ public enum NotificationType {
     WITHDRAWAL_REJECTED,   // When admin rejects withdrawal
     WITHDRAWAL_CANCELLED,  // When artisan cancels withdrawal
     
+    // Complaint & Refund notifications
+    COMPLAINT_CREATED,     // When customer creates complaint
+    ARTISAN_RESPONDED,     // When artisan responds to complaint
+    COMPLAINT_APPROVED,    // When admin approves complaint
+    COMPLAINT_REJECTED,    // When admin rejects complaint
+    REFUND_COMPLETED,      // When refund is completed
+    REFUND_FAILED,         // When refund fails
+    
     // General
     SYSTEM_ANNOUNCEMENT,
     ACCOUNT_VERIFIED

@@ -6,13 +6,13 @@ import org.example.catholicsouvenircustomorder.config.GHNConfig;
 import org.example.catholicsouvenircustomorder.dto.request.CreateShipmentRequest;
 import org.example.catholicsouvenircustomorder.dto.response.ShipmentResponse;
 import org.example.catholicsouvenircustomorder.exception.BadRequestException;
+import org.example.catholicsouvenircustomorder.exception.InsufficientBalanceException;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.model.*;
-import org.example.catholicsouvenircustomorder.repository.ArtisanRepository;
-import org.example.catholicsouvenircustomorder.repository.CustomOrderRepository;
-import org.example.catholicsouvenircustomorder.repository.OrderRepository;
-import org.example.catholicsouvenircustomorder.repository.ShipmentRepository;
+import org.example.catholicsouvenircustomorder.repository.*;
 import org.example.catholicsouvenircustomorder.service.GHNAddressService;
+import org.example.catholicsouvenircustomorder.service.NotificationService;
+import org.example.catholicsouvenircustomorder.service.RefundService;
 import org.example.catholicsouvenircustomorder.service.ShippingService;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -31,10 +31,14 @@ public class ShippingServiceImp implements ShippingService {
     private final ShipmentRepository shipmentRepository;
     private final OrderRepository orderRepository;
     private final CustomOrderRepository customOrderRepository;
+    private final ComplaintRepository complaintRepository;
+    private final AccountRepository accountRepository;
     private final GHNConfig ghnConfig;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ArtisanRepository artisanRepository;
     private final GHNAddressService ghnAddressService;
+    private final RefundService refundService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -501,5 +505,229 @@ public class ShippingServiceImp implements ShippingService {
     @Override
     public Map<String, Object> searchWard(Integer districtId, String wardName) {
         return ghnAddressService.searchWard(districtId, wardName);
+    }
+    
+    // ==================== Return Shipment Methods ====================
+    
+    /**
+     * Customer creates return shipment for complaint
+     * Requirements: 5.1, 5.2, 5.3
+     */
+    @Override
+    @Transactional
+    public ShipmentResponse createReturnShipment(UUID complaintId, CreateShipmentRequest request, UUID customerId) {
+        log.info("Creating return shipment for complaint: {} by customer: {}", complaintId, customerId);
+        
+        // 1. Validate complaint exists and status is WAITING_RETURN
+        Complaint complaint = complaintRepository.findById(complaintId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khiếu nại"));
+        
+        if (complaint.getStatus() != ComplaintStatus.WAITING_RETURN) {
+            throw new BadRequestException("Khiếu nại không ở trạng thái chờ trả hàng");
+        }
+        
+        // 2. Validate complaint belongs to customer
+        if (!complaint.getCustomer().getAccountId().equals(customerId)) {
+            throw new BadRequestException("Khiếu nại không thuộc về khách hàng này");
+        }
+        
+        // 3. Check if return shipment already exists
+        Optional<Shipment> existingReturn = shipmentRepository.findByComplaintComplaintIdAndIsReturnTrue(complaintId);
+        if (existingReturn.isPresent()) {
+            throw new BadRequestException("Đơn trả hàng đã tồn tại cho khiếu nại này");
+        }
+        
+        // 4. Build GHN request for return shipment
+        Map<String, Object> ghnRequest = buildReturnShipmentGHNRequest(request, complaint);
+        Map<String, Object> ghnResponse = callGHNCreateOrder(ghnRequest);
+        
+        log.info("Creating return shipment entity for complaint: {}", complaintId);
+        
+        // 5. Create Shipment with isReturn = true and complaint reference
+        Shipment shipment = new Shipment();
+        shipment.setIsReturn(true);
+        shipment.setComplaint(complaint);
+        shipment.setGhnOrderCode((String) ghnResponse.get("order_code"));
+        shipment.setTrackingNumber((String) ghnResponse.get("order_code"));
+        shipment.setStatus(ShippingStatus.PENDING);
+        shipment.setDeliveryAddress(request.getDeliveryAddress());
+        shipment.setRecipientName(request.getRecipientName());
+        shipment.setRecipientPhone(request.getRecipientPhone());
+        
+        if (ghnResponse.get("total_fee") != null) {
+            shipment.setShippingFee(new BigDecimal(ghnResponse.get("total_fee").toString()));
+        }
+        
+        shipment.setNote("Return shipment for complaint #" + complaintId);
+        shipment.setEstimatedDelivery(LocalDateTime.now().plusDays(3));
+        
+        log.info("Saving return shipment to database: {}", shipment.getGhnOrderCode());
+        shipment = shipmentRepository.save(shipment);
+        log.info("Return shipment saved successfully with ID: {}", shipment.getShipmentId());
+        
+        return mapToResponse(shipment);
+    }
+    
+    /**
+     * Artisan confirms receipt of returned item
+     * Requirements: 5.4, 5.5, 5.6
+     */
+    @Override
+    @Transactional
+    public ShipmentResponse confirmReturnReceipt(UUID shipmentId, UUID artisanId) {
+        log.info("Artisan {} confirming return receipt for shipment: {}", artisanId, shipmentId);
+        
+        // 1. Validate shipment exists and isReturn = true
+        Shipment shipment = shipmentRepository.findById(shipmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn vận chuyển"));
+        
+        if (!shipment.getIsReturn()) {
+            throw new BadRequestException("Đơn vận chuyển này không phải là đơn trả hàng");
+        }
+        
+        // 2. Validate shipment belongs to artisan (via complaint)
+        if (shipment.getComplaint() == null) {
+            throw new BadRequestException("Đơn trả hàng không có khiếu nại liên kết");
+        }
+        
+        if (!shipment.getComplaint().getArtisan().getArtisanUuid().equals(artisanId)) {
+            throw new BadRequestException("Đơn trả hàng không thuộc về nghệ nhân này");
+        }
+        
+        // 3. Update shipment status
+        shipment.setStatus(ShippingStatus.DELIVERED);
+        shipment.setActualDelivery(LocalDateTime.now());
+        shipment = shipmentRepository.save(shipment);
+        
+        log.info("Return shipment confirmed: {}", shipmentId);
+        
+        // 4. Update complaint status from WAITING_RETURN to PROCESSING_REFUND
+        Complaint complaint = shipment.getComplaint();
+        complaint.setStatus(ComplaintStatus.PROCESSING_REFUND);
+        complaintRepository.save(complaint);
+        
+        log.info("Complaint status updated to PROCESSING_REFUND: {}", complaint.getComplaintId());
+        
+        // 5. Process refund
+        try {
+            RefundTransaction refundTransaction = refundService.processRefund(
+                complaint, 
+                complaint.getRefundAmount()
+            );
+            
+            // 6. Update complaint status to APPROVED after successful refund
+            complaint.setStatus(ComplaintStatus.APPROVED);
+            complaintRepository.save(complaint);
+            
+            log.info("Refund processed successfully for complaint: {}", complaint.getComplaintId());
+            
+            // Send success notifications
+            notificationService.sendNotification(
+                complaint.getCustomer().getAccountId(),
+                NotificationType.REFUND_COMPLETED,
+                "Hoàn tiền thành công",
+                "Số tiền " + complaint.getRefundAmount() + " VND đã được hoàn vào ví của bạn.",
+                complaint.getComplaintId()
+            );
+            
+            notificationService.sendNotification(
+                complaint.getArtisan().getAccount().getAccountId(),
+                NotificationType.COMPLAINT_APPROVED,
+                "Đã xác nhận nhận hàng trả về",
+                "Bạn đã xác nhận nhận hàng trả về và số tiền " + complaint.getRefundAmount() + " VND đã được hoàn cho khách hàng.",
+                complaint.getComplaintId()
+            );
+        } catch (InsufficientBalanceException e) {
+            // Refund failed due to insufficient balance
+            complaint.setStatus(ComplaintStatus.WAITING_RETURN);
+            complaintRepository.save(complaint);
+            
+            log.error("Refund failed for complaint {}: {}", complaint.getComplaintId(), e.getMessage());
+            
+            // Send notification to admin
+            Account platformAdmin = accountRepository.findByRole_Name("ADMIN").stream()
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Admin không tồn tại"));
+            
+            notificationService.sendNotification(
+                platformAdmin.getAccountId(),
+                NotificationType.REFUND_FAILED,
+                "Hoàn tiền thất bại",
+                "Hoàn tiền cho khiếu nại #" + complaint.getComplaintId() + " thất bại: " + e.getMessage(),
+                complaint.getComplaintId()
+            );
+            
+            throw e;
+        }
+        
+        return mapToResponse(shipment);
+    }
+    
+    /**
+     * Get return shipment for complaint
+     * Requirements: 5.6
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public ShipmentResponse getReturnShipmentByComplaint(UUID complaintId) {
+        log.info("Getting return shipment for complaint: {}", complaintId);
+        
+        Shipment shipment = shipmentRepository.findByComplaintComplaintIdAndIsReturnTrue(complaintId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn trả hàng cho khiếu nại này"));
+        
+        return mapToResponse(shipment);
+    }
+    
+    /**
+     * Build GHN request for return shipment
+     * Customer sends item back to Artisan
+     */
+    private Map<String, Object> buildReturnShipmentGHNRequest(CreateShipmentRequest request, Complaint complaint) {
+        Map<String, Object> ghnRequest = new HashMap<>();
+        
+        // For return shipment: Customer is sender, Artisan is receiver
+        Account customer = complaint.getCustomer();
+        Artisan artisan = complaint.getArtisan();
+        
+        // From: Customer
+        String fromName = customer.getFullName();
+        String fromPhone = customer.getPhone() != null ? customer.getPhone() : "0901234567";
+        
+        // To: Artisan
+        String toName = artisan.getArtisanName();
+        String toPhone = artisan.getAccount().getPhone() != null ? artisan.getAccount().getPhone() : "0901234567";
+        
+        ghnRequest.put("payment_type_id", request.getPaymentTypeId());
+        ghnRequest.put("note", "Return shipment for complaint #" + complaint.getComplaintId());
+        ghnRequest.put("required_note", "KHONGCHOXEMHANG");
+        ghnRequest.put("from_name", fromName);
+        ghnRequest.put("from_phone", fromPhone);
+        ghnRequest.put("from_address", "Customer Address"); // Customer's address
+        ghnRequest.put("from_ward_name", "Phường 1");
+        ghnRequest.put("from_district_name", "Quận 1");
+        ghnRequest.put("from_province_name", "TP. Hồ Chí Minh");
+        ghnRequest.put("to_name", toName);
+        ghnRequest.put("to_phone", toPhone);
+        ghnRequest.put("to_address", request.getDeliveryAddress());
+        ghnRequest.put("to_ward_code", request.getToWardCode());
+        ghnRequest.put("to_district_id", request.getToDistrictId());
+        ghnRequest.put("cod_amount", 0); // No COD for return shipment
+        ghnRequest.put("content", "Return Item - Catholic Souvenir");
+        ghnRequest.put("weight", request.getWeight());
+        ghnRequest.put("length", request.getLength());
+        ghnRequest.put("width", request.getWidth());
+        ghnRequest.put("height", request.getHeight());
+        ghnRequest.put("service_type_id", request.getServiceTypeId());
+        ghnRequest.put("insurance_value", 0);
+        
+        List<Map<String, Object>> items = new ArrayList<>();
+        Map<String, Object> item = new HashMap<>();
+        item.put("name", "Return Item");
+        item.put("quantity", 1);
+        item.put("weight", request.getWeight());
+        items.add(item);
+        ghnRequest.put("items", items);
+        
+        return ghnRequest;
     }
 }

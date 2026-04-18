@@ -58,8 +58,6 @@ public class StagePaymentServiceImp implements StagePaymentService {
     
     @Transactional
     public StagePaymentResponse createStagePayment(UUID stageId, UUID customerId, String paymentMethod, String returnUrl) {
-        log.info("Creating stage payment for stage: {}, customer: {}", stageId, customerId);
-
         // Validate stage
         CustomOrderStage stage = stageRepository.findById(stageId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy stage"));
@@ -94,12 +92,9 @@ public class StagePaymentServiceImp implements StagePaymentService {
                 .orElse(null);
 
         if (existingPayment != null) {
-            // Cancel old pending payment and create new one
-            log.info("Found existing pending payment: {}, cancelling it", existingPayment.getPaymentId());
             existingPayment.setStatus(PaymentStatus.CANCELLED);
             existingPayment.setFailureReason("Replaced by new payment request");
             paymentRepository.save(existingPayment);
-            log.info("Old stage payment cancelled, creating new one");
         }
 
         // Create payment
@@ -109,7 +104,7 @@ public class StagePaymentServiceImp implements StagePaymentService {
         payment.setStatus(PaymentStatus.PENDING);
         payment.setMethod(PaymentMethod.valueOf(paymentMethod.toUpperCase()));
         payment.setPaymentType(determinePaymentType(stage));
-        payment.setReturnUrl(returnUrl);  // Save frontend return URL
+        payment.setReturnUrl(returnUrl);
 
         // Generate reference ID for internal tracking
         String referenceId = "STAGE_" + stageId + "_" + System.currentTimeMillis();
@@ -118,14 +113,7 @@ public class StagePaymentServiceImp implements StagePaymentService {
         String paymentUrl;
 
         try {
-            // IMPORTANT: Use BACKEND callback URL for VNPay/ZaloPay to process payment
-            // Backend will update DB and then redirect to frontend returnUrl
             String backendReturnUrl = vnPayConfig.getStageReturnUrl();
-            
-            log.info("Using backend callback URL: {}", backendReturnUrl);
-            if (returnUrl != null) {
-                log.info("Frontend return URL saved in DB: {}", returnUrl);
-            }
             
             if (paymentMethod.equalsIgnoreCase("VNPAY")) {
                 paymentUrl = vnPayUtil.createPaymentUrl(
@@ -133,7 +121,7 @@ public class StagePaymentServiceImp implements StagePaymentService {
                         stage.getAmount(),
                         "Thanh toán stage: " + stage.getName(),
                         customer.getEmail(),
-                        backendReturnUrl  // Backend processes callback first
+                        backendReturnUrl
                 );
             } else if (paymentMethod.equalsIgnoreCase("ZALOPAY")) {
                 String zaloCallbackUrl = "http://localhost:8080/api/stage-payments/zalopay/callback";
@@ -155,16 +143,12 @@ public class StagePaymentServiceImp implements StagePaymentService {
         }
 
         payment = paymentRepository.save(payment);
-        log.info("Stage payment created successfully: {}", payment.getPaymentId());
-
         return mapToPaymentResponse(payment);
     }
 
     @Override
     @Transactional
     public StagePaymentResponse handleStagePaymentCallback(String referenceId, String status) {
-        log.info("Handling stage payment callback for reference: {}, status: {}", referenceId, status);
-
         // Find payment by our reference ID
         StagePayment payment = paymentRepository.findByReferenceId(referenceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy payment"));
@@ -172,20 +156,17 @@ public class StagePaymentServiceImp implements StagePaymentService {
         if (status.equalsIgnoreCase("SUCCESS") || status.equals("00")) {
             payment.setStatus(PaymentStatus.SUCCESS);
             payment.setPaidAt(LocalDateTime.now());
-            // Note: transactionId from gateway should be set by the caller
-            // or extracted from callback params before calling this method
 
             // Update stage status and workflow flags
             CustomOrderStage stage = payment.getStage();
             stage.setStatus(StageStatus.PAID);
             stage.setPaidAt(LocalDateTime.now());
-            stage.setIsPaid(true);  // ← Set workflow flag
-            stage.setCanPay(false); // ← Lock this stage (already paid)
+            stage.setIsPaid(true);
+            stage.setCanPay(false);
             stageRepository.save(stage);
 
             // Distribute money: 90% to artisan, 10% platform fee
             try {
-                // Re-fetch payment with JOIN FETCH to avoid lazy loading issues
                 StagePayment paymentForDistribution = paymentRepository
                         .findByIdWithDetailsForDistribution(payment.getPaymentId())
                         .orElse(payment);
@@ -195,17 +176,14 @@ public class StagePaymentServiceImp implements StagePaymentService {
                 if (artisan != null) {
                     Account platformAdmin = walletService.getPlatformAdminAccount();
                     walletService.processStagePaymentDistribution(paymentForDistribution, artisan, platformAdmin);
-                    log.info("Stage payment distribution completed for stage: {}", stage.getStageId());
                 } else {
                     log.warn("No artisan found for stage: {}, skipping distribution", stage.getStageId());
                 }
             } catch (Exception e) {
-                log.error("Error distributing stage payment for stage {}: {}", 
-                        stage.getStageId(), e.getMessage(), e);
-                // Payment is still SUCCESS, distribution can be retried later
+                log.error("Error distributing stage payment: {}", e.getMessage());
             }
 
-            // Check if all stages are paid, update custom order status
+            // Update custom order status
             CustomOrder customOrder = stage.getCustomOrder();
             boolean allStagesPaid = customOrder.getStages().stream()
                     .allMatch(s -> s.getIsPaid());
@@ -216,12 +194,9 @@ public class StagePaymentServiceImp implements StagePaymentService {
                 customOrder.setStatus(CustomOrderStatus.IN_PROGRESS);
             }
 
-            log.info("Stage payment successful for stage: {}", stage.getStageId());
-
         } else {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason("Payment failed with status: " + status);
-            log.warn("Stage payment failed for reference: {}", referenceId);
         }
 
         payment = paymentRepository.save(payment);
