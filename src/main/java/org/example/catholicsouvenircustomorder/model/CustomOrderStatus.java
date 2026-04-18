@@ -5,6 +5,9 @@ public enum CustomOrderStatus {
     CONFIRMED,         // Đã xác nhận (đã thanh toán)
     IN_PROGRESS,       // Đang thực hiện (có ít nhất 1 stage đã thanh toán)
     IN_PRODUCTION,     // Đang sản xuất
-    COMPLETED,         // Hoàn thành
-    CANCELLED          // Đã hủy
+    SHIPPING,          // Đang vận chuyển
+    DELIVERED,         // Đã giao hàng (chờ customer xác nhận)
+    COMPLETED,         // Hoàn thành (customer đã xác nhận)
+    CANCELLED,         // Đã hủy
+    REFUNDED           // Đã hoàn tiền
 }

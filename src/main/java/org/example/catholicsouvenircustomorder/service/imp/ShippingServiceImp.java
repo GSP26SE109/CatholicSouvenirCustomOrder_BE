@@ -189,6 +189,40 @@ public class ShippingServiceImp implements ShippingService {
 
             if ("delivered".equalsIgnoreCase(status)) {
                 shipment.setActualDelivery(LocalDateTime.now());
+                
+                // Update Order or CustomOrder status to DELIVERED
+                if (shipment.getOrder() != null && !shipment.getIsReturn()) {
+                    Order order = shipment.getOrder();
+                    order.setStatus(String.valueOf(OrderStatus.DELIVERED));
+                    order.setUpdateAt(LocalDateTime.now());
+                    orderRepository.save(order);
+                    log.info("Updated Order {} status to DELIVERED", order.getOrderId());
+                    
+                    // Send notification to customer
+                    notificationService.sendNotification(
+                        order.getCustomer().getAccountId(),
+                        NotificationType.ORDER_DELIVERED,
+                        "Đơn hàng đã được giao",
+                        "Đơn hàng #" + order.getOrderId() + " đã được giao thành công. Bạn có thể đánh giá sản phẩm ngay bây giờ!",
+                        order.getOrderId()
+                    );
+                    
+                } else if (shipment.getCustomOrder() != null && !shipment.getIsReturn()) {
+                    CustomOrder customOrder = shipment.getCustomOrder();
+                    customOrder.setStatus(CustomOrderStatus.DELIVERED);
+                    customOrder.setUpdatedAt(LocalDateTime.now());
+                    customOrderRepository.save(customOrder);
+                    log.info("Updated CustomOrder {} status to DELIVERED", customOrder.getCustomOrderId());
+                    
+                    // Send notification to customer
+                    notificationService.sendNotification(
+                        customOrder.getRequest().getCustomer().getAccountId(),
+                        NotificationType.ORDER_DELIVERED,
+                        "Đơn hàng tùy chỉnh đã được giao",
+                        "Đơn hàng tùy chỉnh #" + customOrder.getCustomOrderId() + " đã được giao thành công. Bạn có thể đánh giá sản phẩm ngay bây giờ!",
+                        customOrder.getCustomOrderId()
+                    );
+                }
             }
 
             String history = shipment.getStatusHistory() != null ? shipment.getStatusHistory() : "";
