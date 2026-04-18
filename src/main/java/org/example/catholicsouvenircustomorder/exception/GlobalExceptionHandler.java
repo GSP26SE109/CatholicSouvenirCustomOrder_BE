@@ -119,6 +119,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(BaseResponse.error(400, ex.getMessage()));
     }
+    
+    @ExceptionHandler(CommissionCalculationException.class)
+    public ResponseEntity<BaseResponse> handleCommissionCalculationException(CommissionCalculationException ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(BaseResponse.error(500, ex.getMessage()));
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseResponse> handleGenericException(Exception ex) {

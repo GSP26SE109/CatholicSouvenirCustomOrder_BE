@@ -46,15 +46,78 @@ public class AIImageServiceImp implements AIImageService {
             String enhancedPrompt = enhancePromptForReligiousArt(prompt);
             
             if ("huggingface".equalsIgnoreCase(imageProvider)) {
-                return generateWithHuggingFace(enhancedPrompt);
+                String result = generateWithHuggingFace(enhancedPrompt);
+                
+                // If Hugging Face fails, return a placeholder
+                if (result == null) {
+                    log.warn("Hugging Face API unavailable, returning placeholder");
+                    return generatePlaceholderImage(prompt);
+                }
+                
+                return result;
             } else {
                 log.warn("Unknown image provider: {}, falling back to Hugging Face", imageProvider);
-                return generateWithHuggingFace(enhancedPrompt);
+                String result = generateWithHuggingFace(enhancedPrompt);
+                
+                if (result == null) {
+                    return generatePlaceholderImage(prompt);
+                }
+                
+                return result;
             }
         } catch (Exception e) {
             log.error("Error generating AI image: {}", e.getMessage());
-            throw e; // Re-throw for retry mechanism
+            return generatePlaceholderImage(prompt);
         }
+    }
+    
+    /**
+     * Generate a placeholder image when AI service is unavailable
+     */
+    private String generatePlaceholderImage(String prompt) {
+        // Return a professional-looking SVG placeholder
+        String escapedPrompt = prompt.replace("&", "&amp;")
+                                    .replace("<", "&lt;")
+                                    .replace(">", "&gt;")
+                                    .replace("\"", "&quot;");
+        
+        String displayPrompt = escapedPrompt.length() > 60 ? 
+            escapedPrompt.substring(0, 60) + "..." : escapedPrompt;
+        
+        String svg = String.format(
+            "<svg width='1024' height='1024' xmlns='http://www.w3.org/2000/svg'>" +
+            "<defs>" +
+            "<linearGradient id='grad' x1='0%%' y1='0%%' x2='100%%' y2='100%%'>" +
+            "<stop offset='0%%' style='stop-color:%s;stop-opacity:1' />" +
+            "<stop offset='100%%' style='stop-color:%s;stop-opacity:1' />" +
+            "</linearGradient>" +
+            "</defs>" +
+            "<rect width='1024' height='1024' fill='url(#grad)'/>" +
+            
+            // Icon placeholder
+            "<circle cx='512' cy='400' r='80' fill='white' opacity='0.2'/>" +
+            "<path d='M 512 360 L 512 440 M 472 400 L 552 400' stroke='white' stroke-width='8' opacity='0.3'/>" +
+            
+            // Title
+            "<text x='512' y='550' font-family='Arial, sans-serif' font-size='24' font-weight='bold' " +
+            "fill='white' text-anchor='middle'>AI Image Generation</text>" +
+            
+            // Status
+            "<text x='512' y='590' font-family='Arial, sans-serif' font-size='18' " +
+            "fill='white' text-anchor='middle' opacity='0.8'>Service Temporarily Unavailable</text>" +
+            
+            // Prompt preview
+            "<text x='512' y='650' font-family='Arial, sans-serif' font-size='14' " +
+            "fill='white' text-anchor='middle' opacity='0.6'>%s</text>" +
+            
+            "</svg>",
+            "#4F46E5", // Indigo
+            "#7C3AED", // Purple
+            displayPrompt
+        );
+        
+        String base64Svg = Base64.getEncoder().encodeToString(svg.getBytes());
+        return "data:image/svg+xml;base64," + base64Svg;
     }
 
     private String generateWithHuggingFace(String prompt) {
@@ -63,49 +126,64 @@ public class AIImageServiceImp implements AIImageService {
             return null;
         }
 
-        try {
-            String apiUrl = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0";
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + huggingfaceApiKey);
-            headers.setAccept(Collections.singletonList(MediaType.IMAGE_PNG));
+        // List of models to try in order of preference
+        String[] models = {
+            "stabilityai/stable-diffusion-xl-base-1.0",
+            "stabilityai/stable-diffusion-2-1",
+            "runwayml/stable-diffusion-v1-5",
+            "CompVis/stable-diffusion-v1-4",
+            "prompthero/openjourney"
+        };
 
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("inputs", prompt);
-            requestBody.put("options", Map.of("wait_for_model", true));
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
-            ResponseEntity<byte[]> response = restTemplate.exchange(
-                apiUrl,
-                HttpMethod.POST,
-                entity,
-                byte[].class
-            );
-
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                byte[] imageBytes = response.getBody();
-                String fileName = "ai_concept_" + System.currentTimeMillis();
-                String supabaseUrl = supabaseStorageService.uploadImage(imageBytes, fileName);
+        for (String model : models) {
+            try {
+                log.info("Attempting to generate image with model: {}", model);
+                String apiUrl = "https://api-inference.huggingface.co/models/" + model;
                 
-                if (supabaseUrl != null) {
-                    log.info("Successfully generated and uploaded image to Supabase");
-                    return supabaseUrl;
-                } else {
-                    log.warn("Failed to upload to Supabase, falling back to base64");
-                    String base64Image = Base64.getEncoder().encodeToString(imageBytes);
-                    return "data:image/png;base64," + base64Image;
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.set("Authorization", "Bearer " + huggingfaceApiKey);
+
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("inputs", prompt);
+
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+                ResponseEntity<byte[]> response = restTemplate.exchange(
+                    apiUrl,
+                    HttpMethod.POST,
+                    entity,
+                    byte[].class
+                );
+
+                if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                    byte[] imageBytes = response.getBody();
+                    
+                    // Check if response is actually an image (not JSON error)
+                    if (imageBytes.length > 100) {
+                        String fileName = "ai_concept_" + System.currentTimeMillis();
+                        String supabaseUrl = supabaseStorageService.uploadImage(imageBytes, fileName);
+                        
+                        if (supabaseUrl != null) {
+                            log.info("Successfully generated and uploaded image to Supabase using model: {}", model);
+                            return supabaseUrl;
+                        } else {
+                            log.warn("Failed to upload to Supabase, falling back to base64");
+                            String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+                            return "data:image/png;base64," + base64Image;
+                        }
+                    }
                 }
+
+                log.warn("Model {} returned invalid response, trying next model", model);
+
+            } catch (Exception e) {
+                log.warn("Failed with model {}: {}. Trying next model...", model, e.getMessage());
             }
-
-            log.error("Failed to generate image with Hugging Face. Status: {}", response.getStatusCode());
-            return null;
-
-        } catch (Exception e) {
-            log.error("Error calling Hugging Face API: {}", e.getMessage(), e);
-            return null;
         }
+
+        log.error("All Hugging Face models failed to generate image");
+        return null;
     }
 
     private String enhancePromptForReligiousArt(String originalPrompt) {

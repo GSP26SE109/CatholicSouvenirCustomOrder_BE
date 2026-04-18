@@ -34,6 +34,10 @@ public enum NotificationType {
     REFUND_COMPLETED,      // When refund is completed
     REFUND_FAILED,         // When refund fails
     
+    // Commission notifications
+    COMMISSION_RATE_UPDATED, // When admin updates commission rate
+    COMMISSION_DEDUCTED,     // When commission is deducted from payment
+    
     // General
     SYSTEM_ANNOUNCEMENT,
     ACCOUNT_VERIFIED

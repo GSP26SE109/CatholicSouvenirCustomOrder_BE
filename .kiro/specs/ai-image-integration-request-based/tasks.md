@@ -12,7 +12,9 @@
   - Trả về `AIImageResponse` với imageUrl và prompt
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
-- [-] 2. Sửa logic tạo CustomRequest để bắt buộc có ảnh AI
+- [x] 2. Sửa logic tạo CustomRequest để bắt buộc có ảnh AI
+
+
 
 
 
@@ -22,13 +24,23 @@
   - Set `imageGenCount = 0` khi tạo mới
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 3. Sửa logic publish request để validate có ảnh
+- [x] 3. Sửa logic publish request để validate có ảnh
+
+
+
+
+
   - Sửa `CustomRequestServiceImp.publishRequest()`: kiểm tra `aiConceptImageUrl` not null
   - Throw `BadRequestException` với message "Yêu cầu phải có ảnh concept" nếu null
   - Đảm bảo notification gửi cho Artisan có kèm ảnh concept
   - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-- [ ] 4. Tạo endpoint update DRAFT request
+- [x] 4. Tạo endpoint update DRAFT request
+
+
+
+
+
   - Tạo DTO `UpdateDraftRequestDTO` với optional title và description
   - Tạo method `updateDraftRequest()` trong `CustomRequestService` interface
   - Implement `updateDraftRequest()` trong `CustomRequestServiceImp`
@@ -39,6 +51,9 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
 - [ ] 5. Kiểm tra và test toàn bộ flow
+
+
+
   - Test POST `/api/ai/generate-concept` với description hợp lệ
   - Test POST `/api/ai/generate-concept` với description < 50 chars → 400 error
   - Test POST `/api/custom-requests` without `aiConceptImageUrl` → 400 error

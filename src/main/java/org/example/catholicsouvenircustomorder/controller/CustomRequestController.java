@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.CreateFreeFormRequestDTO;
 import org.example.catholicsouvenircustomorder.dto.request.SelectArtisanRequest;
+import org.example.catholicsouvenircustomorder.dto.request.UpdateDraftRequestDTO;
 import org.example.catholicsouvenircustomorder.dto.response.CustomRequestResponse;
 import org.example.catholicsouvenircustomorder.model.CustomRequestStatus;
 import org.example.catholicsouvenircustomorder.service.CustomRequestService;
@@ -42,6 +43,20 @@ public class CustomRequestController {
         UUID customerId = (UUID) authentication.getPrincipal();
         CustomRequestResponse response = customRequestService.createFreeFormRequest(request, customerId);
         return ResponseEntity.ok(BaseResponse.success("Tạo yêu cầu thành công", response));
+    }
+    
+    /**
+     * Update a draft custom request (title and description only)
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse> updateDraftRequest(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateDraftRequestDTO request,
+            Authentication authentication) {
+        UUID customerId = (UUID) authentication.getPrincipal();
+        CustomRequestResponse response = customRequestService.updateDraftRequest(id, request, customerId);
+        return ResponseEntity.ok(BaseResponse.success("Cập nhật yêu cầu thành công", response));
     }
     
     /**

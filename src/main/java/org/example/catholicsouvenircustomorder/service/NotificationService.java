@@ -5,6 +5,7 @@ import org.example.catholicsouvenircustomorder.model.NotificationType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,7 +24,7 @@ public interface NotificationService {
                                 UUID relatedEntityId);
     
     // ========== Specific Notification methods ==========
-    void notifyArtisanOfNewCustomRequest(UUID artisanId, UUID requestId, String customerName, String description);
+    void notifyArtisanOfNewCustomRequest(UUID artisanId, UUID requestId, String customerName, String description, String aiConceptImageUrl);
     void notifyCustomerOfRequestAcceptance(UUID customerId, UUID requestId, String artisanName);
     void notifyCustomerOfRequestRejection(UUID customerId, UUID requestId, String artisanName, String reason);
     void notifyCustomerOfOrderCreated(UUID customerId, UUID orderId, Long totalAmount, Integer stagesCount);
@@ -45,6 +46,12 @@ public interface NotificationService {
     void notifyArtisanOfWithdrawalApproval(UUID artisanId, UUID withdrawalId, Long amount);
     void notifyArtisanOfWithdrawalRejection(UUID artisanId, UUID withdrawalId, Long amount, String reason);
     void notifyAdminOfWithdrawalCancellation(UUID withdrawalId, String artisanName, Long amount);
+    
+    // Commission notifications
+    void notifyAllArtisansCommissionChange(String oldRate, String newRate);
+    void notifyArtisanCommissionDeducted(UUID artisanId, UUID orderId, BigDecimal originalAmount, 
+                                        BigDecimal commissionAmount, BigDecimal netAmount, 
+                                        UUID walletTransactionId);
     
     // Query notifications
     Page<NotificationResponse> getUserNotifications(UUID userId, Pageable pageable);

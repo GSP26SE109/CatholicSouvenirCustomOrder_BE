@@ -57,6 +57,10 @@ public class Payment {
     @Column(columnDefinition = "TEXT")
     private String failureReason;
     
+    // Commission rate snapshot at payment creation time (%)
+    @Column(name = "commission_rate", precision = 5, scale = 2)
+    private BigDecimal commissionRate = BigDecimal.ZERO;
+    
     // Transaction relationship (1:1)
     
     @PreUpdate

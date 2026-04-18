@@ -1,6 +1,7 @@
 package org.example.catholicsouvenircustomorder.service.imp;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.dto.response.NotificationResponse;
 import org.example.catholicsouvenircustomorder.exception.BadRequestException;
 import org.example.catholicsouvenircustomorder.exception.NotFoundException;
@@ -23,6 +24,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class NotificationServiceImp implements NotificationService {
 
@@ -36,12 +38,12 @@ public class NotificationServiceImp implements NotificationService {
     @Override
     @Transactional
     public void notifyArtisanOfNewCustomRequest(UUID artisanId, UUID requestId, 
-                                               String customerName, String description) {
+                                               String customerName, String description, String aiConceptImageUrl) {
         Account artisan = accountRepository.findById(artisanId)
                 .orElseThrow(() -> new NotFoundException("Artisan not found"));
         
-        String metadata = String.format("customerName=%s;description=%s", 
-            customerName, description);
+        String metadata = String.format("customerName=%s;description=%s;aiConceptImageUrl=%s", 
+            customerName, description, aiConceptImageUrl != null ? aiConceptImageUrl : "");
         
         Notification notification = new Notification();
         notification.setRecipient(artisan);
@@ -678,6 +680,75 @@ public class NotificationServiceImp implements NotificationService {
         String metadata = notification.getMetadata() + ";rejected=true;rejectionReason=" + reason;
         notification.setMetadata(metadata);
         notificationRepository.save(notification);
+    }
+    
+    @Override
+    @Transactional
+    public void notifyAllArtisansCommissionChange(String oldRate, String newRate) {
+        // Get all artisan accounts
+        List<Account> artisans = accountRepository.findByRole_Name("ARTISAN");
+        
+        String message = String.format(
+            "Phí sàn đã được cập nhật từ %s%% thành %s%%. Thay đổi có hiệu lực ngay lập tức cho các giao dịch mới.",
+            oldRate, newRate
+        );
+        
+        String metadata = String.format("oldRate=%s;newRate=%s;effectiveDate=%s", 
+            oldRate, newRate, java.time.LocalDateTime.now());
+        
+        for (Account artisan : artisans) {
+            Notification notification = new Notification();
+            notification.setRecipient(artisan);
+            notification.setType(NotificationType.COMMISSION_RATE_UPDATED);
+            notification.setTitle("Cập nhật phí sàn");
+            notification.setMessage(message);
+            notification.setRelatedEntityType(RelatedEntityType.SYSTEM_CONFIG);
+            notification.setActionRequired(false);
+            notification.setPriority(NotificationPriority.NORMAL);
+            notification.setMetadata(metadata);
+            
+            notification = notificationRepository.save(notification);
+            sendRealTimeNotification(artisan.getAccountId(), "/notifications", mapToResponse(notification));
+        }
+        
+        log.info("Sent commission rate change notification to {} artisans", artisans.size());
+    }
+    
+    @Override
+    @Transactional
+    public void notifyArtisanCommissionDeducted(UUID artisanId, UUID orderId, 
+                                               java.math.BigDecimal originalAmount, 
+                                               java.math.BigDecimal commissionAmount, 
+                                               java.math.BigDecimal netAmount,
+                                               UUID walletTransactionId) {
+        Account artisan = accountRepository.findById(artisanId)
+                .orElseThrow(() -> new NotFoundException("Artisan not found"));
+        
+        String metadata = String.format("orderId=%s;originalAmount=%s;commissionAmount=%s;netAmount=%s;walletTransactionId=%s", 
+            orderId, originalAmount, commissionAmount, netAmount, walletTransactionId);
+        
+        String message = String.format(
+            "Đã nhận thanh toán từ đơn hàng. Số tiền gốc: %,d VNĐ. Phí sàn: %,d VNĐ. Số tiền thực nhận: %,d VNĐ.",
+            originalAmount.longValue(), commissionAmount.longValue(), netAmount.longValue()
+        );
+        
+        Notification notification = new Notification();
+        notification.setRecipient(artisan);
+        notification.setType(NotificationType.COMMISSION_DEDUCTED);
+        notification.setTitle("Phí sàn đã được trừ");
+        notification.setMessage(message);
+        notification.setRelatedEntityId(walletTransactionId);
+        notification.setRelatedEntityType(RelatedEntityType.WALLET_TRANSACTION);
+        notification.setActionType(NotificationAction.VIEW_WALLET_TRANSACTION);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.NORMAL);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(artisanId, "/notifications", mapToResponse(notification));
+        
+        log.info("Sent commission deduction notification to artisan {}: original={}, commission={}, net={}, walletTxId={}", 
+            artisanId, originalAmount, commissionAmount, netAmount, walletTransactionId);
     }
     
     @Override

@@ -9,7 +9,9 @@ import java.util.UUID;
 
 @Entity
 @Data
-@Table(name = "wallet_transactions")
+@Table(name = "wallet_transactions", indexes = {
+    @Index(name = "idx_wallet_transactions_commission", columnList = "commission_fee, created_at")
+})
 public class WalletTransaction {
     
     @Id
@@ -52,6 +54,14 @@ public class WalletTransaction {
     
     @Column(columnDefinition = "TEXT")
     private String description;
+    
+    // Commission fee deducted from this transaction (VND)
+    @Column(name = "commission_fee", precision = 15, scale = 2)
+    private BigDecimal commissionFee = BigDecimal.ZERO;
+    
+    // Commission rate applied to this transaction (%)
+    @Column(name = "commission_rate", precision = 5, scale = 2)
+    private BigDecimal commissionRate;
     
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

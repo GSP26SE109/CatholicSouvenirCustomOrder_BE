@@ -40,14 +40,22 @@ public class AIController {
         }
         
         String prompt = promptBuilder.toString();
-        String imageBase64 = aiImageService.generateImage(prompt);
+        String imageUrl = aiImageService.generateImage(prompt);
         
-        if (imageBase64 == null) {
+        if (imageUrl == null) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(BaseResponse.error(503, "Dịch vụ AI tạm thời không khả dụng. Vui lòng kiểm tra cấu hình API."));
+                .body(BaseResponse.error(503, "Dịch vụ AI tạm thời không khả dụng. Vui lòng kiểm tra cấu hình API hoặc thử lại sau."));
         }
         
-        return ResponseEntity.ok(BaseResponse.success("Tạo thiết kế thành công", imageBase64));
+        // Check if it's a placeholder image
+        if (imageUrl.startsWith("data:image/svg+xml")) {
+            return ResponseEntity.ok(BaseResponse.success(
+                "Dịch vụ AI đang bảo trì. Đã tạo ảnh placeholder tạm thời.", 
+                imageUrl
+            ));
+        }
+        
+        return ResponseEntity.ok(BaseResponse.success("Tạo thiết kế thành công", imageUrl));
     }
     
     @PostMapping("/generate-concept")

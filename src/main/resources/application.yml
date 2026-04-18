@@ -62,7 +62,7 @@ ai:
 
 huggingface:
   api:
-    key: ${HUGGINGFACE_API_KEY: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}
+    key: ${HUGGINGFACE_API_KEY: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}
 
 zalopay:
   app-id: ${ZALOPAY_APP_ID:554}
