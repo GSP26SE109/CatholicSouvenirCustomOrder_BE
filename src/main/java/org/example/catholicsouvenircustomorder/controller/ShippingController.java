@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.CreateShipmentRequest;
 import org.example.catholicsouvenircustomorder.dto.response.ShipmentResponse;
+import org.example.catholicsouvenircustomorder.dto.response.ShippingTimelineResponse;
 import org.example.catholicsouvenircustomorder.service.GHNAddressService;
 import org.example.catholicsouvenircustomorder.service.ShippingService;
 import org.springframework.http.ResponseEntity;
@@ -111,6 +112,37 @@ public class ShippingController {
         return ResponseEntity.ok(BaseResponse.success(
             "Demo webhook processed successfully. Order " + orderCode + " updated to " + status
         ));
+    }
+    
+    /**
+     * Get shipping timeline for frontend display
+     * GET /api/shipments/{shipmentId}/timeline
+     */
+    @GetMapping("/shipments/{shipmentId}/timeline")
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
+    public ResponseEntity<BaseResponse> getShippingTimeline(@PathVariable UUID shipmentId) {
+        ShippingTimelineResponse timeline = shippingService.getShippingTimeline(shipmentId);
+        return ResponseEntity.ok(BaseResponse.success("Lấy timeline vận chuyển thành công", timeline));
+    }
+    
+    /**
+     * Get all available shipping statuses for demo/testing
+     * GET /api/shipments/demo/statuses
+     */
+    @GetMapping("/shipments/demo/statuses")
+    public ResponseEntity<BaseResponse> getAvailableStatuses() {
+        List<Map<String, String>> statuses = List.of(
+            Map.of("value", "ready_to_pick", "label", "Sẵn sàng lấy hàng", "description", "Đơn hàng đã được tạo, chờ shipper đến lấy"),
+            Map.of("value", "picking", "label", "Đang lấy hàng", "description", "Shipper đang trên đường đến lấy hàng"),
+            Map.of("value", "picked", "label", "Đã lấy hàng", "description", "Đã lấy hàng từ người gửi"),
+            Map.of("value", "storing", "label", "Nhập kho", "description", "Hàng đang được lưu tại kho trung chuyển"),
+            Map.of("value", "transporting", "label", "Đang vận chuyển", "description", "Hàng đang được vận chuyển đến kho đích"),
+            Map.of("value", "delivering", "label", "Đang giao hàng", "description", "Shipper đang giao hàng đến người nhận"),
+            Map.of("value", "delivered", "label", "Đã giao hàng", "description", "Giao hàng thành công"),
+            Map.of("value", "return", "label", "Hoàn trả", "description", "Hàng bị trả lại"),
+            Map.of("value", "cancel", "label", "Đã hủy", "description", "Đơn hàng đã bị hủy")
+        );
+        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách trạng thái thành công", statuses));
     }
     
     @GetMapping("/shipments/my-shipments")
