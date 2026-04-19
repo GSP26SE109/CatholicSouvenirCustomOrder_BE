@@ -6,6 +6,7 @@ import org.example.catholicsouvenircustomorder.dto.response.Order.OrderDetailRes
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
 import org.example.catholicsouvenircustomorder.model.Order;
 import org.example.catholicsouvenircustomorder.model.OrderDetail;
+import org.example.catholicsouvenircustomorder.model.ProductImage;
 import org.mapstruct.*;
 import java.util.List;
 
@@ -21,6 +22,7 @@ public interface OrderMapper {
 
     @Mapping(target = "productId", source = "product.productId")
     @Mapping(target = "productName", source = "product.productName")
+    @Mapping(target = "image", source = "product.images")
     OrderDetailResponseDTO toDetailResponse(OrderDetail detail);
 
     List<OrderDetailResponseDTO> toDetailResponseList(List<OrderDetail> details);
@@ -43,5 +45,13 @@ public interface OrderMapper {
             order.getOrderDetails()
                     .forEach(detail -> detail.setOrder(order));
         }
+    }
+    
+    // Custom mapping method to convert List<ProductImage> to String
+    default String map(List<ProductImage> images) {
+        if (images == null || images.isEmpty()) {
+            return null;
+        }
+        return images.get(0).getImage_url();
     }
 }
