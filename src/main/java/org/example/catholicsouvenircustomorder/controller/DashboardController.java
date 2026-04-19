@@ -28,7 +28,7 @@ public class DashboardController {
         return ResponseEntity.ok(BaseResponse.success("Tải dashboard thành công", response));
     }
 
-    @GetMapping("/dashboard/artisan")
+    @GetMapping("/artisan/dashboard")
     public ResponseEntity<BaseResponse> getArtisanDashboard(
             @AuthenticationPrincipal UUID artisanId,
             @RequestParam Integer days) {
