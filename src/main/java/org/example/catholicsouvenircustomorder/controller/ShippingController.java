@@ -7,6 +7,7 @@ import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.CreateShipmentRequest;
 import org.example.catholicsouvenircustomorder.dto.response.ShipmentResponse;
 import org.example.catholicsouvenircustomorder.dto.response.ShippingTimelineResponse;
+import org.example.catholicsouvenircustomorder.model.ShippingStatus;
 import org.example.catholicsouvenircustomorder.service.GHNAddressService;
 import org.example.catholicsouvenircustomorder.service.ShippingService;
 import org.springframework.http.ResponseEntity;
@@ -84,7 +85,7 @@ public class ShippingController {
      * POST /api/shipments/demo/update-status
      * {
      *   "orderCode": "GHN_ORDER_CODE",
-     *   "status": "ready_to_pick|picking|picked|storing|transporting|delivering|delivered|return"
+     *   "status": "PENDING|PICKING|PICKED|STORING|TRANSPORTING|DELIVERING|DELIVERED|RETURNED|CANCELLED"
      * }
      */
     @PostMapping("/shipments/demo/update-status")
@@ -98,20 +99,45 @@ public class ShippingController {
                     .body(BaseResponse.error(400, "orderCode and status are required"));
         }
         
+        // Convert enum status to GHN status
+        String ghnStatus = convertToGHNStatus(status.toUpperCase());
+        if (ghnStatus == null) {
+            return ResponseEntity.badRequest()
+                    .body(BaseResponse.error(400, "Invalid status. Valid values: PENDING, PICKING, PICKED, STORING, TRANSPORTING, DELIVERING, DELIVERED, RETURNED, CANCELLED"));
+        }
+        
         // Simulate GHN webhook payload
         Map<String, Object> webhookData = Map.of(
             "OrderCode", orderCode,
-            "Status", status,
-            "Description", "Demo: Manual status update",
+            "Status", ghnStatus,
+            "Description", "Demo: Manual status update to " + status,
             "Time", System.currentTimeMillis() / 1000
         );
         
-        log.info("DEMO: Simulating GHN webhook for order: {}, status: {}", orderCode, status);
+        log.info("DEMO: Simulating GHN webhook for order: {}, status: {} -> GHN: {}", orderCode, status, ghnStatus);
         shippingService.handleGHNWebhook(webhookData);
         
         return ResponseEntity.ok(BaseResponse.success(
             "Demo webhook processed successfully. Order " + orderCode + " updated to " + status
         ));
+    }
+    
+    /**
+     * Convert ShippingStatus enum to GHN status string
+     */
+    private String convertToGHNStatus(String enumStatus) {
+        return switch (enumStatus) {
+            case "PENDING" -> "ready_to_pick";
+            case "PICKING" -> "picking";
+            case "PICKED" -> "picked";
+            case "STORING" -> "storing";
+            case "TRANSPORTING" -> "transporting";
+            case "DELIVERING" -> "delivering";
+            case "DELIVERED" -> "delivered";
+            case "RETURNED" -> "return";
+            case "CANCELLED" -> "cancel";
+            default -> null;
+        };
     }
     
     /**
@@ -127,20 +153,21 @@ public class ShippingController {
     
     /**
      * Get all available shipping statuses for demo/testing
+     * Returns enum values that match ShippingStatus enum
      * GET /api/shipments/demo/statuses
      */
     @GetMapping("/shipments/demo/statuses")
     public ResponseEntity<BaseResponse> getAvailableStatuses() {
         List<Map<String, String>> statuses = List.of(
-            Map.of("value", "ready_to_pick", "label", "Sẵn sàng lấy hàng", "description", "Đơn hàng đã được tạo, chờ shipper đến lấy"),
-            Map.of("value", "picking", "label", "Đang lấy hàng", "description", "Shipper đang trên đường đến lấy hàng"),
-            Map.of("value", "picked", "label", "Đã lấy hàng", "description", "Đã lấy hàng từ người gửi"),
-            Map.of("value", "storing", "label", "Nhập kho", "description", "Hàng đang được lưu tại kho trung chuyển"),
-            Map.of("value", "transporting", "label", "Đang vận chuyển", "description", "Hàng đang được vận chuyển đến kho đích"),
-            Map.of("value", "delivering", "label", "Đang giao hàng", "description", "Shipper đang giao hàng đến người nhận"),
-            Map.of("value", "delivered", "label", "Đã giao hàng", "description", "Giao hàng thành công"),
-            Map.of("value", "return", "label", "Hoàn trả", "description", "Hàng bị trả lại"),
-            Map.of("value", "cancel", "label", "Đã hủy", "description", "Đơn hàng đã bị hủy")
+            Map.of("value", "PENDING", "label", "Chờ lấy hàng", "description", "Đơn hàng đã được tạo, chờ shipper đến lấy"),
+            Map.of("value", "PICKING", "label", "Đang lấy hàng", "description", "Shipper đang trên đường đến lấy hàng"),
+            Map.of("value", "PICKED", "label", "Đã lấy hàng", "description", "Đã lấy hàng từ người gửi"),
+            Map.of("value", "STORING", "label", "Nhập kho", "description", "Hàng đang được lưu tại kho trung chuyển"),
+            Map.of("value", "TRANSPORTING", "label", "Đang vận chuyển", "description", "Hàng đang được vận chuyển đến kho đích"),
+            Map.of("value", "DELIVERING", "label", "Đang giao hàng", "description", "Shipper đang giao hàng đến người nhận"),
+            Map.of("value", "DELIVERED", "label", "Đã giao hàng", "description", "Giao hàng thành công"),
+            Map.of("value", "RETURNED", "label", "Hoàn trả", "description", "Hàng bị trả lại"),
+            Map.of("value", "CANCELLED", "label", "Đã hủy", "description", "Đơn hàng đã bị hủy")
         );
         return ResponseEntity.ok(BaseResponse.success("Lấy danh sách trạng thái thành công", statuses));
     }
