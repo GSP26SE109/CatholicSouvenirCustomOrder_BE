@@ -336,14 +336,18 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         BigDecimal totalPrice = template.getBasePrice();
         List<ZonePriceDetail> zonePrices = new ArrayList<>();
         
+        // Only process if zoneInputs has actual values
         if (zoneInputs != null && !zoneInputs.isEmpty()) {
             List<TemplateCustomZone> zones = zoneRepository.findByTemplate_TemplateIdOrderBySortOrder(templateId);
             
             for (TemplateCustomZone zone : zones) {
                 String zoneIdStr = zone.getZoneId().toString();
-                if (zoneInputs.containsKey(zoneIdStr) && zoneInputs.get(zoneIdStr) != null && !zoneInputs.get(zoneIdStr).trim().isEmpty()) {
+                String inputValue = zoneInputs.get(zoneIdStr);
+                
+                // Only process if input value exists and is not empty/blank
+                if (inputValue != null && !inputValue.trim().isEmpty()) {
                     // Validate zone input against constraints
-                    validateZoneInput(zone, zoneInputs.get(zoneIdStr));
+                    validateZoneInput(zone, inputValue);
                     
                     // Add extra price for filled zones
                     if (zone.getExtraPrice() != null && zone.getExtraPrice().compareTo(BigDecimal.ZERO) > 0) {
