@@ -119,4 +119,21 @@ public interface CustomOrderRepository extends JpaRepository<CustomOrder, UUID> 
         WHERE co.createdAt >= :startDate
         """)
     BigDecimal getCustomOrderRevenue(@Param("startDate") LocalDateTime startDate);
+    
+    // ==================== Artisan Dashboard Statistics Methods ====================
+    
+    /**
+     * Get average completion time in days for completed custom orders
+     * Uses updatedAt as completion timestamp when status is COMPLETED
+     * Requirements: 2.4
+     */
+    @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (co.updated_at - co.created_at)) / 86400) " +
+           "FROM custom_orders co " +
+           "JOIN artisans a ON co.artisan_id = a.artisan_id " +
+           "WHERE a.artisan_uuid = :artisanId " +
+           "AND co.status = 'COMPLETED' " +
+           "AND co.created_at >= :startDate",
+           nativeQuery = true)
+    Double getAvgCompletionTimeDays(@Param("artisanId") UUID artisanId,
+                                    @Param("startDate") LocalDateTime startDate);
 }

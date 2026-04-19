@@ -39,4 +39,19 @@ public class DashboardResponse {
     private List<TopCustomerDTO> topCustomers;
 
     private List<TopArtisanDTO> topArtisans;
+
+    // Artisan-specific fields
+    private ArtisanFinancialDetails financialDetails;
+
+    private ArtisanCustomOrderStats artisanCustomOrderStats;
+
+    private ArtisanPerformanceMetrics performanceMetrics;
+
+    private ArtisanCustomerAnalytics customerAnalytics;
+
+    private ArtisanTemplatePerformance templatePerformance;
+
+    private List<TopCustomerDTO> artisanTopCustomers;
+
+    private List<TopTemplateDTO> topTemplates;
 }

@@ -62,4 +62,25 @@ public interface FeedbackRepository extends JpaRepository<Feedback, UUID> {
      * Count total feedbacks for an artisan
      */
     long countByArtisan(Artisan artisan);
+    
+    // ==================== Artisan Dashboard Statistics Methods ====================
+    
+    /**
+     * Get rating statistics for an artisan including average rating and total reviews
+     * Requirements: 3.1, 3.2, 7.6
+     */
+    @Query("SELECT " +
+           "AVG(f.rating) as avgRating, " +
+           "COUNT(f) as totalReviews " +
+           "FROM Feedback f " +
+           "WHERE f.artisan.artisanUuid = :artisanId")
+    ArtisanRatingStats getRatingStats(@Param("artisanId") UUID artisanId);
+    
+    /**
+     * Interface projection for rating statistics
+     */
+    interface ArtisanRatingStats {
+        Double getAvgRating();
+        Long getTotalReviews();
+    }
 }

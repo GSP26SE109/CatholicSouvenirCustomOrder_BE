@@ -59,4 +59,54 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
         ORDER BY totalSpent DESC
         """)
     List<TopCustomerDTO> getTopCustomers(Pageable pageable);
+    
+    // ==================== Artisan Dashboard Statistics Methods ====================
+    
+    /**
+     * Get top customers for a specific artisan by total spending
+     * Requirements: 4.4, 4.5, 7.2
+     */
+    @Query("SELECT a.accountId as customerId, " +
+           "a.fullName as customerName, " +
+           "a.email as email, " +
+           "COUNT(DISTINCT o.orderId) + COUNT(DISTINCT co.customOrderId) as totalOrders, " +
+           "COALESCE(SUM(o.total), 0) + COALESCE(SUM(co.totalPrice), 0) as totalSpent " +
+           "FROM Account a " +
+           "LEFT JOIN Order o ON o.customer.accountId = a.accountId " +
+           "LEFT JOIN o.orderDetails od ON od.order.orderId = o.orderId " +
+           "LEFT JOIN CustomOrder co ON co.request.customer.accountId = a.accountId " +
+           "WHERE (od.product.artisan.artisanUuid = :artisanId " +
+           "OR co.artisan.artisanUuid = :artisanId) " +
+           "AND (o.createAt >= :startDate OR co.createdAt >= :startDate) " +
+           "GROUP BY a.accountId, a.fullName, a.email " +
+           "ORDER BY totalSpent DESC")
+    List<TopCustomerDTO> getArtisanTopCustomers(@Param("artisanId") UUID artisanId,
+                                                 @Param("startDate") LocalDateTime startDate,
+                                                 Pageable pageable);
+    
+    /**
+     * Get customer statistics for a specific artisan
+     * Requirements: 4.1, 4.2, 7.2
+     */
+    @Query("SELECT " +
+           "COUNT(DISTINCT a.accountId) as totalCustomers, " +
+           "(CAST(COUNT(DISTINCT CASE WHEN orderCount > 1 THEN a.accountId END) AS DOUBLE) * 100.0 / " +
+           "NULLIF(COUNT(DISTINCT a.accountId), 0)) as repeatRate " +
+           "FROM Account a " +
+           "JOIN (SELECT o.customer.accountId as custId, COUNT(o) as orderCount " +
+           "FROM Order o JOIN o.orderDetails od " +
+           "WHERE od.product.artisan.artisanUuid = :artisanId " +
+           "AND o.createAt >= :startDate " +
+           "GROUP BY o.customer.accountId) subq " +
+           "ON a.accountId = subq.custId")
+    ArtisanCustomerStats getCustomerStats(@Param("artisanId") UUID artisanId,
+                                          @Param("startDate") LocalDateTime startDate);
+    
+    /**
+     * Interface projection for artisan customer statistics
+     */
+    interface ArtisanCustomerStats {
+        Long getTotalCustomers();
+        Double getRepeatRate();
+    }
 }

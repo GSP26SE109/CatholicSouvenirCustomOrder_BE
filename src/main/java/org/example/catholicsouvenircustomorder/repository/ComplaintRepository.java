@@ -62,4 +62,21 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
         WHERE c.createdAt >= :startDate
         """)
     ComplaintStatistics getComplaintStatistics(@Param("startDate") LocalDateTime startDate);
+    
+    // ==================== Artisan Dashboard Statistics Methods ====================
+    
+    /**
+     * Get complaint rate for an artisan
+     * Calculates percentage of complaints vs total orders
+     * Requirements: 3.5, 7.7
+     */
+    @Query("SELECT " +
+           "(CAST(COUNT(c) AS DOUBLE) * 100.0 / NULLIF(:totalOrders, 0)) as complaintRate " +
+           "FROM Complaint c " +
+           "WHERE (c.order.orderId IN " +
+           "(SELECT o.orderId FROM Order o JOIN o.orderDetails od " +
+           "WHERE od.product.artisan.artisanUuid = :artisanId) " +
+           "OR c.customOrder.artisan.artisanUuid = :artisanId)")
+    Double getComplaintRate(@Param("artisanId") UUID artisanId, 
+                           @Param("totalOrders") Long totalOrders);
 }

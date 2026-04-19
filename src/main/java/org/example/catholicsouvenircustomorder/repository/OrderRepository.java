@@ -121,4 +121,34 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
         @Param("startDate") LocalDateTime startDate, 
         @Param("commissionRate") BigDecimal commissionRate
     );
+    
+    // ==================== Artisan Dashboard Statistics Methods ====================
+    
+    /**
+     * Get order fulfillment rate for an artisan
+     * Calculates percentage of delivered orders vs total non-cancelled orders
+     * Requirements: 3.4, 7.7
+     */
+    @Query("SELECT " +
+           "(CAST(COUNT(CASE WHEN o.status = 'DELIVERED' THEN 1 END) AS DOUBLE) * 100.0 / " +
+           "NULLIF(COUNT(CASE WHEN o.status != 'CANCELLED' THEN 1 END), 0)) as fulfillmentRate " +
+           "FROM Order o " +
+           "JOIN o.orderDetails od " +
+           "WHERE od.product.artisan.artisanUuid = :artisanId")
+    Double getOrderFulfillmentRate(@Param("artisanId") UUID artisanId);
+    
+    /**
+     * Get on-time delivery rate for an artisan
+     * Calculates percentage of orders delivered on or before expected date
+     * Requirements: 3.6, 7.7
+     */
+    @Query("SELECT " +
+           "(CAST(COUNT(CASE WHEN s.actualDelivery IS NOT NULL AND s.actualDelivery <= s.estimatedDelivery THEN 1 END) AS DOUBLE) * 100.0 / " +
+           "NULLIF(COUNT(CASE WHEN o.status = 'DELIVERED' AND s.actualDelivery IS NOT NULL THEN 1 END), 0)) as onTimeRate " +
+           "FROM Order o " +
+           "JOIN o.orderDetails od " +
+           "LEFT JOIN Shipment s ON s.order = o " +
+           "WHERE od.product.artisan.artisanUuid = :artisanId " +
+           "AND o.status = 'DELIVERED'")
+    Double getOnTimeDeliveryRate(@Param("artisanId") UUID artisanId);
 }

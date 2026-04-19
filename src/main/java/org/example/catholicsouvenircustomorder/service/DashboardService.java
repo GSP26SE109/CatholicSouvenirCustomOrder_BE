@@ -35,4 +35,14 @@ public interface DashboardService {
     ComplaintStatistics getComplaintStatistics(LocalDateTime startDate);
     RevenueBreakdown getRevenueBreakdown(LocalDateTime startDate);
     ProductAnalytics getProductAnalytics();
+    
+    // New statistics methods for artisan dashboard
+    ArtisanFinancialDetails getArtisanFinancialDetails(UUID artisanId, LocalDateTime startDate);
+    List<WalletBalanceTrend> getWalletBalanceTrend(UUID artisanId, LocalDateTime startDate);
+    ArtisanCustomOrderStats getArtisanCustomOrderStats(UUID artisanId, LocalDateTime startDate);
+    ArtisanPerformanceMetrics getArtisanPerformanceMetrics(UUID artisanId, LocalDateTime startDate);
+    ArtisanCustomerAnalytics getArtisanCustomerAnalytics(UUID artisanId, LocalDateTime startDate);
+    List<TopCustomerDTO> getArtisanTopCustomers(UUID artisanId, LocalDateTime startDate);
+    ArtisanTemplatePerformance getArtisanTemplatePerformance(UUID artisanId, LocalDateTime startDate);
+    List<TopTemplateDTO> getArtisanTopTemplates(UUID artisanId, LocalDateTime startDate);
 }
