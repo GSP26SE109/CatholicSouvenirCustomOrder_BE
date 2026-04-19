@@ -44,8 +44,8 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
      */
     @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (first_message_time - cr.created_at)) / 3600) " +
            "FROM custom_requests cr " +
-           "JOIN conversations c ON cr.conversation_id = c.conversation_id " +
-           "JOIN artisan a ON cr.selected_artisan_id = a.artisan_uuid " +
+           "JOIN conversations c ON c.request_id = cr.request_id " +
+           "JOIN artisan a ON c.artisan_id = a.artisan_uuid " +
            "CROSS JOIN LATERAL ( " +
            "  SELECT MIN(cm.sent_at) as first_message_time " +
            "  FROM chat_messages cm " +
