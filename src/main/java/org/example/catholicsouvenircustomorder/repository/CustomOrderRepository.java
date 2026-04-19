@@ -129,8 +129,8 @@ public interface CustomOrderRepository extends JpaRepository<CustomOrder, UUID> 
      */
     @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (co.updated_at - co.created_at)) / 86400) " +
            "FROM custom_orders co " +
-           "JOIN artisan a ON co.artisan_id = a.artisan_uuid " +
-           "WHERE a.artisan_uuid = :artisanId " +
+           "JOIN artisan a ON co.artisan_id = a.artisan_id " +
+           "WHERE a.artisan_id = :artisanId " +
            "AND co.status = 'COMPLETED' " +
            "AND co.created_at >= :startDate",
            nativeQuery = true)
