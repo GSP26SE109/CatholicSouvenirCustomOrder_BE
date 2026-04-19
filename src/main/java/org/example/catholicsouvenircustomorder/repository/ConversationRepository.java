@@ -45,16 +45,13 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
     @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (first_message_time - cr.created_at)) / 3600) " +
            "FROM custom_requests cr " +
            "JOIN conversations c ON c.request_id = cr.request_id " +
-           "JOIN artisan a ON c.artisan_id = a.artisan_id " +
            "CROSS JOIN LATERAL ( " +
            "  SELECT MIN(cm.sent_at) as first_message_time " +
            "  FROM chat_messages cm " +
-           "  JOIN accounts acc ON cm.sender_id = acc.account_id " +
-           "  JOIN artisan a2 ON acc.artisan_profile_id = a2.artisan_id " +
            "  WHERE cm.conversation_id = c.conversation_id " +
-           "  AND a2.artisan_id = :artisanId " +
+           "  AND cm.sender_id = c.artisan_id " +
            ") first_msg " +
-           "WHERE a.artisan_id = :artisanId " +
+           "WHERE c.artisan_id = :artisanId " +
            "AND first_message_time IS NOT NULL",
            nativeQuery = true)
     Double getAvgResponseTimeHours(@Param("artisanId") UUID artisanId);
