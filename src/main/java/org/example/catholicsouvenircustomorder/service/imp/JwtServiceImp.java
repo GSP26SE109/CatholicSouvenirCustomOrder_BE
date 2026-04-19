@@ -3,19 +3,23 @@ package org.example.catholicsouvenircustomorder.service.imp;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.service.JwtService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
+@RequiredArgsConstructor
 public class JwtServiceImp implements JwtService {
+
+    private final RedisTemplate<String, String> redisTemplate;
 
     @Value("${jwt.key}")
     private String keyJWT;
@@ -23,12 +27,12 @@ public class JwtServiceImp implements JwtService {
     @Value("${jwt.expiration:86400000}") // 24 hours default
     private long jwtExpiration;
 
-    // Store invalidated tokens (in production, use Redis)
-    private final Set<String> blacklistedTokens = new HashSet<>();
+    private static final String BLACKLIST_PREFIX = "blacklist:token:";
 
     @Override
     public boolean decryptToken(String token) {
-        if (blacklistedTokens.contains(token)) {
+        // Check if token is blacklisted in Redis
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + token))) {
             return false;
         }
 
@@ -79,7 +83,14 @@ public class JwtServiceImp implements JwtService {
 
     @Override
     public void invalidateToken(String token) {
-        blacklistedTokens.add(token);
+        // Add token to Redis blacklist with expiration time
+        // Set expiration to match JWT expiration time
+        redisTemplate.opsForValue().set(
+            BLACKLIST_PREFIX + token, 
+            "blacklisted", 
+            jwtExpiration, 
+            TimeUnit.MILLISECONDS
+        );
     }
 
     @Override
@@ -88,7 +99,8 @@ public class JwtServiceImp implements JwtService {
             return false;
         }
 
-        return !blacklistedTokens.contains(token);
+        // Check if token is NOT in blacklist
+        return !Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + token));
     }
 
     @Override
