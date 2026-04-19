@@ -5,14 +5,14 @@ import org.example.catholicsouvenircustomorder.dto.response.Dashboard.*;
 import org.example.catholicsouvenircustomorder.exception.UnauthorizedException;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.OrderStatus;
-import org.example.catholicsouvenircustomorder.repository.OrderDetailRepository;
-import org.example.catholicsouvenircustomorder.repository.OrderRepository;
-import org.example.catholicsouvenircustomorder.repository.ProductRepository;
+import org.example.catholicsouvenircustomorder.repository.*;
 import org.example.catholicsouvenircustomorder.service.AccountService;
 import org.example.catholicsouvenircustomorder.service.DashboardService;
+import org.example.catholicsouvenircustomorder.service.SystemConfigService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +27,12 @@ public class DashboardServiceImp implements DashboardService {
     private final ProductRepository productRepository;
     private final OrderDetailRepository orderDetailRepository;
     private final AccountService accountService;
+    private final AccountRepository accountRepository;
+    private final ArtisanRepository artisanRepository;
+    private final CustomRequestRepository customRequestRepository;
+    private final ComplaintRepository complaintRepository;
+    private final CustomOrderRepository customOrderRepository;
+    private final SystemConfigService systemConfigService;
 
     // ===== artisan dashboard====//
     @Override
@@ -115,6 +121,108 @@ public class DashboardServiceImp implements DashboardService {
                 .revenueChart(getAdminDailyRevenue(start))
                 .orderStatus(getAdminOrderStatusStatistic())
                 .topProducts(getAdminMostSoldProducts())
+                .customerStats(getCustomerStatistics(start))
+                .artisanStats(getArtisanStatistics())
+                .customOrderStats(getCustomOrderStatistics(start))
+                .complaintStats(getComplaintStatistics(start))
+                .revenueBreakdown(getRevenueBreakdown(start))
+                .productAnalytics(getProductAnalytics())
+                .topCustomers(getTopCustomers())
+                .topArtisans(getTopArtisans())
                 .build();
+    }
+
+    @Override
+    public CustomerStatistics getCustomerStatistics(LocalDateTime startDate) {
+        return accountRepository.getCustomerStatistics(startDate);
+    }
+
+    @Override
+    public List<TopCustomerDTO> getTopCustomers() {
+        return accountRepository.getTopCustomers(PageRequest.of(0, 10));
+    }
+
+    @Override
+    public ArtisanStatistics getArtisanStatistics() {
+        return artisanRepository.getArtisanStatistics();
+    }
+
+    @Override
+    public List<TopArtisanDTO> getTopArtisans() {
+        return artisanRepository.getTopArtisans(PageRequest.of(0, 10));
+    }
+
+    @Override
+    public CustomOrderStatistics getCustomOrderStatistics(LocalDateTime startDate) {
+        return customRequestRepository.getCustomOrderStatistics(startDate);
+    }
+
+    @Override
+    public ComplaintStatistics getComplaintStatistics(LocalDateTime startDate) {
+        return complaintRepository.getComplaintStatistics(startDate);
+    }
+
+    @Override
+    public RevenueBreakdown getRevenueBreakdown(LocalDateTime startDate) {
+        // Get commission rate from system config (cached in Redis)
+        BigDecimal commissionRate = systemConfigService.getCommissionRate();
+        
+        // Get revenue breakdown from orders
+        RevenueBreakdown breakdown = orderRepository.getRevenueBreakdown(startDate, commissionRate);
+        
+        // Get custom order revenue separately
+        BigDecimal customRevenue = customOrderRepository.getCustomOrderRevenue(startDate);
+        
+        // Combine results using implementation class
+        return new RevenueBreakdownImpl(
+            breakdown.getProductRevenue(),
+            breakdown.getTemplateRevenue(),
+            customRevenue,
+            breakdown.getTotalCommission()
+        );
+    }
+
+    /**
+     * Inner class implementation of RevenueBreakdown interface
+     * Used to combine results from multiple queries
+     */
+    private static class RevenueBreakdownImpl implements RevenueBreakdown {
+        private final BigDecimal productRevenue;
+        private final BigDecimal templateRevenue;
+        private final BigDecimal customRevenue;
+        private final BigDecimal totalCommission;
+
+        public RevenueBreakdownImpl(BigDecimal productRevenue, BigDecimal templateRevenue, 
+                                   BigDecimal customRevenue, BigDecimal totalCommission) {
+            this.productRevenue = productRevenue;
+            this.templateRevenue = templateRevenue;
+            this.customRevenue = customRevenue;
+            this.totalCommission = totalCommission;
+        }
+
+        @Override
+        public BigDecimal getProductRevenue() {
+            return productRevenue;
+        }
+
+        @Override
+        public BigDecimal getTemplateRevenue() {
+            return templateRevenue;
+        }
+
+        @Override
+        public BigDecimal getCustomRevenue() {
+            return customRevenue;
+        }
+
+        @Override
+        public BigDecimal getTotalCommission() {
+            return totalCommission;
+        }
+    }
+
+    @Override
+    public ProductAnalytics getProductAnalytics() {
+        return productRepository.getProductAnalytics();
     }
 }

@@ -12,6 +12,7 @@ import java.util.Map;
 @Builder
 public class DashboardResponse {
 
+    // Existing fields
     private DashboardSummary summary;
 
     private List<DailyRevenue> revenueChart;
@@ -21,4 +22,21 @@ public class DashboardResponse {
     private List<TopProductDTO> topProducts;
 
     private List<ShortStockProduct> lowStockProducts;
+
+    // New statistics fields
+    private CustomerStatistics customerStats;
+
+    private ArtisanStatistics artisanStats;
+
+    private CustomOrderStatistics customOrderStats;
+
+    private ComplaintStatistics complaintStats;
+
+    private RevenueBreakdown revenueBreakdown;
+
+    private ProductAnalytics productAnalytics;
+
+    private List<TopCustomerDTO> topCustomers;
+
+    private List<TopArtisanDTO> topArtisans;
 }

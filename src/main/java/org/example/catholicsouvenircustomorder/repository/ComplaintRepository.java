@@ -1,5 +1,6 @@
 package org.example.catholicsouvenircustomorder.repository;
 
+import org.example.catholicsouvenircustomorder.dto.response.Dashboard.ComplaintStatistics;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.Artisan;
 import org.example.catholicsouvenircustomorder.model.Complaint;
@@ -10,6 +11,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
@@ -40,4 +42,24 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
      * Requirements: 3.1
      */
     Page<Complaint> findByStatus(ComplaintStatus status, Pageable pageable);
+    
+    // Dashboard statistics methods
+    
+    /**
+     * Get complaint statistics including counts by status and total refund amount
+     * Requirements: 6.1, 6.2, 6.3, 6.4
+     */
+    @Query("""
+        SELECT COUNT(c) as totalComplaints,
+               SUM(CASE WHEN c.status IN ('PENDING', 'WAITING_RETURN', 'PROCESSING_REFUND') 
+                        THEN 1 ELSE 0 END) as pendingComplaints,
+               SUM(CASE WHEN c.status = 'APPROVED' 
+                        THEN 1 ELSE 0 END) as approvedComplaints,
+               SUM(CASE WHEN c.status = 'REJECTED' 
+                        THEN 1 ELSE 0 END) as rejectedComplaints,
+               COALESCE(SUM(c.refundAmount), 0) as totalRefundAmount
+        FROM Complaint c
+        WHERE c.createdAt >= :startDate
+        """)
+    ComplaintStatistics getComplaintStatistics(@Param("startDate") LocalDateTime startDate);
 }

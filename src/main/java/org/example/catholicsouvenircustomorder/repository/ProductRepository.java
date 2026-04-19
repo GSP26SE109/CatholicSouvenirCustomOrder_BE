@@ -1,5 +1,6 @@
 package org.example.catholicsouvenircustomorder.repository;
 
+import org.example.catholicsouvenircustomorder.dto.response.Dashboard.ProductAnalytics;
 import org.example.catholicsouvenircustomorder.dto.response.Dashboard.ShortStockProduct;
 import org.example.catholicsouvenircustomorder.dto.response.Product.ProductResponse;
 import org.example.catholicsouvenircustomorder.model.Product;
@@ -53,4 +54,20 @@ public interface ProductRepository extends JpaRepository<Product,UUID>, JpaSpeci
     ORDER BY rank DESC
 """, nativeQuery = true)
     Page<Product> searchWithRanking(@Param("keyword") String keyword,Pageable pageable);
+    
+    // Dashboard statistics methods
+    
+    /**
+     * Get product analytics including counts by status and average price
+     * Requirements: 8.1, 8.2, 8.3, 8.4
+     */
+    @Query("""
+        SELECT COUNT(p) as totalProducts,
+               SUM(CASE WHEN p.status = 'PENDING' THEN 1 ELSE 0 END) as pendingProducts,
+               SUM(CASE WHEN p.status = 'APPROVED' THEN 1 ELSE 0 END) as approvedProducts,
+               COALESCE(AVG(p.productPrice), 0) as averagePrice
+        FROM Product p
+        WHERE p.status <> 'DELETED'
+        """)
+    ProductAnalytics getProductAnalytics();
 }

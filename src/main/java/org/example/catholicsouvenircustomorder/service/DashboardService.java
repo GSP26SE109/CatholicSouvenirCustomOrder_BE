@@ -25,4 +25,14 @@ public interface DashboardService {
     Map<OrderStatus, Integer> getAdminOrderStatusStatistic();
     List<TopProductDTO> getAdminMostSoldProducts();
     DashboardResponse getAdminDashboardInDays(UUID adminId, int days);
+    
+    // New statistics methods for admin dashboard
+    CustomerStatistics getCustomerStatistics(LocalDateTime startDate);
+    List<TopCustomerDTO> getTopCustomers();
+    ArtisanStatistics getArtisanStatistics();
+    List<TopArtisanDTO> getTopArtisans();
+    CustomOrderStatistics getCustomOrderStatistics(LocalDateTime startDate);
+    ComplaintStatistics getComplaintStatistics(LocalDateTime startDate);
+    RevenueBreakdown getRevenueBreakdown(LocalDateTime startDate);
+    ProductAnalytics getProductAnalytics();
 }

@@ -3,12 +3,15 @@ package org.example.catholicsouvenircustomorder.repository;
 
 import org.example.catholicsouvenircustomorder.dto.response.Dashboard.DailyRevenue;
 import org.example.catholicsouvenircustomorder.dto.response.Dashboard.DashboardSummary;
+import org.example.catholicsouvenircustomorder.dto.response.Dashboard.RevenueBreakdown;
 import org.example.catholicsouvenircustomorder.model.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -95,4 +98,27 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     // Get order total for payment distribution
     @Query("SELECT o.total FROM Order o WHERE o.orderId = :orderId")
     java.math.BigDecimal findTotalByOrderId(UUID orderId);
+    
+    // Dashboard statistics methods
+    
+    /**
+     * Get revenue breakdown by source (product, template, commission)
+     * Requirements: 7.1, 7.2, 7.3, 7.4
+     */
+    @Query("""
+        SELECT COALESCE(SUM(CASE WHEN od.product IS NOT NULL 
+                                 THEN od.unitPrice * od.quantity ELSE 0 END), 0) as productRevenue,
+               COALESCE(SUM(CASE WHEN otd.template IS NOT NULL 
+                                 THEN otd.unitPrice * otd.quantity ELSE 0 END), 0) as templateRevenue,
+               0 as customRevenue,
+               COALESCE(SUM(o.total * :commissionRate / 100), 0) as totalCommission
+        FROM Order o
+        LEFT JOIN OrderDetail od ON od.order = o
+        LEFT JOIN OrderTemplateDetail otd ON otd.order = o
+        WHERE o.createAt >= :startDate
+        """)
+    RevenueBreakdown getRevenueBreakdown(
+        @Param("startDate") LocalDateTime startDate, 
+        @Param("commissionRate") BigDecimal commissionRate
+    );
 }

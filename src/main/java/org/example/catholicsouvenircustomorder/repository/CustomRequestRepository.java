@@ -1,6 +1,7 @@
 package org.example.catholicsouvenircustomorder.repository;
 
 import jakarta.persistence.LockModeType;
+import org.example.catholicsouvenircustomorder.dto.response.Dashboard.CustomOrderStatistics;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.CustomRequest;
 import org.example.catholicsouvenircustomorder.model.CustomRequestStatus;
@@ -254,4 +255,24 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
     @Query("SELECT COUNT(cr) > 0 FROM CustomRequest cr WHERE cr.customer.accountId = :customerId " +
            "AND cr.status IN ('DRAFT', 'OPEN', 'ARTISAN_SELECTED', 'IN_PROGRESS')")
     boolean hasActiveRequest(@Param("customerId") UUID customerId);
+    
+    // Dashboard statistics methods
+    
+    /**
+     * Get custom order statistics including requests, orders, average value, and conversion rate
+     * Requirements: 5.1, 5.2, 5.3, 5.4
+     */
+    @Query("""
+        SELECT COUNT(cr) as totalRequests,
+               SUM(CASE WHEN co IS NOT NULL THEN 1 ELSE 0 END) as totalOrders,
+               COALESCE(AVG(co.totalPrice), 0) as averageOrderValue,
+               CASE WHEN COUNT(cr) > 0 
+                    THEN (CAST(SUM(CASE WHEN co IS NOT NULL THEN 1 ELSE 0 END) AS DOUBLE) / COUNT(cr)) * 100 
+                    ELSE 0 
+               END as conversionRate
+        FROM CustomRequest cr
+        LEFT JOIN CustomOrder co ON co.request = cr
+        WHERE cr.createdAt >= :startDate
+        """)
+    CustomOrderStatistics getCustomOrderStatistics(@Param("startDate") LocalDateTime startDate);
 }
