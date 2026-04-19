@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,4 +93,16 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT wr FROM WithdrawalRequest wr WHERE wr.withdrawalId = :id")
     Optional<WithdrawalRequest> findByIdWithLock(@Param("id") UUID id);
+    
+    // ==================== Artisan Dashboard Statistics Methods ====================
+    
+    /**
+     * Get total pending withdrawal amount for an artisan
+     * Requirements: 1.5
+     */
+    @Query("SELECT COALESCE(SUM(wr.amount), 0) " +
+           "FROM WithdrawalRequest wr " +
+           "WHERE wr.artisan.artisanUuid = :artisanId " +
+           "AND wr.status = 'PENDING'")
+    BigDecimal getPendingWithdrawalAmount(@Param("artisanId") UUID artisanId);
 }

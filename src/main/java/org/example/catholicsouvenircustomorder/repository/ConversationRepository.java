@@ -34,4 +34,28 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
     
     // Count interested artisans for a request
     long countByRequest(CustomRequest request);
+    
+    // ==================== Artisan Dashboard Statistics Methods ====================
+    
+    /**
+     * Get average response time in hours for an artisan
+     * Calculates the average time between custom request creation and first artisan message
+     * Requirements: 3.3, 7.6
+     */
+    @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (first_message_time - cr.created_at)) / 3600) " +
+           "FROM custom_requests cr " +
+           "JOIN conversations c ON cr.conversation_id = c.conversation_id " +
+           "JOIN artisans a ON cr.selected_artisan_id = a.artisan_id " +
+           "CROSS JOIN LATERAL ( " +
+           "  SELECT MIN(cm.sent_at) as first_message_time " +
+           "  FROM chat_messages cm " +
+           "  JOIN accounts acc ON cm.sender_id = acc.account_id " +
+           "  JOIN artisans a2 ON acc.artisan_profile_id = a2.artisan_id " +
+           "  WHERE cm.conversation_id = c.conversation_id " +
+           "  AND a2.artisan_uuid = :artisanId " +
+           ") first_msg " +
+           "WHERE a.artisan_uuid = :artisanId " +
+           "AND first_message_time IS NOT NULL",
+           nativeQuery = true)
+    Double getAvgResponseTimeHours(@Param("artisanId") UUID artisanId);
 }

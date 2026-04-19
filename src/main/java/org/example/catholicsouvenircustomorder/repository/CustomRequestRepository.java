@@ -14,6 +14,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -275,4 +276,42 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
         WHERE cr.createdAt >= :startDate
         """)
     CustomOrderStatistics getCustomOrderStatistics(@Param("startDate") LocalDateTime startDate);
+    
+    // ==================== Artisan Dashboard Statistics Methods ====================
+    
+    /**
+     * Get custom order statistics for a specific artisan
+     * Requirements: 2.1, 2.2, 2.3, 7.4, 7.6, 7.7
+     */
+    @Query("SELECT " +
+           "COUNT(cr) as totalRequests, " +
+           "COUNT(cr.customOrder) as totalOrders, " +
+           "COALESCE(AVG(co.totalPrice), 0) as avgOrderValue, " +
+           "CASE WHEN COUNT(cr) > 0 THEN (CAST(COUNT(cr.customOrder) AS DOUBLE) * 100.0 / COUNT(cr)) ELSE NULL END as conversionRate " +
+           "FROM CustomRequest cr " +
+           "LEFT JOIN cr.customOrder co " +
+           "WHERE cr.selectedArtisan.artisanUuid = :artisanId " +
+           "AND cr.createdAt >= :startDate")
+    ArtisanCustomOrderStatsPartial getCustomOrderStats(@Param("artisanId") UUID artisanId,
+                                                        @Param("startDate") LocalDateTime startDate);
+    
+    /**
+     * Get count of pending custom requests for an artisan
+     * Requirements: 2.5, 7.4, 7.6, 7.7
+     */
+    @Query("SELECT COUNT(cr) " +
+           "FROM CustomRequest cr " +
+           "WHERE cr.selectedArtisan.artisanUuid = :artisanId " +
+           "AND cr.status IN ('PENDING', 'QUOTED')")
+    Long getPendingRequestsCount(@Param("artisanId") UUID artisanId);
+    
+    /**
+     * Interface projection for partial custom order stats (without pending and completion time)
+     */
+    interface ArtisanCustomOrderStatsPartial {
+        Long getTotalRequests();
+        Long getTotalOrders();
+        BigDecimal getAvgOrderValue();
+        Double getConversionRate();
+    }
 }

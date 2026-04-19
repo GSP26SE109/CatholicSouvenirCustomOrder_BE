@@ -14,17 +14,25 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/admin/dashboard")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class DashboardController {
 
     private final DashboardService dashboardService;
 
-    @GetMapping
-    public ResponseEntity<BaseResponse> getDashboard(
+    @GetMapping("/admin/dashboard")
+    public ResponseEntity<BaseResponse> getAdminDashboard(
             @AuthenticationPrincipal UUID adminId,
             @RequestParam Integer days) {
         DashboardResponse response = dashboardService.getAdminDashboardInDays(adminId, days);
+        return ResponseEntity.ok(BaseResponse.success("Tải dashboard thành công", response));
+    }
+
+    @GetMapping("/dashboard/artisan")
+    public ResponseEntity<BaseResponse> getArtisanDashboard(
+            @AuthenticationPrincipal UUID artisanId,
+            @RequestParam Integer days) {
+        DashboardResponse response = dashboardService.getArtisanDashboardInDays(artisanId, days);
         return ResponseEntity.ok(BaseResponse.success("Tải dashboard thành công", response));
     }
 }
