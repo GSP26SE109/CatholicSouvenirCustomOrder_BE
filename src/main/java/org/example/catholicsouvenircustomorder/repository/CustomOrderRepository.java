@@ -11,6 +11,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -104,4 +106,17 @@ public interface CustomOrderRepository extends JpaRepository<CustomOrder, UUID> 
      */
     @Query("SELECT CASE WHEN COUNT(co) > 0 THEN true ELSE false END FROM CustomOrder co WHERE co.request.requestId = :requestId")
     boolean existsByRequestId(@Param("requestId") UUID requestId);
+    
+    // Dashboard statistics methods
+    
+    /**
+     * Get total custom order revenue within time range
+     * Requirements: 7.1, 7.2, 7.3, 7.4
+     */
+    @Query("""
+        SELECT COALESCE(SUM(co.totalPrice), 0)
+        FROM CustomOrder co
+        WHERE co.createdAt >= :startDate
+        """)
+    BigDecimal getCustomOrderRevenue(@Param("startDate") LocalDateTime startDate);
 }
