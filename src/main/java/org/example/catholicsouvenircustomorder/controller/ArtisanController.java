@@ -68,12 +68,12 @@ public class ArtisanController {
         return ResponseEntity.ok(BaseResponse.success("Cập nhật hồ sơ cá nhân thành công", artisan));
     }
 
-    @GetMapping("/dashboard")
-    public ResponseEntity<BaseResponse> getDashboard(
-            @AuthenticationPrincipal UUID artisanId,
-            @RequestParam Integer days
-    ){
-        DashboardResponse response = dashboardService.getArtisanDashboardInDays(artisanId,days);
-        return ResponseEntity.ok(BaseResponse.success("Tải dashboard thành công", response));
-    }
+//    @GetMapping("/dashboard")
+//    public ResponseEntity<BaseResponse> getDashboard(
+//            @AuthenticationPrincipal UUID artisanId,
+//            @RequestParam Integer days
+//    ){
+//        DashboardResponse response = dashboardService.getArtisanDashboardInDays(artisanId,days);
+//        return ResponseEntity.ok(BaseResponse.success("Tải dashboard thành công", response));
+//    }
 }
