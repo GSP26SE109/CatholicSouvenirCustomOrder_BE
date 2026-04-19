@@ -100,7 +100,7 @@ public class WalletServiceImp implements WalletService {
             ordersByArtisanId.computeIfAbsent(artisanId, k -> new java.util.ArrayList<>()).add(orderId);
         }
         
-        BigDecimal totalPlatformFee = BigDecimal.ZERO;
+        BigDecimal totalCommissionCollected = BigDecimal.ZERO;
         
         // Distribute to each artisan
         for (var entry : ordersByArtisanId.entrySet()) {
@@ -113,13 +113,6 @@ public class WalletServiceImp implements WalletService {
                     .map(orderTotals::get)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             
-            // Calculate platform fee (10% of artisan's orders)
-            BigDecimal platformFee = artisanOrdersTotal.multiply(PLATFORM_FEE_RATE)
-                    .setScale(2, RoundingMode.HALF_UP);
-            
-            // Calculate artisan amount before commission (90% of artisan's orders)
-            BigDecimal artisanAmountBeforeCommission = artisanOrdersTotal.subtract(platformFee);
-            
             // Calculate commission for this artisan proportionally
             BigDecimal artisanCommissionFee = BigDecimal.ZERO;
             if (totalCommissionFee != null && totalCommissionFee.compareTo(BigDecimal.ZERO) > 0 
@@ -130,15 +123,15 @@ public class WalletServiceImp implements WalletService {
                     .divide(totalOrderAmount, 2, RoundingMode.HALF_UP);
             }
             
-            // Calculate final artisan amount (after platform fee and commission)
-            BigDecimal artisanNetAmount = artisanAmountBeforeCommission.subtract(artisanCommissionFee);
+            // Calculate final artisan amount (after commission)
+            BigDecimal artisanNetAmount = artisanOrdersTotal.subtract(artisanCommissionFee);
             
-            totalPlatformFee = totalPlatformFee.add(platformFee);
+            totalCommissionCollected = totalCommissionCollected.add(artisanCommissionFee);
             
-            log.info("Artisan {}: OrdersTotal={}, PlatformFee={}, CommissionFee={}, NetAmount={}", 
-                    artisanId, artisanOrdersTotal, platformFee, artisanCommissionFee, artisanNetAmount);
+            log.info("Artisan {}: OrdersTotal={}, CommissionFee={}, NetAmount={}", 
+                    artisanId, artisanOrdersTotal, artisanCommissionFee, artisanNetAmount);
             
-            // Deposit NET AMOUNT to artisan wallet (after both platform fee and commission)
+            // Deposit NET AMOUNT to artisan wallet (after commission)
             WalletTransaction walletTx = depositToWallet(artisan.getAccount(), artisanNetAmount, WalletTransactionType.DEPOSIT, 
                     payment, null,
                     String.format("Nạp tiền từ %d đơn hàng (OrderGroup #%s)", 
@@ -153,7 +146,7 @@ public class WalletServiceImp implements WalletService {
                     notificationService.notifyArtisanCommissionDeducted(
                         artisanId,
                         firstOrderId,
-                        artisanAmountBeforeCommission.add(artisanCommissionFee), // original amount before commission
+                        artisanOrdersTotal, // original amount before commission
                         artisanCommissionFee,
                         artisanNetAmount,
                         walletTx.getTransactionId()
@@ -166,13 +159,13 @@ public class WalletServiceImp implements WalletService {
             }
         }
         
-        // Collect total platform fee to admin wallet (10%)
-        if (totalPlatformFee.compareTo(BigDecimal.ZERO) > 0) {
-            depositToWallet(platformAdmin, totalPlatformFee, WalletTransactionType.PLATFORM_FEE, 
+        // Collect total commission to admin wallet
+        if (totalCommissionCollected.compareTo(BigDecimal.ZERO) > 0) {
+            depositToWallet(platformAdmin, totalCommissionCollected, WalletTransactionType.PLATFORM_FEE, 
                     payment, null,
-                    String.format("Phí sàn 10%% từ OrderGroup #%s", orderGroup.getGroupId()),
+                    String.format("Phí sàn %.0f%% từ OrderGroup #%s", commissionRate, orderGroup.getGroupId()),
                     BigDecimal.ZERO, null);
-            log.info("Total platform fee collected: {}", totalPlatformFee);
+            log.info("Total commission collected: {}", totalCommissionCollected);
         }
         
         log.info("Payment distribution completed for OrderGroup: {}", orderGroup.getGroupId());

@@ -46,9 +46,21 @@ public class AuthenController {
     }
     
     @GetMapping("/verify")
-    public ResponseEntity<BaseResponse> verifyEmail(@RequestParam String token) {
-        authenService.verifyEmail(token);
-        return ResponseEntity.ok(BaseResponse.success("Xác thực email thành công. Bạn có thể đăng nhập ngay bây giờ."));
+    public ResponseEntity<?> verifyEmail(@RequestParam String token) {
+        try {
+            authenService.verifyEmail(token);
+            // Redirect về trang login của FE với status success
+            String redirectUrl = "https://catholic-souvenir-custom-order-fe.vercel.app/login?verified=true&message=Xác thực email thành công";
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", redirectUrl)
+                    .build();
+        } catch (Exception e) {
+            // Redirect về trang login với status error
+            String redirectUrl = "https://catholic-souvenir-custom-order-fe.vercel.app/login/login?verified=false&message=" + e.getMessage();
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", redirectUrl)
+                    .build();
+        }
     }
     
     @PostMapping("/resend-verification")
