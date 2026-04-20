@@ -141,7 +141,7 @@ public class AIImageServiceImp implements AIImageService {
             "black-forest-labs/FLUX.1-dev",
             "stabilityai/stable-diffusion-xl-base-1.0",
             "stabilityai/stable-diffusion-2-1",
-            "runwayml/stable-diffusion-v1-5"
+            "stabilityai/stable-diffusion-3.5-medium"
         };
 
         for (String model : models) {
