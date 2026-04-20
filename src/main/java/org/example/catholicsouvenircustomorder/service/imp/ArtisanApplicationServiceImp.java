@@ -11,6 +11,7 @@ import org.example.catholicsouvenircustomorder.repository.ArtisanApplicationRepo
 import org.example.catholicsouvenircustomorder.repository.ArtisanRepository;
 import org.example.catholicsouvenircustomorder.repository.RoleRepository;
 import org.example.catholicsouvenircustomorder.service.ArtisanApplicationService;
+import org.example.catholicsouvenircustomorder.service.EmailService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,7 @@ public class ArtisanApplicationServiceImp implements ArtisanApplicationService {
     private final AccountRepository accountRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -63,6 +65,9 @@ public class ArtisanApplicationServiceImp implements ArtisanApplicationService {
         ArtisanApplication application = createApplication(savedAccount, request.getArtisanName(), 
             request.getBio(), request.getExperienceYear(), request.getPortfolioUrl(), request.getSpecialization());
 
+        // Gửi email xác nhận đã nhận đơn
+        emailService.sendArtisanApplicationSubmittedEmail(savedAccount.getEmail(), request.getArtisanName());
+
         return mapToResponse(application, "Đăng ký thành công! Đơn đăng ký đang chờ admin xét duyệt.");
     }
 
@@ -82,6 +87,9 @@ public class ArtisanApplicationServiceImp implements ArtisanApplicationService {
 
         ArtisanApplication application = createApplication(account, request.getArtisanName(),
             request.getBio(), request.getExperienceYear(), request.getPortfolioUrl(), request.getSpecialization());
+
+        // Gửi email xác nhận đã nhận đơn
+        emailService.sendArtisanApplicationSubmittedEmail(account.getEmail(), request.getArtisanName());
 
         return mapToResponse(application, "Đơn đăng ký đã được gửi thành công. Vui lòng chờ admin xét duyệt.");
     }
@@ -119,6 +127,13 @@ public class ArtisanApplicationServiceImp implements ArtisanApplicationService {
             artisanRepository.save(artisan);
 
             applicationRepository.save(application);
+            
+            // Gửi email thông báo phê duyệt
+            emailService.sendArtisanApplicationApprovedEmail(
+                application.getAccount().getEmail(), 
+                application.getArtisanName()
+            );
+            
             return mapToResponse(application, "Đơn đăng ký đã được phê duyệt thành công");
         } else {
             // Từ chối
@@ -129,6 +144,14 @@ public class ArtisanApplicationServiceImp implements ArtisanApplicationService {
             application.setRejectionReason(request.getRejectionReason());
             
             applicationRepository.save(application);
+            
+            // Gửi email thông báo từ chối
+            emailService.sendArtisanApplicationRejectedEmail(
+                application.getAccount().getEmail(),
+                application.getArtisanName(),
+                request.getRejectionReason()
+            );
+            
             return mapToResponse(application, "Đơn đăng ký đã bị từ chối");
         }
     }

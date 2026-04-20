@@ -277,11 +277,26 @@ public class CartServiceImp implements CartService {
     }
     
     private BigDecimal calculatePrice(ProductTemplate template, Map<String, String> customization) {
-        BigDecimal price = template.getBasePrice();
+        BigDecimal totalPrice = template.getBasePrice();
+        
         if (customization != null && !customization.isEmpty()) {
-            price = price.add(price.multiply(BigDecimal.valueOf(0.1 * customization.size())));
+            // Get all zones for this template
+            List<TemplateCustomZone> zones = template.getCustomZones();
+            
+            for (TemplateCustomZone zone : zones) {
+                String zoneIdStr = zone.getZoneId().toString();
+                String inputValue = customization.get(zoneIdStr);
+                
+                // Only add extra price if zone has input value
+                if (inputValue != null && !inputValue.trim().isEmpty()) {
+                    if (zone.getExtraPrice() != null && zone.getExtraPrice().compareTo(BigDecimal.ZERO) > 0) {
+                        totalPrice = totalPrice.add(zone.getExtraPrice());
+                    }
+                }
+            }
         }
-        return price;
+        
+        return totalPrice;
     }
     
     private CartResponse mapToResponse(Cart cart) {
