@@ -24,6 +24,9 @@ public class AIImageServiceImp implements AIImageService {
 
     @Value("${ai.image.provider:huggingface}")
     private String imageProvider;
+    
+    @Value("${ai.image.mock-mode:false}")
+    private boolean mockMode;
 
     @Value("${huggingface.api.key:}")
     private String huggingfaceApiKey;
@@ -42,6 +45,12 @@ public class AIImageServiceImp implements AIImageService {
         retryFor = {Exception.class}
     )
     public String generateImage(String prompt) {
+        // Mock mode for testing without AI API
+        if (mockMode) {
+            log.info("Mock mode enabled, returning placeholder image");
+            return generatePlaceholderImage(prompt);
+        }
+        
         try {
             String enhancedPrompt = enhancePromptForReligiousArt(prompt);
             
@@ -127,12 +136,12 @@ public class AIImageServiceImp implements AIImageService {
         }
 
         // List of models to try in order of preference
+        // FLUX.1-dev is a high-quality model but requires more resources
         String[] models = {
+            "black-forest-labs/FLUX.1-dev",
             "stabilityai/stable-diffusion-xl-base-1.0",
             "stabilityai/stable-diffusion-2-1",
-            "runwayml/stable-diffusion-v1-5",
-            "CompVis/stable-diffusion-v1-4",
-            "prompthero/openjourney"
+            "runwayml/stable-diffusion-v1-5"
         };
 
         for (String model : models) {
@@ -146,6 +155,12 @@ public class AIImageServiceImp implements AIImageService {
 
                 Map<String, Object> requestBody = new HashMap<>();
                 requestBody.put("inputs", prompt);
+                
+                // Add parameters for better quality (especially for FLUX)
+                Map<String, Object> parameters = new HashMap<>();
+                parameters.put("num_inference_steps", 50); // More steps = better quality
+                parameters.put("guidance_scale", 7.5); // Balance between creativity and prompt adherence
+                requestBody.put("parameters", parameters);
 
                 HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 

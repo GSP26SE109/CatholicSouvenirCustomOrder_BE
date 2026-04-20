@@ -45,10 +45,8 @@ public class CustomRequestServiceImp implements CustomRequestService {
             throw new BadRequestException("Mô tả phải có ít nhất 50 ký tự");
         }
         
-        // Validate AI concept image URL is required
-        if (request.getAiConceptImageUrl() == null || request.getAiConceptImageUrl().trim().isEmpty()) {
-            throw new BadRequestException("Vui lòng tạo ảnh AI trước khi lưu yêu cầu");
-        }
+        // AI concept image is optional - if not provided, can be generated later
+        // This allows testing when AI service is unavailable
         
         // Validate budget range
         if (request.getMinBudget() == null || request.getMaxBudget() == null) {
