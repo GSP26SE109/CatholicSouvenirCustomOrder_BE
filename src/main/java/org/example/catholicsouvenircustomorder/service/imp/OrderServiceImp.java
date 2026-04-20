@@ -114,7 +114,8 @@ public class OrderServiceImp implements OrderService {
     public void delete(UUID orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order không tồn tại"));
-        orderRepository.delete(order);
+        order.setStatus(String.valueOf(OrderStatus.DELETED));
+        orderRepository.save(order);
     }
 
     @Override
