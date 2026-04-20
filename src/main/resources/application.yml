@@ -59,6 +59,7 @@ server:
 ai:
   image:
     provider: ${AI_IMAGE_PROVIDER:huggingface}
+    mock-mode: ${AI_IMAGE_MOCK_MODE:false}  # Set to true for testing without AI API
 
 huggingface:
   api:
