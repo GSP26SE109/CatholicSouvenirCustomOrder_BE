@@ -72,6 +72,16 @@ public class PaymentController {
         String vnpResponseCode = params.get("vnp_ResponseCode");
         String txnRef = params.get("vnp_TxnRef");
         String vnpAmount = params.get("vnp_Amount");
+        
+        // VNPay returns amount in smallest unit (multiplied by 100), convert back to actual amount
+        String actualAmount = vnpAmount;
+        try {
+            long amountInSmallestUnit = Long.parseLong(vnpAmount);
+            actualAmount = String.valueOf(amountInSmallestUnit / 100);
+        } catch (NumberFormatException e) {
+            log.warn("Could not parse vnp_Amount: {}", vnpAmount);
+        }
+        
         boolean isSuccess = "00".equals(vnpResponseCode);
 
         
@@ -110,16 +120,16 @@ public class PaymentController {
             if (payment.isPresent() && payment.get().getReturnUrl() != null && !payment.get().getReturnUrl().isEmpty()) {
                 String customReturnUrl = payment.get().getReturnUrl();
                 String separator = customReturnUrl.contains("?") ? "&" : "?";
-                redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s&vnp_Amount=%s",
-                        customReturnUrl, separator, isSuccess, vnpResponseCode, txnRef, vnpAmount);
+                redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s&amount=%s",
+                        customReturnUrl, separator, isSuccess, vnpResponseCode, txnRef, actualAmount);
             } else {
-                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s&vnp_Amount=%s",
-                        defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef, vnpAmount);
+                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s&amount=%s",
+                        defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef, actualAmount);
             }
         } catch (Exception e) {
             log.error("Error getting return URL", e);
-            redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
-                    defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
+            redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s&amount=%s",
+                    defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef, actualAmount);
         }
 
         response.sendRedirect(redirectUrl);
