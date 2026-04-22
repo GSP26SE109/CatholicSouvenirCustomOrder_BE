@@ -71,7 +71,7 @@ public class PaymentController {
         
         String vnpResponseCode = params.get("vnp_ResponseCode");
         String txnRef = params.get("vnp_TxnRef");
-        String vnp_Ammount = params.get("vnp_Ammount");
+        String vnpAmount = params.get("vnp_Amount");
         boolean isSuccess = "00".equals(vnpResponseCode);
 
         
@@ -118,11 +118,11 @@ public class PaymentController {
             if (payment.isPresent() && payment.get().getReturnUrl() != null && !payment.get().getReturnUrl().isEmpty()) {
                 String customReturnUrl = payment.get().getReturnUrl();
                 String separator = customReturnUrl.contains("?") ? "&" : "?";
-                redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s&vnp_Ammount=%d",
-                        customReturnUrl, separator, isSuccess, vnpResponseCode, txnRef, vnp_Ammount);
+                redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s&vnp_Amount=%d",
+                        customReturnUrl, separator, isSuccess, vnpResponseCode, txnRef, vnpAmount);
             } else {
-                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s&vpn_Ammount=%d",
-                        defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef, vnp_Ammount);
+                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s&vpn_Amount=%d",
+                        defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef, vnpAmount);
             }
         } catch (Exception e) {
             log.error("Error getting return URL", e);
