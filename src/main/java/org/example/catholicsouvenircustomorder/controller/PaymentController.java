@@ -100,14 +100,6 @@ public class PaymentController {
         } catch (Exception e) {
             log.error("========================================");
             log.error("❌ Error updating payment via return URL for txnRef: {}", txnRef);
-            log.error("Exception type: {}", e.getClass().getName());
-            log.error("Exception message: {}", e.getMessage());
-            if (e.getCause() != null) {
-                log.error("Caused by: {}", e.getCause().getMessage());
-            }
-            log.error("Stack trace:", e);
-            log.error("========================================");
-            // Continue to redirect even if update fails
         }
         
         // Redirect user to frontend
@@ -118,10 +110,10 @@ public class PaymentController {
             if (payment.isPresent() && payment.get().getReturnUrl() != null && !payment.get().getReturnUrl().isEmpty()) {
                 String customReturnUrl = payment.get().getReturnUrl();
                 String separator = customReturnUrl.contains("?") ? "&" : "?";
-                redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s&vnp_Amount=%d",
+                redirectUrl = String.format("%s%ssuccess=%s&code=%s&txnRef=%s&vnp_Amount=%s",
                         customReturnUrl, separator, isSuccess, vnpResponseCode, txnRef, vnpAmount);
             } else {
-                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s&vpn_Amount=%d",
+                redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s&vnp_Amount=%s",
                         defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef, vnpAmount);
             }
         } catch (Exception e) {
@@ -129,10 +121,7 @@ public class PaymentController {
             redirectUrl = String.format("%s/payment/result?success=%s&code=%s&txnRef=%s",
                     defaultFrontendUrl, isSuccess, vnpResponseCode, txnRef);
         }
-        
-        log.info("Redirecting to: {}", redirectUrl);
-        log.info("DB will be updated by IPN callback");
-        log.info("========================================");
+
         response.sendRedirect(redirectUrl);
     }
     
