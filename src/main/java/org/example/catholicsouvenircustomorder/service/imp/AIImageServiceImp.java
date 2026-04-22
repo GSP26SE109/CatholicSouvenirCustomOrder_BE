@@ -28,14 +28,21 @@ public class AIImageServiceImp implements AIImageService {
     @Value("${ai.image.mock-mode:false}")
     private boolean mockMode;
 
-    @Value("${huggingface.api.key:}")
+    @Value("${huggingface.api.key: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}")
     private String huggingfaceApiKey;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final SupabaseStorageService supabaseStorageService;
 
     public AIImageServiceImp(SupabaseStorageService supabaseStorageService) {
         this.supabaseStorageService = supabaseStorageService;
+        
+        // Configure RestTemplate with longer timeout for AI image generation
+        this.restTemplate = new RestTemplate();
+        this.restTemplate.setRequestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
+            setConnectTimeout(30000); // 30 seconds
+            setReadTimeout(120000);   // 120 seconds (2 minutes) for model loading
+        }});
     }
 
     @Override
@@ -130,23 +137,22 @@ public class AIImageServiceImp implements AIImageService {
     }
 
     private String generateWithHuggingFace(String prompt) {
+        // Debug: Log API key status
         if (huggingfaceApiKey == null || huggingfaceApiKey.isEmpty()) {
-            log.warn("Hugging Face API key not configured");
+            log.error("❌ Hugging Face API key not configured!");
             return null;
         }
+        
+        log.info("✅ API Key found: {}...", huggingfaceApiKey.substring(0, Math.min(10, huggingfaceApiKey.length())));
 
-        // List of models to try in order of preference
-        // FLUX.1-dev is a high-quality model but requires more resources
+        // Use only stable-diffusion-3.5-medium
         String[] models = {
-            "black-forest-labs/FLUX.1-dev",
-            "stabilityai/stable-diffusion-xl-base-1.0",
-            "stabilityai/stable-diffusion-2-1",
             "stabilityai/stable-diffusion-3.5-medium"
         };
 
         for (String model : models) {
             try {
-                log.info("Attempting to generate image with model: {}", model);
+                log.info("🎨 Attempting to generate image with model: {}", model);
                 String apiUrl = "https://api-inference.huggingface.co/models/" + model;
                 
                 HttpHeaders headers = new HttpHeaders();
@@ -156,14 +162,19 @@ public class AIImageServiceImp implements AIImageService {
                 Map<String, Object> requestBody = new HashMap<>();
                 requestBody.put("inputs", prompt);
                 
-                // Add parameters for better quality (especially for FLUX)
+                // Simpler parameters - some models don't support all params
                 Map<String, Object> parameters = new HashMap<>();
-                parameters.put("num_inference_steps", 50); // More steps = better quality
-                parameters.put("guidance_scale", 7.5); // Balance between creativity and prompt adherence
+                parameters.put("wait_for_model", true); // Wait if model is loading
                 requestBody.put("parameters", parameters);
+                
+                log.info("📤 Sending request to: {}", apiUrl);
+                log.info("📝 Prompt: {}", prompt);
 
                 HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
+                // Increase timeout for model loading
+                restTemplate.getInterceptors().clear();
+                
                 ResponseEntity<byte[]> response = restTemplate.exchange(
                     apiUrl,
                     HttpMethod.POST,
@@ -171,33 +182,46 @@ public class AIImageServiceImp implements AIImageService {
                     byte[].class
                 );
 
+                log.info("📥 Response status: {}", response.getStatusCode());
+                log.info("📦 Response body size: {} bytes", response.getBody() != null ? response.getBody().length : 0);
+
                 if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                     byte[] imageBytes = response.getBody();
                     
                     // Check if response is actually an image (not JSON error)
                     if (imageBytes.length > 100) {
+                        // Check if it's an error JSON response
+                        String responseStr = new String(imageBytes, 0, Math.min(100, imageBytes.length));
+                        if (responseStr.trim().startsWith("{")) {
+                            log.error("❌ Received JSON error response: {}", responseStr);
+                            continue;
+                        }
+                        
                         String fileName = "ai_concept_" + System.currentTimeMillis();
                         String supabaseUrl = supabaseStorageService.uploadImage(imageBytes, fileName);
                         
                         if (supabaseUrl != null) {
-                            log.info("Successfully generated and uploaded image to Supabase using model: {}", model);
+                            log.info("✅ Successfully generated and uploaded image to Supabase using model: {}", model);
                             return supabaseUrl;
                         } else {
-                            log.warn("Failed to upload to Supabase, falling back to base64");
+                            log.warn("⚠️ Failed to upload to Supabase, falling back to base64");
                             String base64Image = Base64.getEncoder().encodeToString(imageBytes);
                             return "data:image/png;base64," + base64Image;
                         }
+                    } else {
+                        log.warn("⚠️ Response too small ({} bytes), likely an error", imageBytes.length);
                     }
                 }
 
-                log.warn("Model {} returned invalid response, trying next model", model);
+                log.warn("⚠️ Model {} returned invalid response, trying next model", model);
 
             } catch (Exception e) {
-                log.warn("Failed with model {}: {}. Trying next model...", model, e.getMessage());
+                log.error("❌ Failed with model {}: {}", model, e.getMessage());
+                log.error("Stack trace: ", e);
             }
         }
 
-        log.error("All Hugging Face models failed to generate image");
+        log.error("❌ All Hugging Face models failed to generate image");
         return null;
     }
 

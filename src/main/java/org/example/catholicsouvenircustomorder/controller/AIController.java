@@ -16,6 +16,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
@@ -122,6 +125,52 @@ public class AIController {
         }
         
         return ResponseEntity.ok(BaseResponse.success(response.getMessage(), response));
+    }
+    
+    /**
+     * Test endpoint to check AI image generation
+     * GET /api/ai/test-generate?prompt={prompt}
+     */
+    @GetMapping("/test-generate")
+    public ResponseEntity<BaseResponse<String>> testGenerate(
+            @RequestParam(defaultValue = "Catholic statue of Virgin Mary") String prompt) {
+        
+        try {
+            String imageUrl = aiImageService.generateImage(prompt);
+            
+            if (imageUrl == null) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(BaseResponse.error(503, "Failed to generate image. Check logs for details."));
+            }
+            
+            return ResponseEntity.ok(BaseResponse.success("Image generated successfully", imageUrl));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(BaseResponse.error(500, "Error: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Debug endpoint to check configuration
+     * GET /api/ai/debug-config
+     */
+    @GetMapping("/debug-config")
+    public ResponseEntity<BaseResponse<Map<String, String>>> debugConfig() {
+        Map<String, String> config = new HashMap<>();
+        
+        // Get API key from environment
+        String apiKey = System.getenv("HUGGINGFACE_API_KEY");
+        if (apiKey == null || apiKey.isEmpty()) {
+            apiKey = "NOT_SET_IN_ENV";
+        } else {
+            apiKey = apiKey.substring(0, Math.min(10, apiKey.length())) + "...";
+        }
+        
+        config.put("apiKeyFromEnv", apiKey);
+        config.put("provider", System.getProperty("ai.image.provider", "not set"));
+        config.put("mockMode", System.getProperty("ai.image.mock-mode", "not set"));
+        
+        return ResponseEntity.ok(BaseResponse.success("Configuration debug info", config));
     }
 }
 
