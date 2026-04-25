@@ -7,8 +7,10 @@ import org.example.catholicsouvenircustomorder.dto.response.AuthenResponse;
 import org.example.catholicsouvenircustomorder.dto.response.LoginResponse;
 import org.example.catholicsouvenircustomorder.dto.response.RegisterResponse;
 import org.example.catholicsouvenircustomorder.model.Account;
+import org.example.catholicsouvenircustomorder.model.PasswordResetToken;
 import org.example.catholicsouvenircustomorder.model.Role;
 import org.example.catholicsouvenircustomorder.repository.AccountRepository;
+import org.example.catholicsouvenircustomorder.repository.PasswordResetTokenRepository;
 import org.example.catholicsouvenircustomorder.repository.RoleRepository;
 import org.example.catholicsouvenircustomorder.service.AuthenService;
 import org.example.catholicsouvenircustomorder.service.EmailService;
@@ -16,6 +18,7 @@ import org.example.catholicsouvenircustomorder.service.JwtService;
 import org.example.catholicsouvenircustomorder.service.UserProfileService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -30,6 +33,7 @@ public class AuthenServiceImp implements AuthenService {
     private final JwtService jwtService;
     private final EmailService emailService;
     private final UserProfileService userProfileService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Override
     public RegisterResponse register(RegisterRequest request) {
@@ -147,5 +151,59 @@ public class AuthenServiceImp implements AuthenService {
         
         // Send email
         emailService.sendVerificationEmail(account.getEmail(), newToken);
+    }
+    
+    @Override
+    @Transactional
+    public void forgotPassword(String email) {
+        Account account = accountRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với email này"));
+        
+        // Invalidate all existing tokens for this account
+        passwordResetTokenRepository.invalidateAllTokensForAccount(account);
+        
+        // Generate new password reset token
+        String tokenString = UUID.randomUUID().toString();
+        
+        // Create token entity
+        PasswordResetToken resetToken = new PasswordResetToken();
+        resetToken.setAccount(account);
+        resetToken.setToken(tokenString);
+        resetToken.setExpiryDate(LocalDateTime.now().plusHours(1));
+        resetToken.setUsed(false);
+        
+        passwordResetTokenRepository.save(resetToken);
+        
+        // Send password reset email
+        emailService.sendPasswordResetEmail(account.getEmail(), tokenString);
+    }
+    
+    @Override
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token)
+                .orElseThrow(() -> new RuntimeException("Token đặt lại mật khẩu không hợp lệ"));
+        
+        // Check if token is valid (not used and not expired)
+        if (resetToken.isUsed()) {
+            throw new RuntimeException("Token đã được sử dụng");
+        }
+        
+        if (resetToken.isExpired()) {
+            throw new RuntimeException("Token đặt lại mật khẩu đã hết hạn");
+        }
+        
+        // Update password
+        Account account = resetToken.getAccount();
+        String encryptedPassword = passwordEncoder.encode(newPassword);
+        account.setPassword(encryptedPassword);
+        accountRepository.save(account);
+        
+        // Mark token as used
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+        
+        // Invalidate all other tokens for this account
+        passwordResetTokenRepository.invalidateAllTokensForAccount(account);
     }
 }

@@ -11,4 +11,6 @@ public interface AuthenService {
     void logout(String token);
     void verifyEmail(String token);
     void resendVerificationEmail(String email);
+    void forgotPassword(String email);
+    void resetPassword(String token, String email);
 }

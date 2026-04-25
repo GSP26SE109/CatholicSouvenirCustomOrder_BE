@@ -190,10 +190,7 @@ public class StagePaymentServiceImp implements StagePaymentService {
     @Override
     @Transactional(noRollbackFor = Exception.class)
     public StagePaymentResponse handleStagePaymentCallback(String referenceId, String status) {
-        log.info("========================================");
-        log.info("🔵 Processing stage payment callback");
-        log.info("🔵 ReferenceId: {}, Status: {}", referenceId, status);
-        
+
         // Find payment by our reference ID
         StagePayment payment = paymentRepository.findByReferenceId(referenceId)
                 .orElseThrow(() -> {
