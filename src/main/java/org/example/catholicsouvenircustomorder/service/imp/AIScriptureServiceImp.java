@@ -92,30 +92,48 @@ public class AIScriptureServiceImp implements AIScriptureService {
     private String buildScripturePrompt(ScriptureRecommendRequest request) {
         StringBuilder prompt = new StringBuilder();
         
-        // Simplified prompt for better compatibility
-        prompt.append("Recommend ");
-        prompt.append(request.getMaxResults() != null ? request.getMaxResults() : 3);
-        prompt.append(" Bible verses for Catholic souvenir engraving.\n\n");
-        
-        prompt.append("Purpose: ").append(request.getPurpose()).append("\n");
-        
-        if (request.getProductName() != null && !request.getProductName().isEmpty()) {
-            prompt.append("Product: ").append(request.getProductName()).append("\n");
-        }
-        
-        if (request.getTheme() != null && !request.getTheme().isEmpty()) {
-            prompt.append("Theme: ").append(request.getTheme()).append("\n");
-        }
-        
         String lang = request.getLanguage() != null ? request.getLanguage() : "en";
-        prompt.append("\nLanguage: ");
-        switch (lang) {
-            case "vi" -> prompt.append("Vietnamese");
-            case "la" -> prompt.append("Latin");
-            default -> prompt.append("English");
-        }
         
-        prompt.append("\n\nProvide verse reference, text, reason, and occasion for each.");
+        // Build prompt based on language
+        if ("vi".equals(lang)) {
+            prompt.append("Hãy gợi ý ");
+            prompt.append(request.getMaxResults() != null ? request.getMaxResults() : 3);
+            prompt.append(" câu Kinh Thánh phù hợp cho sản phẩm lưu niệm Công Giáo.\n\n");
+            
+            prompt.append("Mục đích: ").append(request.getPurpose()).append("\n");
+            
+            if (request.getProductName() != null && !request.getProductName().isEmpty()) {
+                prompt.append("Sản phẩm: ").append(request.getProductName()).append("\n");
+            }
+            
+            if (request.getTheme() != null && !request.getTheme().isEmpty()) {
+                prompt.append("Chủ đề: ").append(request.getTheme()).append("\n");
+            }
+            
+            prompt.append("\nVui lòng trả về kết quả HOÀN TOÀN BẰNG TIẾNG VIỆT với format:\n");
+            prompt.append("Câu | Nội dung tiếng Việt | Lý do | Dịp phù hợp\n\n");
+            prompt.append("Ví dụ: Gioan 3:16 | Vì Thiên Chúa yêu thế gian đến nỗi đã ban Con Một của Người | Thể hiện tình yêu vô bờ của Thiên Chúa | Mọi dịp\n");
+            prompt.append("\nLưu ý: Tất cả nội dung phải bằng tiếng Việt, sử dụng bản dịch Kinh Thánh Công Giáo.");
+        } else {
+            // English prompt
+            prompt.append("Recommend ");
+            prompt.append(request.getMaxResults() != null ? request.getMaxResults() : 3);
+            prompt.append(" Bible verses for Catholic souvenir engraving.\n\n");
+            
+            prompt.append("Purpose: ").append(request.getPurpose()).append("\n");
+            
+            if (request.getProductName() != null && !request.getProductName().isEmpty()) {
+                prompt.append("Product: ").append(request.getProductName()).append("\n");
+            }
+            
+            if (request.getTheme() != null && !request.getTheme().isEmpty()) {
+                prompt.append("Theme: ").append(request.getTheme()).append("\n");
+            }
+            
+            prompt.append("\nProvide results in format:\n");
+            prompt.append("Verse | Text | Reason | Occasion\n\n");
+            prompt.append("Example: John 3:16 | For God so loved the world... | Shows God's infinite love | All occasions");
+        }
         
         return prompt.toString();
     }

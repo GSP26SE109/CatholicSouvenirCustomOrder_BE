@@ -3,12 +3,14 @@ package org.example.catholicsouvenircustomorder.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.catholicsouvenircustomorder.config.VNPayConfig;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.request.InitiateStagePaymentRequest;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentInitiationResponse;
 import org.example.catholicsouvenircustomorder.dto.response.StagePaymentResponse;
 import org.example.catholicsouvenircustomorder.service.CustomOrderStageService;
 import org.example.catholicsouvenircustomorder.service.StagePaymentService;
+import org.example.catholicsouvenircustomorder.util.VNPayUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,8 +27,8 @@ public class StagePaymentController {
     
     private final StagePaymentService stagePaymentService;
     private final CustomOrderStageService stageService;
-    private final org.example.catholicsouvenircustomorder.util.VNPayUtil vnPayUtil;
-    private final org.example.catholicsouvenircustomorder.config.VNPayConfig vnPayConfig;
+    private final VNPayUtil vnPayUtil;
+    private final VNPayConfig vnPayConfig;
     
     @org.springframework.beans.factory.annotation.Value("${app.frontend-url}")
     private String frontendUrl;
@@ -67,16 +69,21 @@ public class StagePaymentController {
     @GetMapping("/vnpay/return")
     public ResponseEntity<?> handleVNPayReturn(@RequestParam Map<String, String> params) {
         try {
-            log.info("========================================");
             log.info("Received VNPay return callback");
-            log.info("All return params: {}", params);
             
             String referenceId = params.get("vnp_TxnRef");
             String responseCode = params.get("vnp_ResponseCode");
             String transactionId = params.get("vnp_TransactionNo");
+            String vnpAmount = params.get("vnp_Amount");
             
-            log.info("Extracted - referenceId: {}, responseCode: {}, transactionId: {}", 
-                    referenceId, responseCode, transactionId);
+            // VNPay returns amount in smallest unit (multiplied by 100), convert back to actual amount
+            String actualAmount = vnpAmount;
+            try {
+                long amountInSmallestUnit = Long.parseLong(vnpAmount);
+                actualAmount = String.valueOf(amountInSmallestUnit / 100);
+            } catch (NumberFormatException e) {
+                log.warn("Could not parse vnp_Amount: {}", vnpAmount);
+            }
             
             if (referenceId == null) {
                 log.error("Missing vnp_TxnRef in return callback");
@@ -87,51 +94,32 @@ public class StagePaymentController {
             }
             
             String status = "00".equals(responseCode) ? "SUCCESS" : "FAILED";
-            log.info("Determined payment status: {}", status);
             
             StagePaymentResponse paymentResponse = null;
             try {
-                log.info("Calling handleStagePaymentCallback with referenceId: {}", referenceId);
                 paymentResponse = stagePaymentService.handleStagePaymentCallback(referenceId, status);
-                log.info("Payment callback handled successfully: {}", paymentResponse);
             } catch (Exception e) {
                 log.error("Error updating stage payment for ref: {}", referenceId, e);
-                log.error("Exception type: {}", e.getClass().getName());
-                log.error("Exception message: {}", e.getMessage());
-                if (e.getCause() != null) {
-                    log.error("Caused by: {}", e.getCause().getMessage());
-                }
             }
             
             String returnUrl = getReturnUrlFromPayment(referenceId);
-            log.info("Retrieved returnUrl: {}", returnUrl);
             
             String redirectUrl;
             if (paymentResponse != null && returnUrl != null && !returnUrl.isEmpty()) {
-                redirectUrl = buildRedirectUrl(returnUrl, paymentResponse, responseCode);
-                log.info("Built custom redirect URL: {}", redirectUrl);
+                redirectUrl = buildRedirectUrl(returnUrl, paymentResponse, responseCode, actualAmount);
             } else if (paymentResponse != null) {
-                redirectUrl = buildDefaultRedirectUrl(paymentResponse, responseCode);
-                log.info("Built default redirect URL: {}", redirectUrl);
+                redirectUrl = buildDefaultRedirectUrl(paymentResponse, responseCode, actualAmount);
             } else {
                 log.error("Payment update failed for ref: {}", referenceId);
                 redirectUrl = frontendUrl + "/payment/error?message=Payment_update_failed&ref=" + referenceId;
-                log.info("Built error redirect URL: {}", redirectUrl);
             }
-            
-            log.info("Redirecting to: {}", redirectUrl);
-            log.info("========================================");
             
             return ResponseEntity.status(302)
                     .header("Location", redirectUrl)
                     .build();
                     
         } catch (Exception e) {
-            log.error("========================================");
             log.error("Unexpected error handling VNPay return", e);
-            log.error("Exception type: {}", e.getClass().getName());
-            log.error("Exception message: {}", e.getMessage());
-            log.error("========================================");
             String errorUrl = frontendUrl + "/payment/error?message=" + e.getMessage();
             return ResponseEntity.status(302)
                     .header("Location", errorUrl)
@@ -148,12 +136,8 @@ public class StagePaymentController {
     public ResponseEntity<BaseResponse<StagePaymentResponse>> handleVNPayCallback(
             @RequestParam Map<String, String> params) {
         
-        log.info("========================================");
         log.info("Received VNPay IPN callback for stage payment");
-        log.info("All callback params: {}", params);
-        log.info("========================================");
         
-        // Extract parameters
         String referenceId = params.get("vnp_TxnRef");
         String responseCode = params.get("vnp_ResponseCode");
         String transactionId = params.get("vnp_TransactionNo");
@@ -167,9 +151,6 @@ public class StagePaymentController {
         }
         
         try {
-            // CRITICAL: Verify VNPay signature first
-            log.info("Verifying VNPay signature...");
-            
             // Filter only VNPay params (vnp_*)
             Map<String, String> vnpParams = new java.util.HashMap<>();
             for (Map.Entry<String, String> entry : params.entrySet()) {
@@ -185,16 +166,12 @@ public class StagePaymentController {
             
             if (!isValidSignature) {
                 log.error("VNPay signature verification FAILED!");
-                log.error("Received hash: {}", params.get("vnp_SecureHash"));
                 return ResponseEntity.badRequest().body(BaseResponse.<StagePaymentResponse>builder()
                         .code(400)
                         .message("Chữ ký không hợp lệ")
                         .build());
             }
             
-            log.info("VNPay signature verified successfully");
-            
-            // Determine status
             String status = "00".equals(responseCode) ? "SUCCESS" : "FAILED";
             
             StagePaymentResponse response = stagePaymentService.handleStagePaymentCallback(
@@ -202,13 +179,9 @@ public class StagePaymentController {
                     status
             );
             
-            // Update transaction ID if available
             if (transactionId != null && response != null) {
                 log.info("Stage payment processed successfully. Transaction ID: {}", transactionId);
             }
-            
-            log.info("IPN callback processing completed successfully");
-            log.info("========================================");
             
             return ResponseEntity.ok(BaseResponse.<StagePaymentResponse>builder()
                     .code(200)
@@ -217,11 +190,7 @@ public class StagePaymentController {
                     .build());
                     
         } catch (Exception e) {
-            log.error("========================================");
             log.error("Error handling VNPay callback: ", e);
-            log.error("Exception type: {}", e.getClass().getName());
-            log.error("Exception message: {}", e.getMessage());
-            log.error("========================================");
             
             return ResponseEntity.status(404).body(BaseResponse.<StagePaymentResponse>builder()
                     .code(404)
@@ -298,10 +267,10 @@ public class StagePaymentController {
      * Supports both web URLs and mobile deep links
      * 
      * Examples:
-     * - Web: https://domain.com/result?paymentId=xxx&status=SUCCESS
-     * - Mobile: myapp://payment/result?paymentId=xxx&status=SUCCESS
+     * - Web: https://domain.com/result?paymentId=xxx&status=SUCCESS&amount=100000
+     * - Mobile: myapp://payment/result?paymentId=xxx&status=SUCCESS&amount=100000
      */
-    private String buildRedirectUrl(String baseUrl, StagePaymentResponse payment, String responseCode) {
+    private String buildRedirectUrl(String baseUrl, StagePaymentResponse payment, String responseCode, String amount) {
         StringBuilder url = new StringBuilder(baseUrl);
         
         // Add query separator
@@ -311,6 +280,7 @@ public class StagePaymentController {
         url.append("paymentId=").append(payment.getPaymentId());
         url.append("&status=").append(payment.getPaymentStatus());
         url.append("&responseCode=").append(responseCode);
+        url.append("&amount=").append(amount);
         
         if (payment.getTransactionId() != null) {
             url.append("&transactionId=").append(payment.getTransactionId());
@@ -326,8 +296,8 @@ public class StagePaymentController {
     /**
      * Build default redirect URL when no returnUrl is provided
      */
-    private String buildDefaultRedirectUrl(StagePaymentResponse payment, String responseCode) {
+    private String buildDefaultRedirectUrl(StagePaymentResponse payment, String responseCode, String amount) {
         String baseUrl = frontendUrl + "/stage-payment/result";
-        return buildRedirectUrl(baseUrl, payment, responseCode);
+        return buildRedirectUrl(baseUrl, payment, responseCode, amount);
     }
 }

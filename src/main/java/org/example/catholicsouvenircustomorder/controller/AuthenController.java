@@ -3,8 +3,10 @@ package org.example.catholicsouvenircustomorder.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
+import org.example.catholicsouvenircustomorder.dto.request.ForgotPasswordRequest;
 import org.example.catholicsouvenircustomorder.dto.request.LoginRequest;
 import org.example.catholicsouvenircustomorder.dto.request.RegisterRequest;
+import org.example.catholicsouvenircustomorder.dto.request.ResetPasswordRequest;
 import org.example.catholicsouvenircustomorder.dto.response.AuthenResponse;
 import org.example.catholicsouvenircustomorder.dto.response.RegisterResponse;
 import org.example.catholicsouvenircustomorder.exception.InvalidTokenException;
@@ -50,13 +52,13 @@ public class AuthenController {
         try {
             authenService.verifyEmail(token);
             // Redirect về trang login của FE với status success
-            String redirectUrl = "https://catholic-souvenir-custom-order-fe.vercel.app/login?verified=success";
+            String redirectUrl = "https://catholic-souvenir.vercel.app/login?verified=success";
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header("Location", redirectUrl)
                     .build();
         } catch (Exception e) {
             // Redirect về trang login với status error
-            String redirectUrl = "https://catholic-souvenir-custom-order-fe.vercel.app/login?verified=error&message=" + e.getMessage();
+            String redirectUrl = "https://catholic-souvenir.vercel.app/login?verified=error&message=" + e.getMessage();
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header("Location", redirectUrl)
                     .build();
@@ -67,5 +69,23 @@ public class AuthenController {
     public ResponseEntity<BaseResponse> resendVerificationEmail(@RequestParam String email) {
         authenService.resendVerificationEmail(email);
         return ResponseEntity.ok(BaseResponse.success("Email xác thực đã được gửi lại. Vui lòng kiểm tra hộp thư."));
+    }
+    
+    @PostMapping("/forgot-password")
+    public ResponseEntity<BaseResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authenService.forgotPassword(request.getEmail());
+        return ResponseEntity.ok(BaseResponse.success("Email đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư."));
+    }
+    
+    @PostMapping("/reset-password")
+    public ResponseEntity<BaseResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        // Validate password confirmation
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            return ResponseEntity.badRequest()
+                    .body(BaseResponse.error(400, "Mật khẩu xác nhận không khớp"));
+        }
+        
+        authenService.resetPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(BaseResponse.success("Đặt lại mật khẩu thành công. Bạn có thể đăng nhập với mật khẩu mới."));
     }
 }
