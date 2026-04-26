@@ -36,6 +36,7 @@ public interface NotificationService {
     void notifyArtisanOfSelection(UUID artisanId, UUID requestId, String customerName, String description);
     void notifyCustomerOfOrderCreatedWithStages(UUID customerId, UUID orderId, Long totalAmount, Integer stagesCount);
     void notifyCustomerOfStagePaymentRequired(UUID customerId, UUID stageId, String stageName, Long amount);
+    void notifyArtisanOfOrderConfirmation(UUID artisanId, UUID orderId, String customerName);
     
     // New: Conversation & Chat notifications
     void notifyCustomerOfNewConversation(UUID customerId, UUID conversationId, String artisanName, UUID requestId);

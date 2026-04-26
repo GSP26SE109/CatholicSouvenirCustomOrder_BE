@@ -29,7 +29,7 @@ public class CustomOrder {
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private CustomOrderStatus status = CustomOrderStatus.PENDING_PAYMENT;
+    private CustomOrderStatus status = CustomOrderStatus.PENDING_CONFIRMATION;
     
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal totalPrice;

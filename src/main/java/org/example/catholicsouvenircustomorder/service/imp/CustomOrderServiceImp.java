@@ -80,7 +80,7 @@ public class CustomOrderServiceImp implements CustomOrderService {
         CustomOrder customOrder = new CustomOrder();
         customOrder.setRequest(request);
         customOrder.setArtisan(artisan);
-        customOrder.setStatus(CustomOrderStatus.PENDING_PAYMENT);
+        customOrder.setStatus(CustomOrderStatus.PENDING_CONFIRMATION);  // Customer must confirm first
         customOrder.setTotalPrice(dto.getTotalPrice());
 
         // Create CustomOrderStages from DTO
@@ -102,8 +102,8 @@ public class CustomOrderServiceImp implements CustomOrderService {
             stage.setPaymentPercentage(stageDTO.getPaymentPercentage());
             stage.setEstimatedDays(stageDTO.getEstimatedDays());
             stage.setStatus(StageStatus.PENDING);
-            // Workflow: Stage 1 can be paid immediately, others are locked
-            stage.setCanPay(i == 0);  // Only first stage can be paid
+            // Workflow: All stages locked until customer confirms order
+            stage.setCanPay(false);  // Locked until customer confirms
             stage.setIsPaid(false);
             stage.setIsCompleted(false);
 
@@ -113,15 +113,10 @@ public class CustomOrderServiceImp implements CustomOrderService {
 
         customOrder = customOrderRepository.save(customOrder);
 
-        // Update request status = IN_PROGRESS
-        request.setStatus(CustomRequestStatus.IN_PROGRESS);
-        customRequestRepository.save(request);
+        // Keep request status = ARTISAN_SELECTED until customer confirms
+        // request.setStatus(CustomRequestStatus.IN_PROGRESS);  // Will be updated on confirmation
 
-        // NOTE: Payment for first stage is NOT created automatically
-        // Customer must explicitly initiate payment via /api/stages/{stageId}/payment/initiate
-        // This allows customer to choose payment method and timing
-
-        // Notify customer
+        // Notify customer to review and confirm order
         notificationService.notifyCustomerOfOrderCreatedWithStages(
                 request.getCustomer().getAccountId(),
                 customOrder.getCustomOrderId(),
@@ -229,6 +224,7 @@ public class CustomOrderServiceImp implements CustomOrderService {
             throw new BadRequestException("Đơn hàng đã bị hủy");
         }
 
+        // Allow cancellation for PENDING_CONFIRMATION status (customer can reject order)
         // Check if order has been paid and process refund
         for (CustomOrderStage stage : order.getStages()) {
             if (stage.getStatus() == StageStatus.PAID || stage.getStatus() == StageStatus.COMPLETED) {
@@ -282,6 +278,9 @@ public class CustomOrderServiceImp implements CustomOrderService {
         if (currentStatus == CustomOrderStatus.COMPLETED && newStatus != CustomOrderStatus.COMPLETED) {
             throw new BadRequestException("Không thể thay đổi trạng thái đơn hàng đã hoàn thành");
         }
+        
+        // Allow transition from PENDING_CONFIRMATION to PENDING_PAYMENT (via confirm)
+        // Allow transition from PENDING_PAYMENT to IN_PRODUCTION, COMPLETED (via artisan)
     }
 
     private CustomOrderResponse mapToResponse(CustomOrder order) {
@@ -344,6 +343,52 @@ public class CustomOrderServiceImp implements CustomOrderService {
                 .sorted(Comparator.comparing(CustomOrderStage::getStageOrder))
                 .map(this::mapToStageResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public CustomOrderResponse confirmOrder(UUID orderId, UUID customerId) {
+        CustomOrder order = customOrderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng"));
+
+        // Verify customer ownership
+        if (!order.getRequest().getCustomer().getAccountId().equals(customerId)) {
+            throw new UnauthorizedTemplateAccessException("Chỉ khách hàng mới có thể xác nhận đơn hàng");
+        }
+
+        // Verify order status
+        if (order.getStatus() != CustomOrderStatus.PENDING_CONFIRMATION) {
+            throw new BadRequestException("Đơn hàng không ở trạng thái chờ xác nhận");
+        }
+
+        // Update order status to PENDING_PAYMENT
+        order.setStatus(CustomOrderStatus.PENDING_PAYMENT);
+
+        // Unlock first stage for payment
+        if (!order.getStages().isEmpty()) {
+            CustomOrderStage firstStage = order.getStages().stream()
+                    .min(Comparator.comparing(CustomOrderStage::getStageOrder))
+                    .orElseThrow(() -> new BadRequestException("Không tìm thấy giai đoạn đầu tiên"));
+            
+            firstStage.setCanPay(true);
+        }
+
+        // Update request status to IN_PROGRESS
+        CustomRequest request = order.getRequest();
+        request.setStatus(CustomRequestStatus.IN_PROGRESS);
+        customRequestRepository.save(request);
+
+        order = customOrderRepository.save(order);
+
+        // Notify artisan that customer confirmed
+        notificationService.notifyArtisanOfOrderConfirmation(
+                order.getArtisan().getAccount().getAccountId(),
+                orderId,
+                order.getRequest().getCustomer().getFullName()
+        );
+
+        log.info("Customer {} confirmed order {}", customerId, orderId);
+        return mapToResponse(order);
     }
 
     private CustomOrderDetailResponse mapToDetailResponse(CustomOrder order, boolean fullyPaid) {

@@ -195,6 +195,23 @@ public class CustomOrderController {
     }
     
     /**
+     * Customer confirms custom order (Request-Based flow)
+     * POST /api/custom-orders/{orderId}/confirm
+     * Requirements: RB-3 (Customer must confirm before payment)
+     */
+    @PostMapping("/{orderId}/confirm")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse> confirmOrder(
+            @PathVariable UUID orderId,
+            Authentication authentication) {
+        UUID customerId = (UUID) authentication.getPrincipal();
+        log.info("Customer {} confirming order {}", customerId, orderId);
+        
+        CustomOrderResponse response = customOrderService.confirmOrder(orderId, customerId);
+        return ResponseEntity.ok(BaseResponse.success("Xác nhận đơn hàng thành công. Bạn có thể bắt đầu thanh toán giai đoạn đầu tiên.", response));
+    }
+    
+    /**
      * NOTE: CustomOrder uses STAGE-BASED payment flow
      * This endpoint is REMOVED - use /api/stage-payments/{stageId}/initiate instead
      * CustomOrder payments are handled per stage, not for the entire order

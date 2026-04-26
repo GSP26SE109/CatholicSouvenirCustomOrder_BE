@@ -300,6 +300,87 @@ public class NotificationServiceImp implements NotificationService {
         sendRealTimeNotification(artisanId, "/notifications", mapToResponse(notification));
     }
     
+    @Override
+    @Transactional
+    public void notifyCustomerOfOrderCreatedWithStages(UUID customerId, UUID orderId, Long totalAmount, Integer stagesCount) {
+        Account customer = accountRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+        
+        String metadata = String.format("totalAmount=%d;stagesCount=%d", totalAmount, stagesCount);
+        
+        Notification notification = new Notification();
+        notification.setRecipient(customer);
+        notification.setType(NotificationType.ORDER_CREATED);
+        notification.setTitle("Đơn hàng cần xác nhận");
+        notification.setMessage(String.format(
+            "Nghệ nhân đã tạo đơn hàng với %d giai đoạn, tổng %,d VNĐ. Vui lòng xem xét và xác nhận để bắt đầu thanh toán.", 
+            stagesCount, totalAmount
+        ));
+        notification.setRelatedEntityId(orderId);
+        notification.setRelatedEntityType(RelatedEntityType.CUSTOM_ORDER);
+        notification.setActionType(NotificationAction.VIEW_ORDER);
+        notification.setActionRequired(true);
+        notification.setPriority(NotificationPriority.HIGH);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(customerId, "/orders", mapToResponse(notification));
+    }
+    
+    @Override
+    @Transactional
+    public void notifyCustomerOfStagePaymentRequired(UUID customerId, UUID stageId, String stageName, Long amount) {
+        Account customer = accountRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+        
+        String metadata = String.format("stageName=%s;amount=%d", stageName, amount);
+        
+        Notification notification = new Notification();
+        notification.setRecipient(customer);
+        notification.setType(NotificationType.PAYMENT_REQUIRED);
+        notification.setTitle("Cần thanh toán giai đoạn");
+        notification.setMessage(String.format(
+            "Giai đoạn '%s' đã sẵn sàng thanh toán: %,d VNĐ", 
+            stageName, amount
+        ));
+        notification.setRelatedEntityId(stageId);
+        notification.setRelatedEntityType(RelatedEntityType.STAGE);
+        notification.setActionType(NotificationAction.PAY_STAGE);
+        notification.setActionRequired(true);
+        notification.setPriority(NotificationPriority.HIGH);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(customerId, "/stage-updates", mapToResponse(notification));
+    }
+    
+    @Override
+    @Transactional
+    public void notifyArtisanOfOrderConfirmation(UUID artisanId, UUID orderId, String customerName) {
+        Account artisan = accountRepository.findById(artisanId)
+                .orElseThrow(() -> new NotFoundException("Artisan not found"));
+        
+        String metadata = String.format("customerName=%s", customerName);
+        
+        Notification notification = new Notification();
+        notification.setRecipient(artisan);
+        notification.setType(NotificationType.ORDER_CONFIRMED);
+        notification.setTitle("Đơn hàng đã được xác nhận");
+        notification.setMessage(String.format(
+            "%s đã xác nhận đơn hàng. Khách hàng có thể bắt đầu thanh toán giai đoạn đầu tiên.", 
+            customerName
+        ));
+        notification.setRelatedEntityId(orderId);
+        notification.setRelatedEntityType(RelatedEntityType.CUSTOM_ORDER);
+        notification.setActionType(NotificationAction.VIEW_ORDER);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.HIGH);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(artisanId, "/orders", mapToResponse(notification));
+    }
+    
     // ========== Conversation & Chat Notifications ==========
     
     @Override
@@ -517,60 +598,6 @@ public class NotificationServiceImp implements NotificationService {
                 // Log and continue with other artisans
             }
         }
-    }
-    
-    @Override
-    @Transactional
-    public void notifyCustomerOfOrderCreatedWithStages(UUID customerId, UUID orderId, Long totalAmount, Integer stagesCount) {
-        Account customer = accountRepository.findById(customerId)
-                .orElseThrow(() -> new NotFoundException("Customer not found"));
-        
-        String metadata = String.format("totalAmount=%d;stagesCount=%d", totalAmount, stagesCount);
-        
-        Notification notification = new Notification();
-        notification.setRecipient(customer);
-        notification.setType(NotificationType.ORDER_CREATED);
-        notification.setTitle("Đơn hàng đã tạo với các giai đoạn");
-        notification.setMessage(String.format(
-            "Đơn hàng tùy chỉnh của bạn đã được tạo với %d giai đoạn thanh toán. Tổng: %,d VNĐ. Vui lòng thanh toán Giai đoạn 1 để bắt đầu sản xuất.", 
-            stagesCount, totalAmount
-        ));
-        notification.setRelatedEntityId(orderId);
-        notification.setRelatedEntityType(RelatedEntityType.CUSTOM_ORDER);
-        notification.setActionType(NotificationAction.PAY_STAGE);
-        notification.setActionRequired(true);
-        notification.setPriority(NotificationPriority.HIGH);
-        notification.setMetadata(metadata);
-        
-        notification = notificationRepository.save(notification);
-        sendRealTimeNotification(customerId, "/orders", mapToResponse(notification));
-    }
-    
-    @Override
-    @Transactional
-    public void notifyCustomerOfStagePaymentRequired(UUID customerId, UUID stageId, String stageName, Long amount) {
-        Account customer = accountRepository.findById(customerId)
-                .orElseThrow(() -> new NotFoundException("Customer not found"));
-        
-        String metadata = String.format("stageName=%s;amount=%d", stageName, amount);
-        
-        Notification notification = new Notification();
-        notification.setRecipient(customer);
-        notification.setType(NotificationType.PAYMENT_PENDING);
-        notification.setTitle("Cần thanh toán giai đoạn");
-        notification.setMessage(String.format(
-            "Vui lòng thanh toán cho %s (%,d VNĐ) để tiếp tục sản xuất.", 
-            stageName, amount
-        ));
-        notification.setRelatedEntityId(stageId);
-        notification.setRelatedEntityType(RelatedEntityType.STAGE);
-        notification.setActionType(NotificationAction.PAY_STAGE);
-        notification.setActionRequired(true);
-        notification.setPriority(NotificationPriority.HIGH);
-        notification.setMetadata(metadata);
-        
-        notification = notificationRepository.save(notification);
-        sendRealTimeNotification(customerId, "/stage-updates", mapToResponse(notification));
     }
     
     // ========== Query methods ==========
