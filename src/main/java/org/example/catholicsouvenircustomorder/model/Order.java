@@ -19,6 +19,7 @@ public class Order {
     private UUID orderId;
     private LocalDateTime orderDate;
     private BigDecimal total;
+    private BigDecimal shippingFee;
     private String status;
     private String paymentMethod;
     private LocalDateTime createAt;

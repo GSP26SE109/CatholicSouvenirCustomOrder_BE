@@ -24,6 +24,8 @@ public class CartItemResponse {
     private UUID productId;
     private String productName;
     private String productImage;
+    private Integer availableStock; // NEW: Available stock for product
+    private Boolean isAvailable;    // NEW: Is product still available
     
     // Template info (if type = TEMPLATE)
     private UUID templateId;

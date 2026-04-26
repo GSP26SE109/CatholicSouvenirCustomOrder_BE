@@ -5,16 +5,21 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.catholicsouvenircustomorder.dto.request.CalculateShippingRequest;
 import org.example.catholicsouvenircustomorder.dto.request.CheckoutRequest;
+import org.example.catholicsouvenircustomorder.dto.request.CreateShipmentRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Order.CheckoutResponseDTO;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderDetailResponseDTO;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderTemplateDetailResponseDTO;
+import org.example.catholicsouvenircustomorder.dto.response.ShippingFeeResponse;
 import org.example.catholicsouvenircustomorder.exception.BadRequestException;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
 import org.example.catholicsouvenircustomorder.model.*;
 import org.example.catholicsouvenircustomorder.repository.*;
 import org.example.catholicsouvenircustomorder.service.CheckoutService;
+import org.example.catholicsouvenircustomorder.service.ShippingService;
+import org.example.catholicsouvenircustomorder.service.UserProfileService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,11 +46,34 @@ public class CheckoutServiceImp implements CheckoutService {
     private final OrderGroupRepository orderGroupRepository;
     private final ObjectMapper objectMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final ShippingService shippingService;
+    private final UserProfileService userProfileService;
     
     @Override
     @Transactional
     public CheckoutResponseDTO checkout(UUID customerId, CheckoutRequest request) {
         validateCart(customerId);
+        
+        // Auto-fill recipient info from UserProfile if not provided
+        if (request.getRecipientName() == null || request.getRecipientName().isBlank()) {
+            try {
+                var userProfile = userProfileService.getUserProfile(customerId);
+                if (userProfile != null) {
+                    if (request.getRecipientName() == null || request.getRecipientName().isBlank()) {
+                        request.setRecipientName(userProfile.getFullName());
+                    }
+                    if (request.getPhoneNumber() == null || request.getPhoneNumber().isBlank()) {
+                        request.setPhoneNumber(userProfile.getPhone());
+                    }
+                    if (request.getShippingAddress() == null || request.getShippingAddress().isBlank()) {
+                        request.setShippingAddress(userProfile.getAddress());
+                    }
+                    log.info("Auto-filled recipient info from UserProfile for customer {}", customerId);
+                }
+            } catch (Exception e) {
+                log.warn("Could not auto-fill from UserProfile for customer {}: {}", customerId, e.getMessage());
+            }
+        }
         
         Cart cart = cartRepository.findByCustomer_AccountId(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giỏ hàng"));
@@ -157,7 +185,7 @@ public class CheckoutServiceImp implements CheckoutService {
             UUID artisanId = entry.getKey();
             List<CartItem> items = entry.getValue();
             
-            BigDecimal total = BigDecimal.ZERO;
+            BigDecimal productTotal = BigDecimal.ZERO;
             List<OrderDetail> orderDetails = new ArrayList<>();
             
             for (CartItem item : items) {
@@ -180,17 +208,40 @@ public class CheckoutServiceImp implements CheckoutService {
                 detail.setDiscount(0);
                 
                 orderDetails.add(detail);
-                total = total.add(item.getSubtotal());
+                productTotal = productTotal.add(item.getSubtotal());
             }
+            
+            // Calculate shipping fee
+            Integer weight = request.getWeight() != null ? request.getWeight() : items.size() * 500;
+            CreateShipmentRequest shipmentRequest = CreateShipmentRequest.builder()
+                    .toDistrictId(request.getToDistrictId())
+                    .toWardCode(request.getToWardCode())
+                    .weight(weight)
+                    .length(request.getLength() != null ? request.getLength() : 20)
+                    .width(request.getWidth() != null ? request.getWidth() : 20)
+                    .height(request.getHeight() != null ? request.getHeight() : 10)
+                    .orderValue(productTotal)
+                    .build();
+            
+            BigDecimal shippingFee;
+            try {
+                shippingFee = shippingService.calculateShippingFee(shipmentRequest);
+            } catch (Exception e) {
+                log.error("GHN API error for artisan {}, using default fee: {}", artisanId, e.getMessage());
+                shippingFee = BigDecimal.valueOf(30000);
+            }
+            
+            BigDecimal total = productTotal.add(shippingFee);
             
             // Create order for this artisan
             Order order = new Order();
             order.setCustomer(cart.getCustomer());
             order.setOrderGroup(orderGroup); // Link to order group
             order.setOrderDate(LocalDateTime.now());
-            order.setTotal(total);
+            order.setTotal(total); // Now includes shipping fee
             order.setStatus("PENDING");
             order.setPaymentMethod(request.getPaymentMethod());
+            order.setShippingFee(shippingFee); // Store shipping fee
             order.setCreateAt(LocalDateTime.now());
             order.setUpdateAt(LocalDateTime.now());
             
@@ -203,8 +254,8 @@ public class CheckoutServiceImp implements CheckoutService {
             order.setOrderDetails(orderDetails);
             orderDetailRepository.saveAll(orderDetails);
             
-            log.info("Created product order {} for artisan {} with {} items", 
-                    order.getOrderId(), artisanId, items.size());
+            log.info("Created product order {} for artisan {} with {} items, shipping fee: {}", 
+                    order.getOrderId(), artisanId, items.size(), shippingFee);
             
             orders.add(mapToOrderResponse(order));
         }
@@ -336,6 +387,7 @@ public class CheckoutServiceImp implements CheckoutService {
             .orderId(order.getOrderId())
             .orderDate(order.getOrderDate())
             .total(order.getTotal())
+            .shippingFee(order.getShippingFee())
             .status(order.getStatus())
             .paymentMethod(order.getPaymentMethod())
             .createAt(order.getCreateAt())
@@ -345,5 +397,93 @@ public class CheckoutServiceImp implements CheckoutService {
             .orderDetails(orderDetails)
             .templateDetails(templateDetails)
             .build();
+    }
+    
+    @Override
+    public ShippingFeeResponse calculateShippingFeeForCart(UUID customerId, CalculateShippingRequest request) {
+        // 1. Get customer's cart
+        Cart cart = cartRepository.findByCustomer_AccountId(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giỏ hàng"));
+        
+        if (cart.getItems().isEmpty()) {
+            throw new BadRequestException("Giỏ hàng trống");
+        }
+        
+        // 2. Group items by artisan
+        Map<UUID, List<CartItem>> itemsByArtisan = cart.getItems().stream()
+                .collect(Collectors.groupingBy(item -> 
+                    item.getProduct() != null 
+                        ? item.getProduct().getArtisan().getArtisanUuid()
+                        : item.getTemplate().getArtisan().getArtisanUuid()
+                ));
+        
+        // 3. Calculate shipping fee for each artisan
+        List<ShippingFeeResponse.ArtisanShippingBreakdown> breakdown = new ArrayList<>();
+        BigDecimal totalShippingFee = BigDecimal.ZERO;
+        Integer totalWeight = 0;
+        
+        for (Map.Entry<UUID, List<CartItem>> entry : itemsByArtisan.entrySet()) {
+            UUID artisanId = entry.getKey();
+            List<CartItem> items = entry.getValue();
+            
+            // Calculate weight (default 500g per item)
+            Integer artisanWeight = request.getWeight() != null 
+                ? request.getWeight() 
+                : items.size() * 500;
+            totalWeight += artisanWeight;
+            
+            // Calculate total value
+            BigDecimal artisanTotal = items.stream()
+                    .map(CartItem::getSubtotal)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            // Create shipping fee request
+            CreateShipmentRequest shipmentRequest = CreateShipmentRequest.builder()
+                    .toDistrictId(request.getToDistrictId())
+                    .toWardCode(request.getToWardCode())
+                    .weight(artisanWeight)
+                    .length(request.getLength() != null ? request.getLength() : 20)
+                    .width(request.getWidth() != null ? request.getWidth() : 20)
+                    .height(request.getHeight() != null ? request.getHeight() : 10)
+                    .orderValue(artisanTotal)
+                    .build();
+            
+            // Call GHN API (with fallback to default fee)
+            BigDecimal shippingFee;
+            try {
+                shippingFee = shippingService.calculateShippingFee(shipmentRequest);
+            } catch (Exception e) {
+                log.error("GHN API error, using default fee: {}", e.getMessage());
+                shippingFee = BigDecimal.valueOf(30000); // Default 30k VND
+            }
+            
+            totalShippingFee = totalShippingFee.add(shippingFee);
+            
+            // Get artisan info
+            String artisanName = items.get(0).getProduct() != null
+                    ? items.get(0).getProduct().getArtisan().getArtisanName()
+                    : items.get(0).getTemplate().getArtisan().getArtisanName();
+            
+            List<String> productNames = items.stream()
+                    .map(item -> item.getProduct() != null 
+                        ? item.getProduct().getProductName()
+                        : item.getTemplate().getName())
+                    .collect(Collectors.toList());
+            
+            breakdown.add(ShippingFeeResponse.ArtisanShippingBreakdown.builder()
+                    .artisanId(artisanId)
+                    .artisanName(artisanName)
+                    .shippingFee(shippingFee)
+                    .weight(artisanWeight)
+                    .itemCount(items.size())
+                    .productNames(productNames)
+                    .build());
+        }
+        
+        return ShippingFeeResponse.builder()
+                .totalShippingFee(totalShippingFee)
+                .totalWeight(totalWeight)
+                .breakdown(breakdown)
+                .build();
     }
 }
