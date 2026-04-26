@@ -17,4 +17,5 @@ public class VNPayConfig {
     private String version;
     private String command;
     private String orderType;
+    private String apiUrl;  // API URL for refund operations
 }

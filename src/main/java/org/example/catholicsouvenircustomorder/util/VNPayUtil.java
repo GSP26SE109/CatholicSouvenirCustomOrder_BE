@@ -1,15 +1,31 @@
 package org.example.catholicsouvenircustomorder.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.config.VNPayConfig;
+import org.example.catholicsouvenircustomorder.dto.response.VNPayRefundResponse;
+import org.example.catholicsouvenircustomorder.dto.response.VNPayRefundStatusResponse;
+import org.example.catholicsouvenircustomorder.exception.VNPayException;
+import org.example.catholicsouvenircustomorder.exception.VNPayNetworkException;
+import org.example.catholicsouvenircustomorder.exception.VNPayTimeoutException;
+import org.springframework.http.*;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
+import java.net.SocketTimeoutException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Slf4j
@@ -17,11 +33,16 @@ import java.util.*;
 public class VNPayUtil {
 
     private static final String HMAC_SHA512 = "HmacSHA512";
+    private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     private final VNPayConfig vnPayConfig;
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     public VNPayUtil(VNPayConfig vnPayConfig) {
         this.vnPayConfig = vnPayConfig;
+        this.restTemplate = new RestTemplate();
+        this.objectMapper = new ObjectMapper();
     }
 
     public String createPaymentUrl(String transactionId, BigDecimal amount, String description, String customerEmail) throws Exception {
@@ -178,5 +199,309 @@ public class VNPayUtil {
             result.append(String.format("%02x", b));
         }
         return result.toString();
+    }
+
+    /**
+     * Create a refund request to VNPay
+     * Requirements: 12.2 - Add @Retryable annotation with exponential backoff
+     * 
+     * @param originalTransactionId Original vnp_TransactionNo from the payment
+     * @param refundAmount Amount to refund in VND
+     * @param refundReason Reason for the refund
+     * @return VNPayRefundResponse containing refund details
+     * @throws VNPayException if refund request fails
+     * @throws VNPayTimeoutException if request times out (retryable)
+     * @throws VNPayNetworkException if network error occurs (retryable)
+     */
+    @Retryable(
+        value = {VNPayTimeoutException.class, VNPayNetworkException.class},
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 2000, multiplier = 2.0)
+    )
+    public VNPayRefundResponse createRefundRequest(
+            String originalTransactionId,
+            BigDecimal refundAmount,
+            String refundReason
+    ) throws VNPayException, VNPayTimeoutException, VNPayNetworkException {
+        log.info("=== Creating VNPay Refund Request (Attempt) ===");
+        log.info("Original Transaction ID: {}", originalTransactionId);
+        log.info("Refund Amount: {} VND", refundAmount);
+        log.info("Refund Reason: {}", refundReason);
+
+        // Generate unique request ID
+        String requestId = UUID.randomUUID().toString();
+        String createDate = getVNPayDate();
+        
+        // Build refund request parameters
+        Map<String, String> params = new TreeMap<>();
+        params.put("vnp_RequestId", requestId);
+        params.put("vnp_Version", vnPayConfig.getVersion());
+        params.put("vnp_Command", "refund");
+        params.put("vnp_TmnCode", vnPayConfig.getTmnCode());
+        params.put("vnp_TransactionType", "02"); // 02 = Full refund, 03 = Partial refund
+        params.put("vnp_TxnRef", originalTransactionId);
+        params.put("vnp_Amount", String.valueOf(refundAmount.multiply(new BigDecimal(100)).longValue()));
+        params.put("vnp_OrderInfo", refundReason);
+        params.put("vnp_TransactionNo", originalTransactionId);
+        params.put("vnp_TransactionDate", createDate);
+        params.put("vnp_CreateBy", "system");
+        params.put("vnp_CreateDate", createDate);
+        params.put("vnp_IpAddr", "127.0.0.1");
+
+        // Generate secure hash for refund
+        try {
+            String secureHash = generateRefundHash(params, vnPayConfig.getHashSecret());
+            params.put("vnp_SecureHash", secureHash);
+
+            log.info("Refund request parameters prepared");
+            log.info("Request ID: {}", requestId);
+            log.info("Secure Hash: {}", secureHash);
+        } catch (Exception e) {
+            log.error("Failed to generate secure hash for refund request", e);
+            throw new VNPayException("97", "Lỗi tạo chữ ký bảo mật", e);
+        }
+
+        // Send POST request to VNPay API
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, String>> request = new HttpEntity<>(params, headers);
+            
+            log.info("Sending refund request to VNPay API: {}", vnPayConfig.getApiUrl());
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    vnPayConfig.getApiUrl(),
+                    request,
+                    String.class
+            );
+
+            log.info("VNPay API Response Status: {}", response.getStatusCode());
+            log.info("VNPay API Response Body: {}", response.getBody());
+
+            // Parse response
+            JsonNode responseJson = objectMapper.readTree(response.getBody());
+            String responseCode = responseJson.get("vnp_ResponseCode").asText();
+            String message = VNPayErrorMapper.mapErrorCode(responseCode);
+
+            VNPayRefundResponse refundResponse = VNPayRefundResponse.builder()
+                    .vnpayRefundId(requestId)
+                    .vnpayTransactionNo(responseJson.has("vnp_TransactionNo") 
+                            ? responseJson.get("vnp_TransactionNo").asText() 
+                            : originalTransactionId)
+                    .responseCode(responseCode)
+                    .message(message)
+                    .refundAmount(refundAmount)
+                    .refundDate(LocalDateTime.now())
+                    .build();
+
+            if (VNPayErrorMapper.isSuccess(responseCode)) {
+                log.info("Refund request successful");
+            } else {
+                log.error("Refund request failed with code: {} - {}", responseCode, message);
+                
+                // Check if this is a retryable error
+                if (VNPayErrorMapper.isRetryable(responseCode)) {
+                    if ("06".equals(responseCode)) {
+                        throw new VNPayTimeoutException("VNPay đang xử lý giao dịch, thử lại sau");
+                    } else {
+                        throw new VNPayNetworkException("Lỗi mạng VNPay: " + message);
+                    }
+                } else {
+                    // Non-retryable error
+                    throw new VNPayException(responseCode, message);
+                }
+            }
+
+            log.info("=====================================");
+            return refundResponse;
+
+        } catch (ResourceAccessException e) {
+            // Network timeout or connection issues - retryable
+            log.error("VNPay API network error (retryable)", e);
+            if (e.getCause() instanceof SocketTimeoutException) {
+                throw new VNPayTimeoutException("VNPay API timeout", e);
+            } else {
+                throw new VNPayNetworkException("VNPay API network error", e);
+            }
+        } catch (RestClientException e) {
+            // Other REST client errors - may be retryable
+            log.error("VNPay API REST client error", e);
+            throw new VNPayNetworkException("VNPay API client error: " + e.getMessage(), e);
+        } catch (VNPayTimeoutException | VNPayNetworkException e) {
+            // Re-throw our timeout and network exceptions
+            throw e;
+        } catch (VNPayException e) {
+            // Re-throw other VNPay exceptions
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error calling VNPay refund API", e);
+            log.error("Exception type: {}", e.getClass().getName());
+            log.error("Exception message: {}", e.getMessage());
+            throw new VNPayException("99", "Lỗi không xác định khi gọi VNPay API: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Generate secure hash specifically for refund requests
+     * 
+     * @param params Refund request parameters
+     * @param secretKey VNPay secret key
+     * @return HMAC SHA512 hash
+     * @throws Exception if hash generation fails
+     */
+    public String generateRefundHash(Map<String, String> params, String secretKey) throws Exception {
+        log.info("=== Generating Refund Hash ===");
+        
+        // Create a copy without vnp_SecureHash
+        Map<String, String> paramsCopy = new TreeMap<>(params);
+        paramsCopy.remove("vnp_SecureHash");
+        paramsCopy.remove("vnp_SecureHashType");
+        
+        String hashData = buildHashData(paramsCopy);
+        log.info("Refund hash data: {}", hashData);
+        log.info("Secret key length: {}", secretKey.length());
+        
+        String hash = hmacSHA512(hashData, secretKey);
+        log.info("Generated refund hash: {}", hash);
+        log.info("==============================");
+        
+        return hash;
+    }
+
+    /**
+     * Query the status of a refund transaction
+     * Requirements: 12.2 - Add @Retryable annotation with exponential backoff
+     * 
+     * @param refundId The refund request ID (vnp_RequestId)
+     * @return VNPayRefundStatusResponse containing current refund status
+     * @throws VNPayException if query fails
+     * @throws VNPayTimeoutException if request times out (retryable)
+     * @throws VNPayNetworkException if network error occurs (retryable)
+     */
+    @Retryable(
+        value = {VNPayTimeoutException.class, VNPayNetworkException.class},
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
+    public VNPayRefundStatusResponse queryRefundStatus(String refundId) 
+            throws VNPayException, VNPayTimeoutException, VNPayNetworkException {
+        log.info("=== Querying VNPay Refund Status (Attempt) ===");
+        log.info("Refund ID: {}", refundId);
+
+        String requestId = UUID.randomUUID().toString();
+        String createDate = getVNPayDate();
+
+        // Build query parameters
+        Map<String, String> params = new TreeMap<>();
+        params.put("vnp_RequestId", requestId);
+        params.put("vnp_Version", vnPayConfig.getVersion());
+        params.put("vnp_Command", "querydr"); // Query transaction command
+        params.put("vnp_TmnCode", vnPayConfig.getTmnCode());
+        params.put("vnp_TxnRef", refundId);
+        params.put("vnp_OrderInfo", "Query refund status");
+        params.put("vnp_TransactionDate", createDate);
+        params.put("vnp_CreateDate", createDate);
+        params.put("vnp_IpAddr", "127.0.0.1");
+
+        // Generate secure hash
+        try {
+            String secureHash = generateRefundHash(params, vnPayConfig.getHashSecret());
+            params.put("vnp_SecureHash", secureHash);
+
+            log.info("Query parameters prepared");
+            log.info("Request ID: {}", requestId);
+        } catch (Exception e) {
+            log.error("Failed to generate secure hash for status query", e);
+            throw new VNPayException("97", "Lỗi tạo chữ ký bảo mật", e);
+        }
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, String>> request = new HttpEntity<>(params, headers);
+            
+            log.info("Sending status query to VNPay API: {}", vnPayConfig.getApiUrl());
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    vnPayConfig.getApiUrl(),
+                    request,
+                    String.class
+            );
+
+            log.info("VNPay API Response Status: {}", response.getStatusCode());
+            log.info("VNPay API Response Body: {}", response.getBody());
+
+            // Parse response
+            JsonNode responseJson = objectMapper.readTree(response.getBody());
+            String responseCode = responseJson.get("vnp_ResponseCode").asText();
+            String transactionStatus = responseJson.has("vnp_TransactionStatus") 
+                    ? responseJson.get("vnp_TransactionStatus").asText() 
+                    : "unknown";
+
+            VNPayRefundStatusResponse statusResponse = VNPayRefundStatusResponse.builder()
+                    .vnpayRefundId(refundId)
+                    .vnpayTransactionNo(responseJson.has("vnp_TransactionNo") 
+                            ? responseJson.get("vnp_TransactionNo").asText() 
+                            : null)
+                    .statusCode(transactionStatus)
+                    .statusMessage(VNPayErrorMapper.mapErrorCode(transactionStatus))
+                    .refundAmount(responseJson.has("vnp_Amount") 
+                            ? new BigDecimal(responseJson.get("vnp_Amount").asLong()).divide(new BigDecimal(100))
+                            : null)
+                    .originalTxnRef(responseJson.has("vnp_TxnRef") 
+                            ? responseJson.get("vnp_TxnRef").asText() 
+                            : null)
+                    .lastUpdated(LocalDateTime.now())
+                    .responseCode(responseCode)
+                    .build();
+
+            // Check for errors in response
+            if (!VNPayErrorMapper.isSuccess(responseCode)) {
+                log.error("Status query failed with code: {} - {}", responseCode, VNPayErrorMapper.mapErrorCode(responseCode));
+                
+                // Check if this is a retryable error
+                if (VNPayErrorMapper.isRetryable(responseCode)) {
+                    if ("06".equals(responseCode)) {
+                        throw new VNPayTimeoutException("VNPay đang xử lý truy vấn, thử lại sau");
+                    } else {
+                        throw new VNPayNetworkException("Lỗi mạng VNPay: " + VNPayErrorMapper.mapErrorCode(responseCode));
+                    }
+                } else {
+                    // Non-retryable error
+                    throw new VNPayException(responseCode, VNPayErrorMapper.mapErrorCode(responseCode));
+                }
+            }
+
+            log.info("Refund status query completed");
+            log.info("Status Code: {}", transactionStatus);
+            log.info("Response Code: {}", responseCode);
+            log.info("====================================");
+
+            return statusResponse;
+
+        } catch (ResourceAccessException e) {
+            // Network timeout or connection issues - retryable
+            log.error("VNPay API network error during status query (retryable)", e);
+            if (e.getCause() instanceof SocketTimeoutException) {
+                throw new VNPayTimeoutException("VNPay API timeout during status query", e);
+            } else {
+                throw new VNPayNetworkException("VNPay API network error during status query", e);
+            }
+        } catch (RestClientException e) {
+            // Other REST client errors - may be retryable
+            log.error("VNPay API REST client error during status query", e);
+            throw new VNPayNetworkException("VNPay API client error during status query: " + e.getMessage(), e);
+        } catch (VNPayTimeoutException | VNPayNetworkException e) {
+            // Re-throw our timeout and network exceptions
+            throw e;
+        } catch (VNPayException e) {
+            // Re-throw other VNPay exceptions
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error querying VNPay refund status", e);
+            log.error("Exception type: {}", e.getClass().getName());
+            log.error("Exception message: {}", e.getMessage());
+            throw new VNPayException("99", "Lỗi không xác định khi truy vấn trạng thái VNPay: " + e.getMessage(), e);
+        }
     }
 }

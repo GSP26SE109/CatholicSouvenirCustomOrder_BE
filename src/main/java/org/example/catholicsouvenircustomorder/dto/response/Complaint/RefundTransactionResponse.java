@@ -12,7 +12,8 @@ import java.util.UUID;
 
 /**
  * Refund transaction response DTO
- * Requirements: 9.1
+ * Updated to include VNPay refund fields
+ * Requirements: 8.1, 8.2, 9.1
  */
 @Data
 @NoArgsConstructor
@@ -23,19 +24,21 @@ public class RefundTransactionResponse {
     private UUID complaintId;
     private BigDecimal amount;
     
-    // Wallet info
+    // Artisan wallet info (from wallet)
     private UUID fromWalletId;
     private String fromWalletOwnerName;
-    private UUID toWalletId;
-    private String toWalletOwnerName;
+    
+    // VNPay refund info (replaces toWallet)
+    private String vnpayRefundId;
+    private String vnpayTransactionNo;
+    private UUID originalPaymentId;
     
     // Status
     private RefundStatus status;
     private String failureReason;
     
-    // Transaction references
+    // Transaction reference (debit only, credit removed)
     private UUID debitTransactionId;
-    private UUID creditTransactionId;
     
     // Timestamps
     private LocalDateTime createdAt;

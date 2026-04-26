@@ -236,7 +236,7 @@ public class ComplaintServiceImp implements ComplaintService {
             complaint = complaintRepository.save(complaint);
             
             try {
-                // Process refund
+                // Process refund via VNPay
                 RefundTransaction refundTransaction = refundService.processRefund(
                     complaint, 
                     request.getRefundAmount()
@@ -246,14 +246,14 @@ public class ComplaintServiceImp implements ComplaintService {
                 complaint.setStatus(ComplaintStatus.APPROVED);
                 complaint = complaintRepository.save(complaint);
                 
-                log.info("Complaint approved and refund processed: {}", complaintId);
+                log.info("Complaint approved and VNPay refund processed: {}", complaintId);
                 
-                // Send success notifications
+                // Send success notifications - Updated for VNPay refund
                 notificationService.sendNotification(
                     complaint.getCustomer().getAccountId(),
                     NotificationType.REFUND_COMPLETED,
-                    "Hoàn tiền thành công",
-                    "Số tiền " + request.getRefundAmount() + " VND đã được hoàn vào ví của bạn.",
+                    "Hoàn tiền đang xử lý",
+                    "Số tiền " + request.getRefundAmount() + " VND sẽ được hoàn về tài khoản ngân hàng của bạn trong 3-7 ngày làm việc qua VNPay.",
                     complaint.getComplaintId()
                 );
                 
@@ -261,26 +261,92 @@ public class ComplaintServiceImp implements ComplaintService {
                     complaint.getArtisan().getAccount().getAccountId(),
                     NotificationType.COMPLAINT_APPROVED,
                     "Khiếu nại được phê duyệt",
-                    "Khiếu nại đã được phê duyệt và số tiền " + request.getRefundAmount() + " VND đã được hoàn cho khách hàng.",
+                    "Khiếu nại đã được phê duyệt và số tiền " + request.getRefundAmount() + " VND sẽ được hoàn cho khách hàng qua VNPay.",
                     complaint.getComplaintId()
                 );
             } catch (InsufficientBalanceException e) {
-                // Refund failed due to insufficient balance
+                // Refund failed due to insufficient artisan balance
                 complaint.setStatus(ComplaintStatus.PENDING);
                 complaint = complaintRepository.save(complaint);
                 
-                log.error("Refund failed for complaint {}: {}", complaintId, e.getMessage());
+                log.error("Refund failed for complaint {} due to insufficient artisan balance: {}", complaintId, e.getMessage());
                 
                 // Send notification to admin
                 notificationService.sendNotification(
                     adminId,
                     NotificationType.REFUND_FAILED,
-                    "Hoàn tiền thất bại",
-                    "Hoàn tiền cho khiếu nại #" + complaintId + " thất bại: " + e.getMessage(),
+                    "Hoàn tiền thất bại - Số dư không đủ",
+                    "Hoàn tiền cho khiếu nại #" + complaintId + " thất bại do số dư ví nghệ nhân không đủ: " + e.getMessage(),
                     complaint.getComplaintId()
                 );
                 
                 throw e;
+            } catch (RuntimeException e) {
+                // Handle VNPay refund exceptions from RefundService
+                complaint.setStatus(ComplaintStatus.PENDING);
+                complaint = complaintRepository.save(complaint);
+                
+                log.error("VNPay refund failed for complaint {}: {}", complaintId, e.getMessage(), e);
+                
+                // Determine if this is a retryable error
+                boolean isRetryable = e.getMessage() != null && 
+                    (e.getMessage().contains("timeout") || 
+                     e.getMessage().contains("network") || 
+                     e.getMessage().contains("có thể thử lại"));
+                
+                String notificationTitle = isRetryable ? 
+                    "Hoàn tiền VNPay thất bại - Có thể thử lại" : 
+                    "Hoàn tiền VNPay thất bại - Cần xử lý thủ công";
+                
+                String notificationMessage = String.format(
+                    "Hoàn tiền VNPay cho khiếu nại #%s thất bại. " +
+                    "Khách hàng: %s, Số tiền: %,d VNĐ. " +
+                    "Lỗi: %s. %s",
+                    complaintId,
+                    complaint.getCustomer().getFullName(),
+                    request.getRefundAmount().longValue(),
+                    e.getMessage(),
+                    isRetryable ? "Có thể thử lại sau." : "Cần xử lý thủ công."
+                );
+                
+                // Send notification to admin
+                notificationService.sendNotification(
+                    adminId,
+                    NotificationType.REFUND_FAILED,
+                    notificationTitle,
+                    notificationMessage,
+                    complaint.getComplaintId()
+                );
+                
+                // Send notification to customer about the delay
+                notificationService.sendNotification(
+                    complaint.getCustomer().getAccountId(),
+                    NotificationType.REFUND_FAILED,
+                    "Hoàn tiền tạm thời gặp sự cố",
+                    "Hoàn tiền cho khiếu nại của bạn đang gặp sự cố kỹ thuật. " +
+                    "Chúng tôi sẽ xử lý và thông báo kết quả sớm nhất. " +
+                    "Vui lòng liên hệ hỗ trợ nếu cần thêm thông tin.",
+                    complaint.getComplaintId()
+                );
+                
+                throw e;
+            } catch (Exception e) {
+                // Handle any other unexpected exceptions
+                complaint.setStatus(ComplaintStatus.PENDING);
+                complaint = complaintRepository.save(complaint);
+                
+                log.error("Unexpected error during refund processing for complaint {}: {}", complaintId, e.getMessage(), e);
+                
+                // Send notification to admin
+                notificationService.sendNotification(
+                    adminId,
+                    NotificationType.REFUND_FAILED,
+                    "Hoàn tiền thất bại - Lỗi hệ thống",
+                    "Hoàn tiền cho khiếu nại #" + complaintId + " thất bại do lỗi hệ thống: " + e.getMessage() + ". Cần kiểm tra và xử lý thủ công.",
+                    complaint.getComplaintId()
+                );
+                
+                throw new RuntimeException("Lỗi hệ thống khi xử lý hoàn tiền: " + e.getMessage(), e);
             }
         }
         

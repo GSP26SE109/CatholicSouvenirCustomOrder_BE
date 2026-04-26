@@ -53,6 +53,12 @@ public interface NotificationService {
                                         BigDecimal commissionAmount, BigDecimal netAmount, 
                                         UUID walletTransactionId);
     
+    // Refund notifications
+    void notifyCustomerRefundInitiated(UUID customerId, UUID complaintId, BigDecimal amount);
+    void notifyCustomerRefundProcessing(UUID customerId, UUID complaintId, BigDecimal amount);
+    void notifyCustomerRefundCompleted(UUID customerId, UUID complaintId, BigDecimal amount);
+    void notifyCustomerRefundFailed(UUID customerId, UUID complaintId, BigDecimal amount, String reason);
+    
     // Query notifications
     Page<NotificationResponse> getUserNotifications(UUID userId, Pageable pageable);
     Page<NotificationResponse> getUnreadNotifications(UUID userId, Pageable pageable);
