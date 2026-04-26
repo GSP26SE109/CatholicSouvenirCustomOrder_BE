@@ -11,30 +11,15 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CheckoutRequest {
+public class CalculateShippingRequest {
     
-    // Recipient info - will be auto-filled from customer's UserProfile
-    private String recipientName;
-    
-    @NotBlank(message = "Số điện thoại không được để trống")
-    private String phoneNumber;
-    
-    @NotBlank(message = "Địa chỉ giao hàng không được để trống")
-    private String shippingAddress;
-    
-    // GHN district and ward for shipping fee calculation
     @NotNull(message = "District ID không được để trống")
     private Integer toDistrictId;
     
     @NotBlank(message = "Ward code không được để trống")
     private String toWardCode;
     
-    private String notes;
-    
-    @NotNull(message = "Phương thức thanh toán không được để trống")
-    private String paymentMethod; // VNPAY, ZALOPAY, COD
-    
-    // Optional: Package dimensions (use defaults if not provided)
+    // Optional overrides for weight/dimensions
     private Integer weight;  // grams
     private Integer length;  // cm
     private Integer width;   // cm

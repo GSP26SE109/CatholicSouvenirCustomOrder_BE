@@ -1,7 +1,9 @@
 package org.example.catholicsouvenircustomorder.service;
 
+import org.example.catholicsouvenircustomorder.dto.request.CalculateShippingRequest;
 import org.example.catholicsouvenircustomorder.dto.request.CheckoutRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Order.CheckoutResponseDTO;
+import org.example.catholicsouvenircustomorder.dto.response.ShippingFeeResponse;
 
 import java.util.UUID;
 
@@ -21,4 +23,11 @@ public interface CheckoutService {
      * Validate cart before checkout
      */
     void validateCart(UUID customerId);
+    
+    /**
+     * Calculate shipping fee for cart items before checkout
+     * Groups items by artisan and calculates separate shipping fees
+     */
+    ShippingFeeResponse calculateShippingFeeForCart(UUID customerId, CalculateShippingRequest request);
 }
+

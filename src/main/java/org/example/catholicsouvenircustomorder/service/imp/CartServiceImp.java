@@ -49,10 +49,30 @@ public class CartServiceImp implements CartService {
         }
         
         Cart cart = findOrCreateCart(customerId);
+        
+        // ===== NEW: Validate stock for all items =====
+        validateCartStock(cart);
+        
         CartResponse response = mapToResponse(cart);
         
         redisTemplate.opsForValue().set(cacheKey, response, CACHE_TTL, TimeUnit.DAYS);
         return response;
+    }
+    
+    /**
+     * Validate stock availability for all cart items
+     * Marks items as out of stock if quantity is 0
+     */
+    private void validateCartStock(Cart cart) {
+        for (CartItem item : cart.getItems()) {
+            if (item.isProduct()) {
+                Product product = item.getProduct();
+                // Refresh product from DB to get latest quantity
+                Product freshProduct = productRepository.findById(product.getProductId())
+                        .orElse(product);
+                item.setProduct(freshProduct);
+            }
+        }
     }
     
     @Override
@@ -330,14 +350,20 @@ public class CartServiceImp implements CartService {
         
         if (item.isProduct()) {
             Product product = item.getProduct();
+            boolean isAvailable = product.getQuantity() > 0;
+            boolean hasEnoughStock = product.getQuantity() >= item.getQuantity();
+            
             builder.productId(product.getProductId())
                     .productName(product.getProductName())
-                    .productImage(product.getImages().isEmpty() ? null : product.getImages().get(0).getImage_url());
+                    .productImage(product.getImages().isEmpty() ? null : product.getImages().get(0).getImage_url())
+                    .availableStock(product.getQuantity())
+                    .isAvailable(isAvailable && hasEnoughStock);
         } else if (item.isTemplate()) {
             ProductTemplate template = item.getTemplate();
             builder.templateId(template.getTemplateId())
                     .templateName(template.getName())
-                    .templateImage(template.getBaseImages().isEmpty() ? null : template.getBaseImages().get(0));
+                    .templateImage(template.getBaseImages().isEmpty() ? null : template.getBaseImages().get(0))
+                    .isAvailable(true); // Templates always available
             
             if (item.getCustomizationData() != null) {
                 try {
