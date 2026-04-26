@@ -56,6 +56,55 @@ public class AIImageServiceImp implements AIImageService {
             throw e; // Re-throw for retry mechanism
         }
     }
+    
+    /**
+     * Generate a placeholder image when AI service is unavailable
+     */a
+    private String generatePlaceholderImage(String prompt) {
+        // Return a professional-looking SVG placeholder
+        String escapedPrompt = prompt.replace("&", "&amp;")
+                                    .replace("<", "&lt;")
+                                    .replace(">", "&gt;")
+                                    .replace("\"", "&quot;");
+        
+        String displayPrompt = escapedPrompt.length() > 60 ? 
+            escapedPrompt.substring(0, 60) + "..." : escapedPrompt;
+        
+        String svg = String.format(
+            "<svg width='1024' height='1024' xmlns='http://www.w3.org/2000/svg'>" +
+            "<defs>" +
+            "<linearGradient id='grad' x1='0%%' y1='0%%' x2='100%%' y2='100%%'>" +
+            "<stop offset='0%%' style='stop-color:%s;stop-opacity:1' />" +
+            "<stop offset='100%%' style='stop-color:%s;stop-opacity:1' />" +
+            "</linearGradient>" +
+            "</defs>" +
+            "<rect width='1024' height='1024' fill='url(#grad)'/>" +
+            
+            // Icon placeholder
+            "<circle cx='512' cy='400' r='80' fill='white' opacity='0.2'/>" +
+            "<path d='M 512 360 L 512 440 M 472 400 L 552 400' stroke='white' stroke-width='8' opacity='0.3'/>" +
+            
+            // Title
+            "<text x='512' y='550' font-family='Arial, sans-serif' font-size='24' font-weight='bold' " +
+            "fill='white' text-anchor='middle'>AI Image Generation</text>" +
+            
+            // Status
+            "<text x='512' y='590' font-family='Arial, sans-serif' font-size='18' " +
+            "fill='white' text-anchor='middle' opacity='0.8'>Service Temporarily Unavailable</text>" +
+            
+            // Prompt preview
+            "<text x='512' y='650' font-family='Arial, sans-serif' font-size='14' " +
+            "fill='white' text-anchor='middle' opacity='0.6'>%s</text>" +
+            
+            "</svg>",
+            "#4F46E5", // Indigo
+            "#7C3AED", // Purple
+            displayPrompt
+        );
+        
+        String base64Svg = Base64.getEncoder().encodeToString(svg.getBytes());
+        return "data:image/svg+xml;base64," + base64Svg;
+    }
 
     private String generateWithHuggingFace(String prompt) {
         if (huggingfaceApiKey == null || huggingfaceApiKey.isEmpty()) {

@@ -29,6 +29,9 @@ public class ChatboxServiceImp implements ChatBoxService {
 
     @Override
     public String askAI(String userInput) {
+        if (!isCatholicQuestion(userInput)) {
+            return "Xin lỗi, tôi chỉ hỗ trợ các câu hỏi liên quan đến Công giáo.";
+        }
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(api_key);
@@ -38,9 +41,39 @@ public class ChatboxServiceImp implements ChatBoxService {
             body.put("model", "llama-3.3-70b-versatile");
             body.put("messages", List.of(
                     Map.of("role", "system", "content",
-                            "You are a Catholic assistant. Answer based on the Bible, " +
-                                    "Catechism of the Catholic Church, and Church tradition. " +
-                                    "Be respectful and pastoral."),
+                            """
+                            Bạn là trợ lý AI Công giáo chỉ chuyên trả lời các câu hỏi liên quan đến Đức tin Công giáo.
+                    
+                            CHỈ được trả lời các chủ đề sau:
+                            - Kinh Thánh
+                            - Giáo lý Hội Thánh Công giáo
+                            - Bí tích
+                            - Thánh lễ
+                            - Cầu nguyện
+                            - Các Thánh
+                            - Luân lý Công giáo
+                            - Phụng vụ
+                            - Đức Mẹ
+                            - Lịch sử Hội Thánh
+                            - Đời sống thiêng liêng Kitô giáo
+                    
+                            Nếu người dùng hỏi ngoài phạm vi trên như:
+                            - lập trình
+                            - toán học
+                            - bóng đá
+                            - chính trị
+                            - công nghệ
+                            - giải trí
+                            - chuyện đời thường
+                    
+                            THÌ KHÔNG TRẢ LỜI nội dung đó.
+                    
+                            Hãy đáp:
+                            "Xin lỗi, tôi chỉ hỗ trợ các câu hỏi trong bối cảnh Công giáo như Kinh Thánh, Giáo lý, cầu nguyện và đời sống đức tin."
+                    
+                            Luôn trả lời bằng tiếng Việt, ngắn gọn, hiền hòa, rõ ràng.
+                            """
+                    ),
                     Map.of("role", "user", "content", userInput)
             ));
 
@@ -71,5 +104,122 @@ public class ChatboxServiceImp implements ChatBoxService {
 
         Please reflect on Scripture or consult a priest for guidance.
         """;
+    }
+    private boolean isCatholicQuestion(String text) {
+        String input = text.toLowerCase();
+
+        return input.contains("chúa")
+                || input.contains("thiên chúa")
+                || input.contains("đức chúa")
+                || input.contains("giêsu")
+                || input.contains("jesus")
+                || input.contains("kitô")
+                || input.contains("christ")
+                || input.contains("đức kitô")
+                || input.contains("thánh thần")
+                || input.contains("chúa thánh thần")
+                || input.contains("ba ngôi")
+                || input.contains("ba ngôi thiên chúa")
+
+                // Catholic identity
+                || input.contains("công giáo")
+                || input.contains("catholic")
+                || input.contains("giáo hội")
+                || input.contains("hội thánh")
+                || input.contains("roma")
+                || input.contains("vatican")
+                || input.contains("toà thánh")
+
+                // Bible
+                || input.contains("kinh thánh")
+                || input.contains("thánh kinh")
+                || input.contains("phúc âm")
+                || input.contains("tin mừng")
+                || input.contains("cựu ước")
+                || input.contains("tân ước")
+                || input.contains("thánh vịnh")
+                || input.contains("sáng thế")
+                || input.contains("mátthêu")
+                || input.contains("mác cô")
+                || input.contains("luca")
+                || input.contains("gioan")
+                || input.contains("paolô")
+
+                // Mary & Saints
+                || input.contains("đức mẹ")
+                || input.contains("maria")
+                || input.contains("mẹ maria")
+                || input.contains("mẹ thiên chúa")
+                || input.contains("thánh giuse")
+                || input.contains("thánh phêrô")
+                || input.contains("thánh phaolô")
+                || input.contains("các thánh")
+                || input.contains("thánh")
+
+                // Sacraments
+                || input.contains("bí tích")
+                || input.contains("rửa tội")
+                || input.contains("thêm sức")
+                || input.contains("thánh thể")
+                || input.contains("mình thánh")
+                || input.contains("xưng tội")
+                || input.contains("giải tội")
+                || input.contains("hòa giải")
+                || input.contains("truyền chức")
+                || input.contains("hôn phối")
+                || input.contains("xức dầu")
+
+                // Worship
+                || input.contains("thánh lễ")
+                || input.contains("lễ misa")
+                || input.contains("misa")
+                || input.contains("phụng vụ")
+                || input.contains("nhà thờ")
+                || input.contains("giáo xứ")
+                || input.contains("giáo phận")
+                || input.contains("giám mục")
+                || input.contains("linh mục")
+                || input.contains("phó tế")
+                || input.contains("tu sĩ")
+                || input.contains("nữ tu")
+                || input.contains("cha xứ")
+
+                // Prayer
+                || input.contains("cầu nguyện")
+                || input.contains("kinh nguyện")
+                || input.contains("kinh lạy cha")
+                || input.contains("kinh kính mừng")
+                || input.contains("kinh sáng danh")
+                || input.contains("mân côi")
+                || input.contains("lần chuỗi")
+                || input.contains("chầu thánh thể")
+
+                // Doctrine / morality
+                || input.contains("giáo lý")
+                || input.contains("tín điều")
+                || input.contains("đức tin")
+                || input.contains("ơn cứu độ")
+                || input.contains("thiên đàng")
+                || input.contains("luyện ngục")
+                || input.contains("hoả ngục")
+                || input.contains("tội")
+                || input.contains("tội trọng")
+                || input.contains("tội nhẹ")
+                || input.contains("ăn năn")
+                || input.contains("sám hối")
+
+                // Catholic dates
+                || input.contains("mùa vọng")
+                || input.contains("mùa chay")
+                || input.contains("phục sinh")
+                || input.contains("giáng sinh")
+                || input.contains("lễ tro")
+                || input.contains("tuần thánh")
+                || input.contains("chúa nhật")
+
+                // Pope
+                || input.contains("giáo hoàng")
+                || input.contains("đức giáo hoàng")
+                || input.contains("pope");
     }
 }

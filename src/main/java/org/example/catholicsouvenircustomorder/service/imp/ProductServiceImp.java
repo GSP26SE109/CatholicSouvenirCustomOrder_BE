@@ -129,6 +129,7 @@ public class ProductServiceImp implements ProductService {
                 throw new RuntimeException("Upload hình ảnh thất bại: " + e.getMessage());
             }
         }
+        savedProduct = productRepository.findById(savedProduct.getProductId()).get();
         return productMapper.toResponse(savedProduct);
     }
 
