@@ -26,9 +26,15 @@ public class RefundTransaction {
     @JoinColumn(name = "from_wallet_id")
     private Wallet fromWallet; // Artisan wallet
     
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "to_wallet_id")
-    private Wallet toWallet; // Customer wallet
+    // VNPay refund fields
+    @Column(length = 100)
+    private String vnpayRefundId;
+    
+    @Column(length = 100)
+    private String vnpayTransactionNo;
+    
+    @Column
+    private UUID originalPaymentId; // Reference to original Payment entity
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -37,14 +43,10 @@ public class RefundTransaction {
     @Column(length = 500)
     private String failureReason;
     
-    // Reference to WalletTransaction entries
+    // Reference to WalletTransaction entry (debit from Artisan only)
     @OneToOne
     @JoinColumn(name = "debit_transaction_id")
     private WalletTransaction debitTransaction;
-    
-    @OneToOne
-    @JoinColumn(name = "credit_transaction_id")
-    private WalletTransaction creditTransaction;
     
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -53,7 +55,7 @@ public class RefundTransaction {
     
     @PreUpdate
     public void preUpdate() {
-        if (status == RefundStatus.COMPLETED || status == RefundStatus.FAILED) {
+        if (status == RefundStatus.COMPLETED || status == RefundStatus.FAILED || status == RefundStatus.PARTIALLY_REFUNDED) {
             this.completedAt = LocalDateTime.now();
         }
     }

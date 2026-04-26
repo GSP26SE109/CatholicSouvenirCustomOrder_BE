@@ -16,6 +16,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -749,6 +750,141 @@ public class NotificationServiceImp implements NotificationService {
         
         log.info("Sent commission deduction notification to artisan {}: original={}, commission={}, net={}, walletTxId={}", 
             artisanId, originalAmount, commissionAmount, netAmount, walletTransactionId);
+    }
+    
+    // ========== Refund Notifications ==========
+    
+    @Override
+    @Transactional
+    public void notifyCustomerRefundInitiated(UUID customerId, UUID complaintId, BigDecimal amount) {
+        Account customer = accountRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+        
+        String metadata = String.format("complaintId=%s;amount=%s;timeline=3-7 days", 
+            complaintId, amount);
+        
+        String message = String.format(
+            "Yêu cầu hoàn tiền %,d VNĐ đã được khởi tạo. Số tiền sẽ được hoàn về tài khoản ngân hàng của bạn trong vòng 3-7 ngày làm việc.",
+            amount.longValue()
+        );
+        
+        Notification notification = new Notification();
+        notification.setRecipient(customer);
+        notification.setType(NotificationType.REFUND_COMPLETED);
+        notification.setTitle("Hoàn tiền đã được khởi tạo");
+        notification.setMessage(message);
+        notification.setRelatedEntityId(complaintId);
+        notification.setRelatedEntityType(RelatedEntityType.COMPLAINT);
+        notification.setActionType(NotificationAction.VIEW_REQUEST);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.HIGH);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(customerId, "/notifications", mapToResponse(notification));
+        
+        log.info("Sent refund initiated notification to customer {}: amount={}, complaintId={}", 
+            customerId, amount, complaintId);
+    }
+    
+    @Override
+    @Transactional
+    public void notifyCustomerRefundProcessing(UUID customerId, UUID complaintId, BigDecimal amount) {
+        Account customer = accountRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+        
+        String metadata = String.format("complaintId=%s;amount=%s;method=VNPay;timeline=3-7 days", 
+            complaintId, amount);
+        
+        String message = String.format(
+            "Hoàn tiền %,d VNĐ đang được xử lý qua cổng thanh toán VNPay. Số tiền sẽ được chuyển về tài khoản ngân hàng của bạn trong vòng 3-7 ngày làm việc.",
+            amount.longValue()
+        );
+        
+        Notification notification = new Notification();
+        notification.setRecipient(customer);
+        notification.setType(NotificationType.REFUND_COMPLETED);
+        notification.setTitle("Hoàn tiền đang xử lý");
+        notification.setMessage(message);
+        notification.setRelatedEntityId(complaintId);
+        notification.setRelatedEntityType(RelatedEntityType.COMPLAINT);
+        notification.setActionType(NotificationAction.VIEW_REQUEST);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.HIGH);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(customerId, "/notifications", mapToResponse(notification));
+        
+        log.info("Sent refund processing notification to customer {}: amount={}, complaintId={}", 
+            customerId, amount, complaintId);
+    }
+    
+    @Override
+    @Transactional
+    public void notifyCustomerRefundCompleted(UUID customerId, UUID complaintId, BigDecimal amount) {
+        Account customer = accountRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+        
+        String metadata = String.format("complaintId=%s;amount=%s;status=completed", 
+            complaintId, amount);
+        
+        String message = String.format(
+            "Hoàn tiền %,d VNĐ đã được hoàn tất thành công. Số tiền đã được chuyển về tài khoản ngân hàng của bạn.",
+            amount.longValue()
+        );
+        
+        Notification notification = new Notification();
+        notification.setRecipient(customer);
+        notification.setType(NotificationType.REFUND_COMPLETED);
+        notification.setTitle("Hoàn tiền hoàn tất");
+        notification.setMessage(message);
+        notification.setRelatedEntityId(complaintId);
+        notification.setRelatedEntityType(RelatedEntityType.COMPLAINT);
+        notification.setActionType(NotificationAction.VIEW_REQUEST);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.NORMAL);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(customerId, "/notifications", mapToResponse(notification));
+        
+        log.info("Sent refund completed notification to customer {}: amount={}, complaintId={}", 
+            customerId, amount, complaintId);
+    }
+    
+    @Override
+    @Transactional
+    public void notifyCustomerRefundFailed(UUID customerId, UUID complaintId, BigDecimal amount, String reason) {
+        Account customer = accountRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+        
+        String metadata = String.format("complaintId=%s;amount=%s;status=failed;reason=%s", 
+            complaintId, amount, reason != null ? reason : "Unknown");
+        
+        String message = String.format(
+            "Hoàn tiền %,d VNĐ không thành công. Lý do: %s. Vui lòng liên hệ bộ phận hỗ trợ khách hàng để được trợ giúp.",
+            amount.longValue(),
+            reason != null ? reason : "Lỗi không xác định"
+        );
+        
+        Notification notification = new Notification();
+        notification.setRecipient(customer);
+        notification.setType(NotificationType.REFUND_FAILED);
+        notification.setTitle("Hoàn tiền thất bại");
+        notification.setMessage(message);
+        notification.setRelatedEntityId(complaintId);
+        notification.setRelatedEntityType(RelatedEntityType.COMPLAINT);
+        notification.setActionType(NotificationAction.VIEW_REQUEST);
+        notification.setActionRequired(true);
+        notification.setPriority(NotificationPriority.HIGH);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(customerId, "/notifications", mapToResponse(notification));
+        
+        log.info("Sent refund failed notification to customer {}: amount={}, complaintId={}, reason={}", 
+            customerId, amount, complaintId, reason);
     }
     
     @Override

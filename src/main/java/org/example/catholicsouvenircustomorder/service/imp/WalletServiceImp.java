@@ -37,6 +37,13 @@ public class WalletServiceImp implements WalletService {
     @Override
     @Transactional
     public Wallet getOrCreateWallet(Account account) {
+        // Validate that account is not a CUSTOMER
+        if (account.getRole() != null && "CUSTOMER".equals(account.getRole().getName())) {
+            throw new IllegalArgumentException(
+                "Không hỗ trợ ví Customer. Hoàn tiền được xử lý qua VNPay."
+            );
+        }
+        
         return walletRepository.findByAccount(account)
                 .orElseGet(() -> {
                     Wallet wallet = new Wallet();
