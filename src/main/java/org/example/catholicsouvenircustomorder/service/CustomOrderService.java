@@ -63,4 +63,11 @@ public interface CustomOrderService {
      * Returns list of stages with workflow status (canPay, isPaid, isCompleted)
      */
     List<CustomOrderStageResponse> getOrderStages(UUID orderId);
+    
+    /**
+     * Customer confirms order (Request-Based flow)
+     * Transitions order from PENDING_CONFIRMATION to PENDING_PAYMENT
+     * Unlocks first stage for payment
+     */
+    CustomOrderResponse confirmOrder(UUID orderId, UUID customerId);
 }
