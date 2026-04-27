@@ -102,6 +102,12 @@ public interface CustomOrderRepository extends JpaRepository<CustomOrder, UUID> 
     Optional<CustomOrder> findByRequestId(@Param("requestId") UUID requestId);
     
     /**
+     * Find order by request ID (alternative naming for service layer)
+     */
+    @Query("SELECT co FROM CustomOrder co WHERE co.request.requestId = :requestId")
+    Optional<CustomOrder> findByRequest_RequestId(@Param("requestId") UUID requestId);
+    
+    /**
      * Check if order exists for request
      */
     @Query("SELECT CASE WHEN COUNT(co) > 0 THEN true ELSE false END FROM CustomOrder co WHERE co.request.requestId = :requestId")

@@ -70,4 +70,10 @@ public interface CustomOrderService {
      * Unlocks first stage for payment
      */
     CustomOrderResponse confirmOrder(UUID orderId, UUID customerId);
+    
+    /**
+     * Get custom order by request ID
+     * Useful for customer to retrieve order created by artisan from their request
+     */
+    CustomOrderResponse getOrderByRequestId(UUID requestId);
 }

@@ -109,6 +109,33 @@ public class CustomOrderController {
         return ResponseEntity.ok(BaseResponse.success("Lấy chi tiết đơn hàng thành công", response));
     }
     
+    /**
+     * Get custom order by request ID (for customer to view order created by artisan)
+     * GET /api/custom-orders/by-request/{requestId}
+     * Requirements: RB-3 (Customer needs to view order before confirming)
+     */
+    @GetMapping("/by-request/{requestId}")
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
+    public ResponseEntity<BaseResponse> getCustomOrderByRequestId(
+            @PathVariable UUID requestId,
+            Authentication authentication) {
+        UUID userId = (UUID) authentication.getPrincipal();
+        log.info("User {} fetching custom order for request {}", userId, requestId);
+        
+        CustomOrderResponse response = customOrderService.getOrderByRequestId(requestId);
+        
+        // Verify ownership - user must be either the customer or the artisan
+        boolean isCustomer = response.getCustomerId().equals(userId);
+        boolean isArtisan = response.getArtisanId().equals(userId);
+        
+        if (!isCustomer && !isArtisan) {
+            return ResponseEntity.status(403)
+                    .body(BaseResponse.error(403, "Bạn không có quyền xem đơn hàng này"));
+        }
+        
+        return ResponseEntity.ok(BaseResponse.success("Lấy đơn hàng thành công", response));
+    }
+    
     // ==================== ARTISAN ENDPOINTS ====================
     
     /**

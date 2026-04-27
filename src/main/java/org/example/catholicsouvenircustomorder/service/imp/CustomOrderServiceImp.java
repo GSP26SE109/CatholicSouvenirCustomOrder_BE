@@ -390,6 +390,14 @@ public class CustomOrderServiceImp implements CustomOrderService {
         log.info("Customer {} confirmed order {}", customerId, orderId);
         return mapToResponse(order);
     }
+    
+    @Override
+    public CustomOrderResponse getOrderByRequestId(UUID requestId) {
+        CustomOrder order = customOrderRepository.findByRequest_RequestId(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng cho yêu cầu này"));
+        
+        return mapToResponse(order);
+    }
 
     private CustomOrderDetailResponse mapToDetailResponse(CustomOrder order, boolean fullyPaid) {
         CustomRequest request = order.getRequest();
