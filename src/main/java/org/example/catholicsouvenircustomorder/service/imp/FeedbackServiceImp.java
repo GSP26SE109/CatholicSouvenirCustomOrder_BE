@@ -40,8 +40,8 @@ public class FeedbackServiceImp implements FeedbackService {
     @Override
     @Transactional
     public FeedbackResponse createFeedback(CreateFeedbackRequest request, UUID customerId) {
-        log.info("Creating feedback for customer: {}, orderId: {}, customOrderId: {}", 
-                 customerId, request.getOrderId(), request.getCustomOrderId());
+        log.info("Creating feedback for customer: {}, orderId: {}, customOrderId: {}, orderDetailId: {}", 
+                 customerId, request.getOrderId(), request.getCustomOrderId(), request.getOrderDetailId());
         
         // 1. Validate that either orderId or customOrderId is provided
         if (request.getOrderId() == null && request.getCustomOrderId() == null) {
@@ -50,6 +50,7 @@ public class FeedbackServiceImp implements FeedbackService {
         
         Order order = null;
         CustomOrder customOrder = null;
+        OrderDetail orderDetail = null;
         Artisan artisan = null;
         
         // 2. Validate order exists and belongs to customer
@@ -66,9 +67,22 @@ public class FeedbackServiceImp implements FeedbackService {
                 throw new IllegalStateException("Chỉ có thể đánh giá đơn hàng đã giao");
             }
             
-            // Check if feedback already exists
-            if (feedbackRepository.existsByOrderAndCustomer(request.getOrderId(), customerId)) {
-                throw new IllegalArgumentException("Bạn đã đánh giá đơn hàng này rồi");
+            // If orderDetailId is provided, validate it belongs to this order
+            if (request.getOrderDetailId() != null) {
+                orderDetail = order.getOrderDetails().stream()
+                    .filter(od -> od.getId().equals(request.getOrderDetailId()))
+                    .findFirst()
+                    .orElseThrow(() -> new NotFoundException("Chi tiết đơn hàng không tồn tại trong đơn hàng này"));
+                
+                // Check if feedback already exists for this order detail
+                if (feedbackRepository.findByOrderDetail(request.getOrderDetailId()).isPresent()) {
+                    throw new IllegalArgumentException("Bạn đã đánh giá sản phẩm này rồi");
+                }
+            } else {
+                // Check if feedback already exists for the whole order
+                if (feedbackRepository.existsByOrderAndCustomer(request.getOrderId(), customerId)) {
+                    throw new IllegalArgumentException("Bạn đã đánh giá đơn hàng này rồi");
+                }
             }
             
             // Determine artisan from order
@@ -103,6 +117,7 @@ public class FeedbackServiceImp implements FeedbackService {
         // 4. Create feedback
         Feedback feedback = new Feedback();
         feedback.setOrder(order);
+        feedback.setOrderDetail(orderDetail);
         feedback.setCustomOrder(customOrder);
         feedback.setCustomer(customer);
         feedback.setArtisan(artisan);

@@ -227,6 +227,7 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
                 .description(stage.getDescription())
                 .amount(stage.getAmount())
                 .percentage(stage.getPaymentPercentage())
+                .estimatedDays(stage.getEstimatedDays())
                 .status(stage.getStatus())
                 
                 // Workflow flags

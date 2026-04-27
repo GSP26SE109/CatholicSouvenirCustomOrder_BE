@@ -22,4 +22,7 @@ public class OrderDetailResponseDTO {
     private UUID productId;
     private String productName;
     private String image;
+    
+    // Review information (nullable if not reviewed yet)
+    private OrderDetailReviewDTO review;
 }

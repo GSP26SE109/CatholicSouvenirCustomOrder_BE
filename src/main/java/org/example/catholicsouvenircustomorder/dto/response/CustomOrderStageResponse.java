@@ -22,6 +22,7 @@ public class CustomOrderStageResponse {
     private String description;
     private BigDecimal amount;
     private Integer percentage;
+    private Integer estimatedDays;
     private StageStatus status;
     
     // Workflow tracking flags

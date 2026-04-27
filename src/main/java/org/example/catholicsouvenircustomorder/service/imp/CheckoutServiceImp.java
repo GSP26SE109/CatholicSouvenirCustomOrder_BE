@@ -10,6 +10,7 @@ import org.example.catholicsouvenircustomorder.dto.request.CheckoutRequest;
 import org.example.catholicsouvenircustomorder.dto.request.CreateShipmentRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Order.CheckoutResponseDTO;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderDetailResponseDTO;
+import org.example.catholicsouvenircustomorder.dto.response.Order.OrderDetailReviewDTO;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderTemplateDetailResponseDTO;
 import org.example.catholicsouvenircustomorder.dto.response.ShippingFeeResponse;
@@ -44,6 +45,7 @@ public class CheckoutServiceImp implements CheckoutService {
     private final OrderDetailRepository orderDetailRepository;
     private final OrderTemplateDetailRepository orderTemplateDetailRepository;
     private final OrderGroupRepository orderGroupRepository;
+    private final FeedbackRepository feedbackRepository;
     private final ObjectMapper objectMapper;
     private final RedisTemplate<String, Object> redisTemplate;
     private final ShippingService shippingService;
@@ -347,6 +349,17 @@ public class CheckoutServiceImp implements CheckoutService {
                     if (detail.getProduct().getImages() != null && !detail.getProduct().getImages().isEmpty()) {
                         imageUrl = detail.getProduct().getImages().get(0).getImage_url();
                     }
+                    
+                    // Load feedback for this order detail
+                    OrderDetailReviewDTO review = feedbackRepository.findByOrderDetail(detail.getId())
+                        .map(feedback -> OrderDetailReviewDTO.builder()
+                            .feedbackId(feedback.getFeedbackId())
+                            .rating(feedback.getRating())
+                            .comment(feedback.getComment())
+                            .createdAt(feedback.getCreatedAt())
+                            .build())
+                        .orElse(null);
+                    
                     return OrderDetailResponseDTO.builder()
                         .id(detail.getId())
                         .quantity(detail.getQuantity())
@@ -356,6 +369,7 @@ public class CheckoutServiceImp implements CheckoutService {
                         .productId(detail.getProduct().getProductId())
                         .productName(detail.getProduct().getProductName())
                         .image(imageUrl)
+                        .review(review)
                         .build();
                 })
                 .collect(Collectors.toList());
