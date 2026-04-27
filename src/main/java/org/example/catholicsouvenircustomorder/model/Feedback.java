@@ -20,6 +20,11 @@ public class Feedback {
     @JoinColumn(name = "order_id")
     private Order order;
     
+    // Relationship to OrderDetail (specific product in order)
+    @ManyToOne
+    @JoinColumn(name = "order_detail_id")
+    private OrderDetail orderDetail;
+    
     // Relationship to CustomOrder (nullable for Order)
     @ManyToOne
     @JoinColumn(name = "custom_order_id")

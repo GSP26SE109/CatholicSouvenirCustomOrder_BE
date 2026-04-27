@@ -43,6 +43,12 @@ public interface FeedbackRepository extends JpaRepository<Feedback, UUID> {
     Optional<Feedback> findByCustomOrderAndCustomer(@Param("customOrderId") UUID customOrderId, @Param("customerId") UUID customerId);
     
     /**
+     * Find feedback by order detail
+     */
+    @Query("SELECT f FROM Feedback f WHERE f.orderDetail.id = :orderDetailId")
+    Optional<Feedback> findByOrderDetail(@Param("orderDetailId") UUID orderDetailId);
+    
+    /**
      * Find all feedbacks by customer with pagination
      */
     Page<Feedback> findByCustomer(Account customer, Pageable pageable);

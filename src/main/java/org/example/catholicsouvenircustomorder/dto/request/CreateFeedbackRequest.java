@@ -13,6 +13,9 @@ public class CreateFeedbackRequest {
     
     private UUID customOrderId;
     
+    // Optional: specific order detail (product) to review
+    private UUID orderDetailId;
+    
     @NotNull(message = "Đánh giá không được để trống")
     @Min(value = 1, message = "Đánh giá tối thiểu là 1 sao")
     @Max(value = 5, message = "Đánh giá tối đa là 5 sao")
