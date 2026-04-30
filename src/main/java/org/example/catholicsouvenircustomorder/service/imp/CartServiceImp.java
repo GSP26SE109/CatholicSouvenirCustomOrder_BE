@@ -33,7 +33,7 @@ public class CartServiceImp implements CartService {
     private final AccountRepository accountRepository;
     private final ProductRepository productRepository;
     private final ProductTemplateRepository templateRepository;
-    private final ObjectMapper objectMapper;
+    private ObjectMapper objectMapper = new ObjectMapper();
     private final RedisTemplate<String, Object> redisTemplate;
     
     private static final String CART_KEY = "cart:";

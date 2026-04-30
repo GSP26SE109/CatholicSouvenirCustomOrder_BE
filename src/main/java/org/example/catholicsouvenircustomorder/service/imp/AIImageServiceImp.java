@@ -5,6 +5,7 @@ import org.example.catholicsouvenircustomorder.dto.request.AIPromptRequest;
 import org.example.catholicsouvenircustomorder.dto.response.AIImageResponse;
 import org.example.catholicsouvenircustomorder.model.ProductTemplate;
 import org.example.catholicsouvenircustomorder.model.TemplateCustomZone;
+import org.example.catholicsouvenircustomorder.service.AIImageProvider;
 import org.example.catholicsouvenircustomorder.service.AIImageService;
 import org.example.catholicsouvenircustomorder.service.SupabaseStorageService;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,44 +23,75 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class AIImageServiceImp implements AIImageService {
 
-    @Value("${ai.image.provider:huggingface}")
-    private String imageProvider;
+    @Value("${ai.image.providers:cloudflare}")
+    private String providers;
 
     @Value("${huggingface.api.key:}")
     private String huggingfaceApiKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final SupabaseStorageService supabaseStorageService;
-
-    public AIImageServiceImp(SupabaseStorageService supabaseStorageService) {
+    private final AIImageProvider cloudflareProvider;
+    public AIImageServiceImp(SupabaseStorageService supabaseStorageService,
+                             AIImageProvider cloudflareProvider) {
         this.supabaseStorageService = supabaseStorageService;
+        this.cloudflareProvider = cloudflareProvider;
     }
+
 
     @Override
     @Retryable(
-        maxAttempts = 3,
-        backoff = @Backoff(delay = 2000, multiplier = 2),
-        retryFor = {Exception.class}
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 2000, multiplier = 2),
+            retryFor = {Exception.class}
     )
     public String generateImage(String prompt) {
+
+        String enhancedPrompt = enhancePromptForReligiousArt(prompt);
+
+        List<String> providerList = Arrays.stream(providers.split(","))
+                .map(String::trim)
+                .filter(p -> !p.isEmpty())
+                .toList();
+
+        if (providerList.isEmpty()) {
+            throw new RuntimeException("No AI providers configured");
+        }
+
         try {
-            String enhancedPrompt = enhancePromptForReligiousArt(prompt);
-            
-            if ("huggingface".equalsIgnoreCase(imageProvider)) {
-                return generateWithHuggingFace(enhancedPrompt);
-            } else {
-                log.warn("Unknown image provider: {}, falling back to Hugging Face", imageProvider);
-                return generateWithHuggingFace(enhancedPrompt);
+            for (String provider : providerList) {
+
+                log.info("Trying AI provider: {}", provider);
+
+                String result = null;
+
+                if ("cloudflare".equalsIgnoreCase(provider)) {
+                    result = cloudflareProvider.generateImage(enhancedPrompt);
+                } else if ("huggingface".equalsIgnoreCase(provider)) {
+                    result = generateWithHuggingFace(enhancedPrompt);
+                } else {
+                    log.warn("Unknown provider: {}", provider);
+                    continue;
+                }
+
+                if (result != null) {
+                    return result;
+                }
+
+                log.warn("Provider {} failed, trying next...", provider);
             }
+
+            throw new RuntimeException("All AI providers failed");
+
         } catch (Exception e) {
             log.error("Error generating AI image: {}", e.getMessage());
-            throw e; // Re-throw for retry mechanism
+            throw e; // trigger retry
         }
     }
     
     /**
      * Generate a placeholder image when AI service is unavailable
-     */a
+     */
     private String generatePlaceholderImage(String prompt) {
         // Return a professional-looking SVG placeholder
         String escapedPrompt = prompt.replace("&", "&amp;")

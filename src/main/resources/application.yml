@@ -3,7 +3,7 @@ spring:
     name: CatholicSouvenirCustomOrder
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/catholic_souvenir}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/catholic-souvenir}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -22,7 +22,7 @@ spring:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
-      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      password: ${SPRING_DATA_REDIS_PASSWORD}
       timeout: 60000
 
 jwt:
@@ -33,11 +33,15 @@ jwt:
 
 ai:
   image:
-    provider: ${AI_IMAGE_PROVIDER:huggingface}
+    providers: cloudflare,huggingface
 
 huggingface:
   api:
     key: ${HUGGINGFACE_API_KEY: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}
+cloudflare:
+  account-id: 3e875a76e975c00dc7e6469218bb853c
+  api-token: ${CLOUDFLARE_API_TOKEN}
+  model: "@cf/black-forest-labs/flux-1-schnell"
 
 zalopay:
   app-id: ${ZALOPAY_APP_ID:554}

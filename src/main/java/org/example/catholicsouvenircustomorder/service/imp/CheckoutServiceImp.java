@@ -35,7 +35,7 @@ public class CheckoutServiceImp implements CheckoutService {
     private final OrderRepository orderRepository;
     private final OrderDetailRepository orderDetailRepository;
     private final OrderTemplateDetailRepository orderTemplateDetailRepository;
-    private final ObjectMapper objectMapper;
+    private ObjectMapper objectMapper= new ObjectMapper();
 
     @Override
     @Transactional
