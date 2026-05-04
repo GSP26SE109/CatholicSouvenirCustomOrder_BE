@@ -152,4 +152,18 @@ public class CustomRequestController {
         Page<CustomRequestResponse> response = customRequestService.getArtisanRequests(artisanId, status, pageable);
         return ResponseEntity.ok(BaseResponse.success("Lấy danh sách yêu cầu thành công", response));
     }
+    
+    /**
+     * Delete a draft custom request
+     * Only DRAFT status requests can be deleted
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse> deleteCustomRequest(
+            @PathVariable UUID id,
+            Authentication authentication) {
+        UUID customerId = (UUID) authentication.getPrincipal();
+        customRequestService.deleteDraftRequest(id, customerId);
+        return ResponseEntity.ok(BaseResponse.success("Xóa yêu cầu thành công", null));
+    }
 }

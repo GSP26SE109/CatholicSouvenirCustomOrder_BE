@@ -279,6 +279,26 @@ public class CustomRequestServiceImp implements CustomRequestService {
         return mapToResponse(request);
     }
 
+    @Override
+    @Transactional
+    public void deleteDraftRequest(UUID requestId, UUID customerId) {
+        CustomRequest customRequest = customRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));
+        
+        // Verify customer ownership
+        if (!customRequest.getCustomer().getAccountId().equals(customerId)) {
+            throw new UnauthorizedTemplateAccessException("Bạn không có quyền xóa yêu cầu này");
+        }
+        
+        // Only allow deletion of DRAFT requests
+        if (customRequest.getStatus() != CustomRequestStatus.DRAFT) {
+            throw new BadRequestException("Chỉ có thể xóa yêu cầu ở trạng thái nháp. Yêu cầu hiện tại đang ở trạng thái: " + customRequest.getStatus());
+        }
+        
+        log.info("Deleting draft custom request: {}", requestId);
+        customRequestRepository.delete(customRequest);
+    }
+
     // ==================== Private Helper Methods ====================
 
     private void notifyArtisanOfSelection(Artisan artisan, CustomRequest customRequest) {
