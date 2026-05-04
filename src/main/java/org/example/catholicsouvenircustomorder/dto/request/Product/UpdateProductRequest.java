@@ -5,6 +5,7 @@ import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,7 +22,9 @@ public class UpdateProductRequest {
     private Integer quantity;
     private String size;
     private UUID categoryId;
-    private List<String> tags;
-    private List<UUID> deleteImageIds;
-    private List<MultipartFile> newImages;
+    
+    // Initialize with empty lists to handle null/empty cases
+    private List<String> tags = new ArrayList<>();
+    private List<UUID> deleteImageIds = new ArrayList<>();
+    private List<MultipartFile> newImages = new ArrayList<>();
 }
