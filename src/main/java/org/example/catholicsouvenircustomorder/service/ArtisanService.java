@@ -12,4 +12,9 @@ public interface ArtisanService {
     ArtisanResponseDTO getArtisanById(UUID artisanId);
     ArtisanResponseDTO getArtisanProfile(UUID artisanId);
     ArtisanResponseDTO updateArtisanProfile(UUID artisanId, UpdateArtisanProfileRequest request);
+    
+    // Blacklist management
+    void blacklistArtisan(UUID artisanId);
+    void unblacklistArtisan(UUID artisanId);
+    boolean isArtisanBlacklisted(UUID artisanId);
 }

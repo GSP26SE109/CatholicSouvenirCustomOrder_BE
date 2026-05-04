@@ -104,8 +104,54 @@ public class GlobalExceptionHandler {
     
     @ExceptionHandler(InsufficientBalanceException.class)
     public ResponseEntity<BaseResponse> handleInsufficientBalanceException(InsufficientBalanceException ex) {
+        // For cancellation-related insufficient balance, provide clear message about offline recovery
+        String message = ex.getMessage();
+        if (message.contains("refund") || message.contains("cancellation")) {
+            message += " Vui lòng liên hệ bộ phận hỗ trợ để xử lý offline.";
+        }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(BaseResponse.error(400, ex.getMessage()));
+                .body(BaseResponse.error(400, message));
+    }
+    
+    @ExceptionHandler(CancellationException.class)
+    public ResponseEntity<BaseResponse> handleCancellationException(CancellationException ex) {
+        // Map error codes to appropriate HTTP status codes
+        HttpStatus status = switch (ex.getErrorCode()) {
+            case CancellationException.UNAUTHORIZED -> HttpStatus.FORBIDDEN;
+            case CancellationException.ALREADY_CANCELLED,
+                 CancellationException.INVALID_ORDER_STATUS,
+                 CancellationException.NO_PAID_STAGES -> HttpStatus.CONFLICT;
+            case CancellationException.STAGE_COMPLETED,
+                 CancellationException.INVALID_REASON,
+                 CancellationException.INVALID_INITIATOR,
+                 CancellationException.INSUFFICIENT_BALANCE -> HttpStatus.BAD_REQUEST;
+            case CancellationException.REFUND_FAILED -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+        
+        // Provide user-friendly error messages
+        String userMessage = switch (ex.getErrorCode()) {
+            case CancellationException.UNAUTHORIZED -> 
+                "Bạn không có quyền hủy đơn hàng này.";
+            case CancellationException.ALREADY_CANCELLED -> 
+                "Đơn hàng đã được hủy trước đó.";
+            case CancellationException.STAGE_COMPLETED -> 
+                "Không thể hủy đơn hàng có giai đoạn đã hoàn thành.";
+            case CancellationException.INVALID_REASON -> 
+                "Lý do hủy đơn không hợp lệ. Vui lòng nhập ít nhất 20 ký tự.";
+            case CancellationException.NO_PAID_STAGES -> 
+                "Không có giai đoạn nào đã thanh toán để hoàn tiền.";
+            case CancellationException.INVALID_ORDER_STATUS -> 
+                "Trạng thái đơn hàng không cho phép hủy.";
+            case CancellationException.INSUFFICIENT_BALANCE -> 
+                ex.getMessage() + " Vui lòng liên hệ bộ phận hỗ trợ để xử lý offline.";
+            case CancellationException.REFUND_FAILED -> 
+                "Không thể xử lý hoàn tiền. Vui lòng thử lại sau.";
+            default -> ex.getMessage();
+        };
+        
+        return ResponseEntity.status(status)
+                .body(BaseResponse.error(status.value(), userMessage));
     }
     
     @ExceptionHandler(PendingWithdrawalExistsException.class)
@@ -124,6 +170,31 @@ public class GlobalExceptionHandler {
     public ResponseEntity<BaseResponse> handleCommissionCalculationException(CommissionCalculationException ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(BaseResponse.error(500, ex.getMessage()));
+    }
+
+    
+    @ExceptionHandler(RefundProcessingException.class)
+    public ResponseEntity<BaseResponse> handleRefundProcessingException(RefundProcessingException ex) {
+        // Refund processing errors are typically bad requests or service errors
+        HttpStatus status = switch (ex.getErrorCode()) {
+            case RefundProcessingException.PAYMENT_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case RefundProcessingException.REFUND_ALREADY_PROCESSED,
+                 RefundProcessingException.INVALID_REFUND_AMOUNT -> HttpStatus.BAD_REQUEST;
+            case RefundProcessingException.VNPAY_TIMEOUT,
+                 RefundProcessingException.VNPAY_NETWORK_ERROR,
+                 RefundProcessingException.VNPAY_ERROR,
+                 RefundProcessingException.PARTIAL_REFUND_FAILURE -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+        
+        // Include VNPay response code in error message if available
+        String errorMessage = ex.getMessage();
+        if (ex.getVnpayResponseCode() != null) {
+            errorMessage += " (Mã lỗi VNPay: " + ex.getVnpayResponseCode() + ")";
+        }
+        
+        return ResponseEntity.status(status)
+                .body(BaseResponse.error(status.value(), errorMessage));
     }
 
     @ExceptionHandler(Exception.class)

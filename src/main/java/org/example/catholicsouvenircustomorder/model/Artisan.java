@@ -40,6 +40,9 @@ public class Artisan {
     @JoinColumn(name = "reviewed_by")
     @JsonIgnore
     private Account reviewedBy;
+    
+    @Column(name = "is_blacklisted")
+    private boolean isBlacklisted = false;
 
     @OneToMany(mappedBy = "artisan",
             cascade = CascadeType.ALL,
@@ -53,4 +56,16 @@ public class Artisan {
     @OneToMany(mappedBy = "selectedArtisan")
     @JsonIgnore
     private List<CustomRequest> selectedRequests = new ArrayList<>();
+    
+    /**
+     * Get wallet through account relationship
+     * Note: This is a transient method that requires the account's wallet to be loaded
+     */
+    @Transient
+    public Wallet getWallet() {
+        if (account != null && account.getWallet() != null) {
+            return account.getWallet();
+        }
+        return null;
+    }
 }

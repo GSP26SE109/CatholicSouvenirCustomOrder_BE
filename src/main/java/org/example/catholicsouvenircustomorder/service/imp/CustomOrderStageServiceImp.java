@@ -53,6 +53,51 @@ public class CustomOrderStageServiceImp implements CustomOrderStageService {
     
     @Override
     @Transactional
+    public CustomOrderStageResponse startStage(UUID stageId, UUID artisanId) {
+        CustomOrderStage stage = stageRepository.findById(stageId)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy giai đoạn"));
+        
+        // Validate artisan ownership
+        if (!stage.getCustomOrder().getArtisan().getArtisanUuid().equals(artisanId)) {
+            throw new BadRequestException("Bạn không có quyền bắt đầu giai đoạn này");
+        }
+        
+        // Validate stage is paid
+        if (!stage.getIsPaid()) {
+            throw new BadRequestException("Giai đoạn phải được thanh toán trước khi bắt đầu");
+        }
+        
+        // Validate stage status is PAID
+        if (stage.getStatus() != StageStatus.PAID) {
+            throw new BadRequestException("Giai đoạn phải ở trạng thái PAID để bắt đầu");
+        }
+        
+        // Validate not already completed
+        if (stage.getIsCompleted()) {
+            throw new BadRequestException("Giai đoạn này đã được hoàn thành");
+        }
+        
+        // Start the stage
+        stage.setStatus(StageStatus.IN_PROGRESS);
+        stage = stageRepository.save(stage);
+        
+        log.info("Artisan {} started stage {}", artisanId, stageId);
+        
+        // Send notification to customer
+        UUID customerId = stage.getCustomOrder().getRequest().getCustomer().getAccountId();
+        notificationService.sendNotification(
+            customerId,
+            NotificationType.STAGE_STARTED,
+            "Nghệ nhân đã bắt đầu làm việc",
+            String.format("Nghệ nhân đã bắt đầu thực hiện giai đoạn: %s", stage.getName()),
+            stage.getCustomOrder().getCustomOrderId()
+        );
+        
+        return mapToResponse(stage);
+    }
+    
+    @Override
+    @Transactional
     public CustomOrderStageResponse completeStage(UUID stageId, CompleteStageRequest request, UUID artisanId) {
         CustomOrderStage stage = stageRepository.findById(stageId)
                 .orElseThrow(() -> new NotFoundException("Không tìm thấy giai đoạn"));

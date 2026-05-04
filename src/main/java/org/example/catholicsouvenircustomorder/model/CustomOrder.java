@@ -34,6 +34,16 @@ public class CustomOrder {
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal totalPrice;
     
+    @Column(name = "cancellation_reason", length = 500)
+    private String cancellationReason;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cancelled_by")
+    private CancellationInitiator cancelledBy;
+    
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+    
     @OneToMany(mappedBy = "customOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("stageOrder ASC")
     @JsonManagedReference

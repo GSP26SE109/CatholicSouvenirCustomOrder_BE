@@ -23,6 +23,9 @@ public class Wallet {
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal balance = BigDecimal.ZERO;
     
+    @Column(name = "locked_balance", precision = 18, scale = 2)
+    private BigDecimal lockedBalance = BigDecimal.ZERO;
+    
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     
@@ -32,5 +35,10 @@ public class Wallet {
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+    
+    @Transient
+    public BigDecimal getAvailableBalance() {
+        return balance.subtract(lockedBalance);
     }
 }

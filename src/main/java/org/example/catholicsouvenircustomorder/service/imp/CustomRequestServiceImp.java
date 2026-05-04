@@ -211,6 +211,11 @@ public class CustomRequestServiceImp implements CustomRequestService {
         Artisan artisan = artisanRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nghệ nhân"));
         
+        // Check if artisan is blacklisted
+        if (artisan.isBlacklisted()) {
+            throw new BadRequestException("Nghệ nhân này đã bị đưa vào danh sách đen và không thể nhận đơn hàng mới");
+        }
+        
         // Verify request exists
         CustomRequest customRequest = customRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));

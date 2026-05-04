@@ -36,6 +36,8 @@ public class WithdrawalResponse {
     
     private String rejectionReason;
     
+    private String reason; // Lý do rút tiền từ thợ thủ công
+    
     // Artisan info
     private UUID artisanId;
     

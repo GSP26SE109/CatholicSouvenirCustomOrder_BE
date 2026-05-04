@@ -67,6 +67,34 @@ public class ArtisanController {
 
         return ResponseEntity.ok(BaseResponse.success("Cập nhật hồ sơ cá nhân thành công", artisan));
     }
+    
+    // Admin endpoints for blacklist management
+    @PostMapping("/{artisanId}/blacklist")
+    public ResponseEntity<BaseResponse<Void>> blacklistArtisan(
+            @PathVariable UUID artisanId) {
+        
+        artisanService.blacklistArtisan(artisanId);
+        
+        return ResponseEntity.ok(BaseResponse.success("Đã đưa nghệ nhân vào danh sách đen", null));
+    }
+    
+    @DeleteMapping("/{artisanId}/blacklist")
+    public ResponseEntity<BaseResponse<Void>> unblacklistArtisan(
+            @PathVariable UUID artisanId) {
+        
+        artisanService.unblacklistArtisan(artisanId);
+        
+        return ResponseEntity.ok(BaseResponse.success("Đã gỡ nghệ nhân khỏi danh sách đen", null));
+    }
+    
+    @GetMapping("/{artisanId}/blacklist-status")
+    public ResponseEntity<BaseResponse<Boolean>> checkBlacklistStatus(
+            @PathVariable UUID artisanId) {
+        
+        boolean isBlacklisted = artisanService.isArtisanBlacklisted(artisanId);
+        
+        return ResponseEntity.ok(BaseResponse.success("Lấy trạng thái danh sách đen thành công", isBlacklisted));
+    }
 
 //    @GetMapping("/dashboard")
 //    public ResponseEntity<BaseResponse> getDashboard(

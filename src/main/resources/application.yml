@@ -58,12 +58,20 @@ server:
 
 ai:
   image:
-    provider: ${AI_IMAGE_PROVIDER:huggingface}
+    mock-mode: ${AI_IMAGE_MOCK_MODE:false}
   groq:
     api_key: ${GROQ_API_KEY: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}
+
+# Cloudflare Worker AI Configuration
+cloudflare:
+  account-id: ${CLOUDFLARE_ACCOUNT_ID:3e875a76e975c00dc7e6469218bb853c}
+  api-token: ${CLOUDFLARE_API_TOKEN:}
+  model: ${CLOUDFLARE_MODEL:@cf/black-forest-labs/flux-1-schnell}
+
+# Hugging Face Configuration (for text generation only)
 huggingface:
   api:
-    key: ${HUGGINGFACE_API_KEY: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}
+    key: ${HUGGINGFACE_API_KEY:}
     url: ${HUGGINGFACE_API_URL:https://router.huggingface.co/v1/chat/completions}
     text:
       model: ${HUGGINGFACE_TEXT_MODEL:meta-llama/Llama-3.1-8B-Instruct:novita}
@@ -111,6 +119,12 @@ ghn:
   from-district-id: ${GHN_FROM_DISTRICT_ID:1442}
   from-ward-code: ${GHN_FROM_WARD_CODE:21211}
   callback-url: ${GHN_CALLBACK_URL:https://catholic-souvenir-api.southeastasia.cloudapp.azure.com/api/webhook/ghn}
+
+# Cancellation Configuration
+cancellation:
+  min-reason-length: ${CANCELLATION_MIN_REASON_LENGTH:20}
+  locked-balance-percentage: ${CANCELLATION_LOCKED_BALANCE_PERCENTAGE:30}
+  lock-release-days: ${CANCELLATION_LOCK_RELEASE_DAYS:3}
 
 
 

@@ -1,6 +1,7 @@
 package org.example.catholicsouvenircustomorder.repository;
 
 import org.example.catholicsouvenircustomorder.model.Notification;
+import org.example.catholicsouvenircustomorder.model.NotificationAction;
 import org.example.catholicsouvenircustomorder.model.NotificationType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +31,9 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     // Actionable notifications
     List<Notification> findByRecipient_AccountIdAndActionRequiredTrueAndActionCompletedFalseOrderByCreatedAtDesc(
         UUID recipientId);
+    
+    // Find notifications by action type (for recovery tasks)
+    List<Notification> findByActionTypeOrderByCreatedAtDesc(NotificationAction actionType);
     
     // Counts
     Long countByRecipient_AccountIdAndIsReadFalse(UUID recipientId);
