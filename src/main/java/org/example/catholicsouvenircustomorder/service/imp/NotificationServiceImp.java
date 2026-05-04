@@ -381,6 +381,33 @@ public class NotificationServiceImp implements NotificationService {
         sendRealTimeNotification(artisanId, "/orders", mapToResponse(notification));
     }
     
+    @Override
+    @Transactional
+    public void notifyArtisanOfOrderRejection(UUID artisanId, UUID orderId, String customerName, String reason) {
+        Account artisan = accountRepository.findById(artisanId)
+                .orElseThrow(() -> new NotFoundException("Artisan not found"));
+        
+        String metadata = String.format("customerName=%s;reason=%s", customerName, reason);
+        
+        Notification notification = new Notification();
+        notification.setRecipient(artisan);
+        notification.setType(NotificationType.ORDER_CANCELLED);
+        notification.setTitle("Đơn hàng bị từ chối");
+        notification.setMessage(String.format(
+            "%s đã từ chối đơn hàng. Lý do: %s. Bạn có thể tạo đơn hàng mới với giá/giai đoạn khác.", 
+            customerName, reason
+        ));
+        notification.setRelatedEntityId(orderId);
+        notification.setRelatedEntityType(RelatedEntityType.CUSTOM_ORDER);
+        notification.setActionType(NotificationAction.VIEW_ORDER);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.NORMAL);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(artisanId, "/orders", mapToResponse(notification));
+    }
+    
     // ========== Conversation & Chat Notifications ==========
     
     @Override

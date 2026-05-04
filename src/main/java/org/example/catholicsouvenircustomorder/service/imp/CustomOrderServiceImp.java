@@ -394,6 +394,45 @@ public class CustomOrderServiceImp implements CustomOrderService {
     }
     
     @Override
+    @Transactional
+    public CustomOrderResponse rejectOrder(UUID orderId, UUID customerId, String reason) {
+        CustomOrder order = customOrderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng"));
+
+        // Verify customer ownership
+        if (!order.getRequest().getCustomer().getAccountId().equals(customerId)) {
+            throw new UnauthorizedTemplateAccessException("Chỉ khách hàng mới có thể từ chối đơn hàng");
+        }
+
+        // Verify order status - can only reject if PENDING_CONFIRMATION (no payment yet)
+        if (order.getStatus() != CustomOrderStatus.PENDING_CONFIRMATION) {
+            throw new BadRequestException("Chỉ có thể từ chối đơn hàng đang chờ xác nhận (chưa thanh toán)");
+        }
+
+        // Update order status to CANCELLED_BY_CUSTOMER
+        order.setStatus(CustomOrderStatus.CANCELLED_BY_CUSTOMER);
+        order.setCancellationReason(reason);
+        order.setCancelledBy(CancellationInitiator.CUSTOMER);
+        order.setCancelledAt(java.time.LocalDateTime.now());
+
+        // Keep request status as ARTISAN_SELECTED so artisan can create new order
+        // No need to change request status - artisan is still selected
+        
+        order = customOrderRepository.save(order);
+
+        // Notify artisan that customer rejected the order
+        notificationService.notifyArtisanOfOrderRejection(
+                order.getArtisan().getAccount().getAccountId(),
+                orderId,
+                order.getRequest().getCustomer().getFullName(),
+                reason
+        );
+
+        log.info("Customer {} rejected order {} with reason: {}", customerId, orderId, reason);
+        return mapToResponse(order);
+    }
+    
+    @Override
     public CustomOrderResponse getOrderByRequestId(UUID requestId) {
         CustomOrder order = customOrderRepository.findByRequest_RequestId(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng cho yêu cầu này"));
