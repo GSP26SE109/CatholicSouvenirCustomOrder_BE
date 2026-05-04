@@ -59,8 +59,9 @@ server:
 ai:
   image:
     mock-mode: ${AI_IMAGE_MOCK_MODE:false}
+    provider: cloudflare
   groq:
-    api_key: ${GROQ_API_KEY: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}
+    api_key: ${GROQ_API_KEY:}
 
 # Cloudflare Worker AI Configuration
 cloudflare:
