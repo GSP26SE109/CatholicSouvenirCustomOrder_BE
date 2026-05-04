@@ -147,10 +147,11 @@ public class ProductServiceImp implements ProductService {
                     .orElseThrow(() -> new ResourceNotFoundException("Category không tồn tại"));
             existingProduct.setCategory(category);
         }
-        if (dto.getTags() != null) {
+        if (dto.getTags() != null && !dto.getTags().isEmpty()) {
             List<Tag> tags = tagService.resolveTags(dto.getTags());
             existingProduct.setTags(tags);
         }
+        // If tags is null or empty, keep existing tags unchanged
         if (dto.getDeleteImageIds() != null || dto.getNewImages() != null) {
             UpdateProductImagesRequest imagesRequest = new UpdateProductImagesRequest();
             imagesRequest.setDeleteImageIds(dto.getDeleteImageIds());
