@@ -17,6 +17,7 @@ public interface CustomRequestService {
     CustomRequestResponse regenerateAIImage(UUID requestId, UUID customerId);
     Page<CustomRequestResponse> getOpenRequests(Pageable pageable);
     CustomRequestResponse selectArtisan(UUID requestId, UUID artisanId, UUID customerId);
+    void deleteDraftRequest(UUID requestId, UUID customerId);
     
     // Common query methods
     Page<CustomRequestResponse> getCustomerRequests(UUID customerId, CustomRequestStatus status, Pageable pageable);

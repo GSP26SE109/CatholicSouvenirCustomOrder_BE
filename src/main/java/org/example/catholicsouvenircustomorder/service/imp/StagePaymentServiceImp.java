@@ -188,8 +188,11 @@ public class StagePaymentServiceImp implements StagePaymentService {
     }
 
     @Override
-    @Transactional(noRollbackFor = Exception.class)
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public StagePaymentResponse handleStagePaymentCallback(String referenceId, String status) {
+        log.info("========================================");
+        log.info("🔔 Processing stage payment callback");
+        log.info("ReferenceId: {}, Status: {}", referenceId, status);
 
         // Find payment by our reference ID
         StagePayment payment = paymentRepository.findByReferenceId(referenceId)
@@ -215,106 +218,26 @@ public class StagePaymentServiceImp implements StagePaymentService {
         if (status.equalsIgnoreCase("SUCCESS") || status.equals("00")) {
             log.info("✅ Payment successful, updating status");
             
-            // Set payment status
+            // CRITICAL: Update payment status FIRST in separate transaction
             payment.setStatus(PaymentStatus.SUCCESS);
             payment.setPaidAt(LocalDateTime.now());
-            
-            // CRITICAL: Save payment IMMEDIATELY
-            log.info("💾 Saving payment with SUCCESS status BEFORE distribution");
-            payment = paymentRepository.save(payment);
-            log.info("✅ Payment saved successfully with status: {}", payment.getStatus());
+            payment = paymentRepository.saveAndFlush(payment); // Force immediate commit
+            log.info("✅ Payment saved with SUCCESS status: {}", payment.getStatus());
 
-            // Update stage status and workflow flags
+            // Update stage status
             CustomOrderStage stage = payment.getStage();
             log.info("📝 Updating stage status to PAID");
             stage.setStatus(StageStatus.PAID);
             stage.setPaidAt(LocalDateTime.now());
             stage.setIsPaid(true);
             stage.setCanPay(false);
-            stageRepository.save(stage);
+            stageRepository.saveAndFlush(stage); // Force immediate commit
             log.info("✅ Stage {} status updated to PAID", stage.getStageId());
-
-            // Distribute money with commission deduction
-            log.info("💰 Starting payment distribution process");
-            try {
-                log.info("Starting payment distribution for paymentId: {}", payment.getPaymentId());
-                
-                StagePayment paymentForDistribution = paymentRepository
-                        .findByIdWithDetailsForDistribution(payment.getPaymentId())
-                        .orElse(payment);
-                
-                log.info("Fetched payment for distribution");
-                
-                Artisan artisan = findArtisanByStage(stage);
-                
-                if (artisan != null) {
-                    log.info("Found artisan: artisanId={}, accountId={}", 
-                            artisan.getArtisanUuid(), artisan.getAccount().getAccountId());
-                    // Lấy commission_rate từ StagePayment entity (đã lưu trước đó)
-                    BigDecimal commissionRate = payment.getCommissionRate();
-                    
-                    // Tính commission và net amount
-                    CommissionCalculation calc = commissionService.calculateCommission(
-                        payment.getAmount(),
-                        commissionRate
-                    );
-                    
-                    log.info("Stage payment {}: Original={}, Commission={}, Net={}", 
-                        payment.getPaymentId(), calc.getOriginalAmount(), 
-                        calc.getCommissionAmount(), calc.getNetAmount());
-                    
-                    // Cộng NET AMOUNT vào wallet (đã trừ commission)
-                    Account platformAdmin = walletService.getPlatformAdminAccount();
-                    log.info("Got platform admin account: {}", platformAdmin.getAccountId());
-                    
-                    // Create a custom distribution that adds net amount to artisan wallet
-                    // and applies commission to the wallet transaction
-                    log.info("Starting wallet distribution...");
-                    WalletTransaction walletTx = distributeStagePaymentWithCommission(
-                        paymentForDistribution, 
-                        artisan, 
-                        platformAdmin,
-                        calc
-                    );
-                    log.info("Wallet distribution completed. TransactionId: {}", walletTx.getTransactionId());
-                    
-                    // Gửi notification cho artisan về commission
-                    try {
-                        UUID customOrderId = stage.getCustomOrder().getCustomOrderId();
-                        log.info("Sending commission notification to artisan...");
-                        notificationService.notifyArtisanCommissionDeducted(
-                            artisan.getArtisanUuid(),
-                            customOrderId,
-                            calc.getOriginalAmount(),
-                            calc.getCommissionAmount(),
-                            calc.getNetAmount(),
-                            walletTx.getTransactionId()
-                        );
-                        log.info("Commission notification sent successfully");
-                    } catch (Exception e) {
-                        log.error("Failed to send commission notification: {}", e.getMessage(), e);
-                        // Continue processing even if notification fails
-                    }
-                } else {
-                    log.warn("No artisan found for stage: {}, skipping distribution", stage.getStageId());
-                }
-            } catch (Exception e) {
-                log.error("Error distributing stage payment for paymentId: {}", payment.getPaymentId(), e);
-                log.error("Distribution error details - type: {}, message: {}", 
-                        e.getClass().getName(), e.getMessage());
-                if (e.getCause() != null) {
-                    log.error("Caused by: {}", e.getCause().getMessage());
-                }
-            }
 
             // Update custom order status
             CustomOrder customOrder = stage.getCustomOrder();
-            log.info("📋 Checking if all stages are paid for customOrderId: {}", customOrder.getCustomOrderId());
-            
             boolean allStagesPaid = customOrder.getStages().stream()
                     .allMatch(s -> s.getIsPaid());
-
-            log.info("All stages paid: {}", allStagesPaid);
             
             if (allStagesPaid) {
                 customOrder.setStatus(CustomOrderStatus.IN_PROGRESS);
@@ -324,18 +247,89 @@ public class StagePaymentServiceImp implements StagePaymentService {
                 log.info("✅ Updated custom order status to IN_PROGRESS (partial payment)");
             }
 
+            // Distribute money AFTER status is committed (in async or separate transaction)
+            log.info("💰 Scheduling payment distribution");
+            try {
+                distributePaymentAsync(payment.getPaymentId());
+            } catch (Exception e) {
+                log.error("Error scheduling distribution: {}", e.getMessage(), e);
+                // Don't fail the callback - distribution can be retried
+            }
+
         } else {
             log.warn("❌ Payment failed with status: {}", status);
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason("Payment failed with status: " + status);
+            payment = paymentRepository.saveAndFlush(payment);
         }
 
-        log.info("💾 Final save of payment record");
-        payment = paymentRepository.save(payment);
         log.info("✅ Stage payment callback processing completed with final status: {}", payment.getStatus());
         log.info("========================================");
         
         return mapToPaymentResponse(payment);
+    }
+    
+    /**
+     * Distribute payment in separate transaction to avoid blocking callback
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void distributePaymentAsync(UUID paymentId) {
+        log.info("💰 Starting async payment distribution for paymentId: {}", paymentId);
+        
+        try {
+            StagePayment payment = paymentRepository
+                    .findByIdWithDetailsForDistribution(paymentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
+            
+            CustomOrderStage stage = payment.getStage();
+            Artisan artisan = findArtisanByStage(stage);
+            
+            if (artisan != null) {
+                log.info("Found artisan: artisanId={}, accountId={}", 
+                        artisan.getArtisanUuid(), artisan.getAccount().getAccountId());
+                
+                BigDecimal commissionRate = payment.getCommissionRate();
+                CommissionCalculation calc = commissionService.calculateCommission(
+                    payment.getAmount(),
+                    commissionRate
+                );
+                
+                log.info("Stage payment {}: Original={}, Commission={}, Net={}", 
+                    payment.getPaymentId(), calc.getOriginalAmount(), 
+                    calc.getCommissionAmount(), calc.getNetAmount());
+                
+                Account platformAdmin = walletService.getPlatformAdminAccount();
+                
+                WalletTransaction walletTx = distributeStagePaymentWithCommission(
+                    payment, 
+                    artisan, 
+                    platformAdmin,
+                    calc
+                );
+                log.info("✅ Wallet distribution completed. TransactionId: {}", walletTx.getTransactionId());
+                
+                // Send notification
+                try {
+                    UUID customOrderId = stage.getCustomOrder().getCustomOrderId();
+                    notificationService.notifyArtisanCommissionDeducted(
+                        artisan.getArtisanUuid(),
+                        customOrderId,
+                        calc.getOriginalAmount(),
+                        calc.getCommissionAmount(),
+                        calc.getNetAmount(),
+                        walletTx.getTransactionId()
+                    );
+                    log.info("✅ Commission notification sent");
+                } catch (Exception e) {
+                    log.error("Failed to send notification: {}", e.getMessage());
+                }
+            } else {
+                log.warn("No artisan found for stage: {}", stage.getStageId());
+            }
+        } catch (Exception e) {
+            log.error("❌ Error in async distribution: {}", e.getMessage(), e);
+            // Log but don't throw - payment status is already saved
+        }
     }
 
     @Override
