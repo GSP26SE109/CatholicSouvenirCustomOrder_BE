@@ -39,6 +39,7 @@ public class WithdrawalServiceImp implements WithdrawalService {
     private final WalletTransactionRepository walletTransactionRepository;
     private final NotificationService notificationService;
     private final BankAccountUtil bankAccountUtil;
+    private final ComplaintRepository complaintRepository;
     
     private static final Logger auditLogger = LoggerFactory.getLogger("AUDIT");
     
@@ -61,6 +62,15 @@ public class WithdrawalServiceImp implements WithdrawalService {
             throw new BadRequestException("Account must be verified to withdraw");
         }
         
+        // Check if artisan has active complaints with withdrawal frozen
+        boolean hasActiveComplaint = complaintRepository.hasActiveComplaintWithWithdrawalFrozen(artisanId);
+        if (hasActiveComplaint) {
+            throw new BadRequestException(
+                "Không thể rút tiền khi có khiếu nại đang được xử lý. " +
+                "Vui lòng đợi khiếu nại được giải quyết trước khi yêu cầu rút tiền."
+            );
+        }
+        
         // 2. Validate amount (already validated by @Valid, but double-check)
         BigDecimal amount = request.getAmount();
         if (amount.compareTo(new BigDecimal("50000")) < 0) {
@@ -74,10 +84,13 @@ public class WithdrawalServiceImp implements WithdrawalService {
         Wallet wallet = walletRepository.findByAccount(account)
                 .orElseThrow(() -> new NotFoundException("Wallet not found"));
         
-        if (wallet.getBalance().compareTo(amount) < 0) {
+        // Calculate available balance (total - locked)
+        BigDecimal availableBalance = wallet.getAvailableBalance();
+        
+        if (availableBalance.compareTo(amount) < 0) {
             throw new InsufficientBalanceException(
-                String.format("Số dư ví không đủ. Số dư hiện tại: %s VND, Số tiền yêu cầu: %s VND",
-                    wallet.getBalance(), amount)
+                String.format("Số dư khả dụng không đủ. Số dư khả dụng: %s VND, Số dư bị khóa: %s VND, Số tiền yêu cầu: %s VND",
+                    availableBalance, wallet.getLockedBalance(), amount)
             );
         }
         
@@ -101,6 +114,7 @@ public class WithdrawalServiceImp implements WithdrawalService {
         withdrawal.setBankName(request.getBankName());
         withdrawal.setBankAccountNumber(request.getBankAccountNumber());
         withdrawal.setBankAccountName(request.getBankAccountName());
+        withdrawal.setReason(request.getReason()); // Set reason from DTO
         withdrawal.setCreatedAt(LocalDateTime.now());
         
         withdrawal = withdrawalRequestRepository.save(withdrawal);
@@ -267,10 +281,13 @@ public class WithdrawalServiceImp implements WithdrawalService {
         Wallet wallet = walletRepository.findByAccount(withdrawal.getArtisan().getAccount())
                 .orElseThrow(() -> new NotFoundException("Wallet not found"));
         
-        if (wallet.getBalance().compareTo(withdrawal.getAmount()) < 0) {
+        // Check available balance (total - locked)
+        BigDecimal availableBalance = wallet.getAvailableBalance();
+        
+        if (availableBalance.compareTo(withdrawal.getAmount()) < 0) {
             throw new InsufficientBalanceException(
-                String.format("Số dư ví không đủ. Số dư hiện tại: %s VND, Số tiền yêu cầu: %s VND",
-                    wallet.getBalance(), withdrawal.getAmount())
+                String.format("Số dư khả dụng không đủ. Số dư khả dụng: %s VND, Số dư bị khóa: %s VND, Số tiền yêu cầu: %s VND",
+                    availableBalance, wallet.getLockedBalance(), withdrawal.getAmount())
             );
         }
         
@@ -397,6 +414,7 @@ public class WithdrawalServiceImp implements WithdrawalService {
                 .createdAt(withdrawal.getCreatedAt())
                 .processedAt(withdrawal.getProcessedAt())
                 .rejectionReason(withdrawal.getRejectionReason())
+                .reason(withdrawal.getReason())
                 .cancelledAt(withdrawal.getCancelledAt())
                 .artisanId(withdrawal.getArtisan().getArtisanUuid())
                 .artisanName(withdrawal.getArtisan().getAccount().getFullName())
@@ -442,6 +460,7 @@ public class WithdrawalServiceImp implements WithdrawalService {
                     ? withdrawal.getProcessedBy().getFullName() 
                     : null)
                 .rejectionReason(withdrawal.getRejectionReason())
+                .reason(withdrawal.getReason())
                 .artisanId(withdrawal.getArtisan().getArtisanUuid())
                 .artisanName(withdrawal.getArtisan().getAccount().getFullName())
                 .artisanEmail(withdrawal.getArtisan().getAccount().getEmail())

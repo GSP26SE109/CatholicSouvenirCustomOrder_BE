@@ -50,7 +50,7 @@ public class UserProfileController {
      * GET /api/profile/{accountId}
      */
     @GetMapping("/{accountId}")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ARTISAN')")
     @Operation(summary = "Get user profile by ID", description = "Admin gets any user's profile by account ID")
     public ResponseEntity<BaseResponse<UserProfileResponse>> getUserProfileById(
             @PathVariable UUID accountId) {

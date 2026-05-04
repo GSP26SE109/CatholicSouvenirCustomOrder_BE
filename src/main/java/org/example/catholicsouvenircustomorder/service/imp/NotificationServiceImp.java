@@ -914,6 +914,168 @@ public class NotificationServiceImp implements NotificationService {
             customerId, amount, complaintId, reason);
     }
     
+    // ========== Cancellation Notifications ==========
+    
+    @Override
+    @Transactional
+    public void notifyArtisanOfCustomerCancellation(UUID artisanId, UUID orderId, String customerName, 
+                                                   String reason, BigDecimal grossRefund, 
+                                                   BigDecimal platformCommission, BigDecimal netRefund) {
+        Account artisan = accountRepository.findById(artisanId)
+                .orElseThrow(() -> new NotFoundException("Artisan not found"));
+        
+        String metadata = String.format("orderId=%s;customerName=%s;grossRefund=%s;platformCommission=%s;netRefund=%s;reason=%s", 
+            orderId, customerName, grossRefund, platformCommission, netRefund, reason != null ? reason : "");
+        
+        String message = String.format(
+            "Khách hàng %s đã hủy đơn hàng. Tổng hoàn trả: %,d VNĐ. Phí sàn: %,d VNĐ. Số tiền bạn phải hoàn: %,d VNĐ.",
+            customerName, grossRefund.longValue(), platformCommission.longValue(), netRefund.longValue()
+        );
+        
+        if (reason != null && !reason.trim().isEmpty()) {
+            message += " Lý do: " + reason;
+        }
+        
+        Notification notification = new Notification();
+        notification.setRecipient(artisan);
+        notification.setType(NotificationType.ORDER_CANCELLED);
+        notification.setTitle("Đơn hàng đã bị hủy");
+        notification.setMessage(message);
+        notification.setRelatedEntityId(orderId);
+        notification.setRelatedEntityType(RelatedEntityType.CUSTOM_ORDER);
+        notification.setActionType(NotificationAction.VIEW_ORDER);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.HIGH);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(artisanId, "/notifications", mapToResponse(notification));
+        
+        log.info("Sent customer cancellation notification to artisan {}: orderId={}, grossRefund={}, commission={}, netRefund={}", 
+            artisanId, orderId, grossRefund, platformCommission, netRefund);
+    }
+    
+    @Override
+    @Transactional
+    public void notifyCustomerOfArtisanCancellation(UUID customerId, UUID orderId, String artisanName, 
+                                                   String reason, BigDecimal netRefund) {
+        Account customer = accountRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+        
+        String metadata = String.format("orderId=%s;artisanName=%s;netRefund=%s;reason=%s", 
+            orderId, artisanName, netRefund, reason != null ? reason : "");
+        
+        String message = String.format(
+            "Nghệ nhân %s đã hủy đơn hàng. Bạn sẽ được hoàn trả: %,d VNĐ (sau khi trừ phí sàn).",
+            artisanName, netRefund.longValue()
+        );
+        
+        if (reason != null && !reason.trim().isEmpty()) {
+            message += " Lý do: " + reason;
+        }
+        
+        Notification notification = new Notification();
+        notification.setRecipient(customer);
+        notification.setType(NotificationType.ORDER_CANCELLED);
+        notification.setTitle("Đơn hàng đã bị hủy");
+        notification.setMessage(message);
+        notification.setRelatedEntityId(orderId);
+        notification.setRelatedEntityType(RelatedEntityType.CUSTOM_ORDER);
+        notification.setActionType(NotificationAction.VIEW_ORDER);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.HIGH);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(customerId, "/notifications", mapToResponse(notification));
+        
+        log.info("Sent artisan cancellation notification to customer {}: orderId={}, netRefund={}", 
+            customerId, orderId, netRefund);
+    }
+    
+    @Override
+    @Transactional
+    public void notifyCustomerOfRefundCompletion(UUID customerId, UUID orderId, BigDecimal netRefund, 
+                                                String vnpayTransactionNo) {
+        Account customer = accountRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+        
+        String metadata = String.format("orderId=%s;netRefund=%s;vnpayTransactionNo=%s;timeline=3-7 days", 
+            orderId, netRefund, vnpayTransactionNo != null ? vnpayTransactionNo : "");
+        
+        String message = String.format(
+            "Hoàn tiền %,d VNĐ (sau khi trừ phí sàn) đã được xử lý thành công. Số tiền sẽ được chuyển về tài khoản ngân hàng của bạn trong vòng 3-7 ngày làm việc.",
+            netRefund.longValue()
+        );
+        
+        if (vnpayTransactionNo != null && !vnpayTransactionNo.trim().isEmpty()) {
+            message += " Mã giao dịch VNPay: " + vnpayTransactionNo;
+        }
+        
+        Notification notification = new Notification();
+        notification.setRecipient(customer);
+        notification.setType(NotificationType.REFUND_COMPLETED);
+        notification.setTitle("Hoàn tiền hoàn tất");
+        notification.setMessage(message);
+        notification.setRelatedEntityId(orderId);
+        notification.setRelatedEntityType(RelatedEntityType.CUSTOM_ORDER);
+        notification.setActionType(NotificationAction.VIEW_ORDER);
+        notification.setActionRequired(false);
+        notification.setPriority(NotificationPriority.HIGH);
+        notification.setMetadata(metadata);
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(customerId, "/notifications", mapToResponse(notification));
+        
+        log.info("Sent refund completion notification to customer {}: orderId={}, netRefund={}, vnpayTxNo={}", 
+            customerId, orderId, netRefund, vnpayTransactionNo);
+    }
+    
+    @Override
+    @Transactional
+    public void notifyAdminOfInsuranceFundUsage(UUID orderId, UUID artisanId, String artisanName, 
+                                               BigDecimal shortfallAmount, String artisanCccd, 
+                                               String artisanPhone, String artisanAddress) {
+        // Get all admin accounts
+        List<Account> admins = accountRepository.findByRole_Name("ADMIN");
+        
+        String metadata = String.format("orderId=%s;artisanId=%s;artisanName=%s;shortfallAmount=%s;artisanCccd=%s;artisanPhone=%s;artisanAddress=%s", 
+            orderId, artisanId, artisanName, shortfallAmount, 
+            artisanCccd != null ? artisanCccd : "", 
+            artisanPhone != null ? artisanPhone : "",
+            artisanAddress != null ? artisanAddress : "");
+        
+        String message = String.format(
+            "Quỹ bảo hiểm đã được sử dụng để bù %,d VNĐ cho đơn hàng bị hủy. " +
+            "Nghệ nhân: %s (CCCD: %s, SĐT: %s). Cần truy thu offline.",
+            shortfallAmount.longValue(),
+            artisanName,
+            artisanCccd != null ? artisanCccd : "N/A",
+            artisanPhone != null ? artisanPhone : "N/A"
+        );
+        
+        for (Account admin : admins) {
+            Notification notification = new Notification();
+            notification.setRecipient(admin);
+            notification.setType(NotificationType.INSURANCE_FUND_USED);
+            notification.setTitle("Quỹ bảo hiểm đã được sử dụng");
+            notification.setMessage(message);
+            notification.setRelatedEntityId(orderId);
+            notification.setRelatedEntityType(RelatedEntityType.CUSTOM_ORDER);
+            notification.setActionType(NotificationAction.VIEW_REQUEST);
+            notification.setActionRequired(true);
+            notification.setActionCompleted(false);
+            notification.setPriority(NotificationPriority.URGENT);
+            notification.setMetadata(metadata);
+            
+            notification = notificationRepository.save(notification);
+            sendRealTimeNotification(admin.getAccountId(), "/notifications", mapToResponse(notification));
+        }
+        
+        log.warn("Sent insurance fund usage notification to {} admins: orderId={}, artisanId={}, shortfall={}", 
+            admins.size(), orderId, artisanId, shortfallAmount);
+    }
+    
     @Override
     @Transactional
     public void completeNotificationAction(UUID notificationId, UUID userId) {

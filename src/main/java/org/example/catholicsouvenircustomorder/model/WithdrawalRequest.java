@@ -37,6 +37,9 @@ public class WithdrawalRequest {
     @Column(nullable = false, length = 255)
     private String bankAccountName;
     
+    // Withdrawal reason
+    private String reason;
+    
     // Processing information
     @ManyToOne
     @JoinColumn(name = "processed_by")

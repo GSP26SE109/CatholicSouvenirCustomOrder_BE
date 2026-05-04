@@ -10,5 +10,7 @@ public enum CustomOrderStatus {
     DELIVERED,         // Đã giao hàng (chờ customer xác nhận)
     COMPLETED,         // Hoàn thành (customer đã xác nhận)
     CANCELLED,         // Đã hủy
+    CANCELLED_BY_CUSTOMER, // Đã hủy bởi Customer
+    CANCELLED_BY_ARTISAN,  // Đã hủy bởi Artisan
     REFUNDED           // Đã hoàn tiền
 }

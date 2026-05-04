@@ -274,8 +274,13 @@ public class WalletServiceImp implements WalletService {
         // Calculate artisan net amount (after commission deduction)
         BigDecimal artisanNetAmount = artisanAmountBeforeCommission.subtract(commissionFee);
         
-        log.info("Distributing stage payment {} with commission: Total={}, PlatformFee={}, Commission={}, ArtisanNet={}", 
-                stagePayment.getPaymentId(), totalAmount, platformFee, commissionFee, artisanNetAmount);
+        // Calculate 70/30 split for partial withdrawal
+        BigDecimal lockedPercentage = new BigDecimal("0.30");
+        BigDecimal lockedAmount = artisanNetAmount.multiply(lockedPercentage)
+                .setScale(2, RoundingMode.HALF_UP);
+        
+        log.info("Distributing stage payment {} with commission and 70/30 split: Total={}, PlatformFee={}, Commission={}, ArtisanNet={}, Locked30%={}", 
+                stagePayment.getPaymentId(), totalAmount, platformFee, commissionFee, artisanNetAmount, lockedAmount);
         
         // Get stage ID safely
         UUID stageId = null;
@@ -289,15 +294,17 @@ public class WalletServiceImp implements WalletService {
         
         String stageIdStr = stageId != null ? stageId.toString() : "unknown";
         
-        // 1. Deposit NET AMOUNT to artisan wallet (90% - commission)
-        WalletTransaction artisanTransaction = depositToWallet(artisan.getAccount(), artisanNetAmount, WalletTransactionType.DEPOSIT, null, stagePayment,
-                "Nạp tiền từ custom order stage #" + stageIdStr, commissionFee, commissionRate);
+        // 1. Deposit NET AMOUNT to artisan wallet (90% - commission) and lock 30%
+        WalletTransaction artisanTransaction = depositToWalletWithLock(artisan.getAccount(), artisanNetAmount, lockedAmount, 
+                WalletTransactionType.DEPOSIT, null, stagePayment,
+                "Nạp tiền từ custom order stage #" + stageIdStr + " (70% available, 30% locked)", 
+                commissionFee, commissionRate);
         
         // 2. Collect platform fee to admin wallet (10%)
         depositToWallet(platformAdmin, platformFee, WalletTransactionType.PLATFORM_FEE, null, stagePayment,
                 "Phí sàn 10% từ custom order stage #" + stageIdStr, BigDecimal.ZERO, null);
         
-        log.info("Stage payment distribution with commission completed for stage: {}", stageIdStr);
+        log.info("Stage payment distribution with commission and 70/30 split completed for stage: {}", stageIdStr);
         
         return artisanTransaction;
     }
@@ -339,6 +346,55 @@ public class WalletServiceImp implements WalletService {
         
         log.info("Deposited {} to wallet {}: {} -> {}", amount, wallet.getWalletId(), 
                 balanceBefore, balanceAfter);
+        
+        return transaction;
+    }
+    
+    /**
+     * Internal method to deposit money to wallet with locked balance (70/30 split)
+     */
+    private WalletTransaction depositToWalletWithLock(Account account, BigDecimal amount, BigDecimal lockedAmount,
+                                  WalletTransactionType type, Payment payment, StagePayment stagePayment, 
+                                  String description, BigDecimal commissionFee, BigDecimal commissionRate) {
+        Wallet wallet = getOrCreateWallet(account);
+        
+        BigDecimal balanceBefore = wallet.getBalance();
+        BigDecimal lockedBalanceBefore = wallet.getLockedBalance();
+        
+        // Add full amount to balance
+        BigDecimal balanceAfter = balanceBefore.add(amount);
+        
+        // Add locked amount to lockedBalance
+        BigDecimal lockedBalanceAfter = lockedBalanceBefore.add(lockedAmount);
+        
+        // Update wallet
+        wallet.setBalance(balanceAfter);
+        wallet.setLockedBalance(lockedBalanceAfter);
+        walletRepository.save(wallet);
+        
+        // Create transaction record
+        WalletTransaction transaction = new WalletTransaction();
+        transaction.setWallet(wallet);
+        transaction.setType(type);
+        transaction.setAmount(amount);
+        transaction.setBalanceBefore(balanceBefore);
+        transaction.setBalanceAfter(balanceAfter);
+        transaction.setPayment(payment);
+        transaction.setStagePayment(stagePayment);
+        transaction.setDescription(description);
+        
+        // Apply commission if provided
+        if (commissionFee != null && commissionFee.compareTo(BigDecimal.ZERO) > 0) {
+            transaction.setCommissionFee(commissionFee);
+            transaction.setCommissionRate(commissionRate);
+            log.info("Commission applied to transaction: fee={}, rate={}%", commissionFee, commissionRate);
+        }
+        
+        transaction = walletTransactionRepository.save(transaction);
+        
+        log.info("Deposited {} to wallet {} with {} locked: balance {} -> {}, lockedBalance {} -> {}", 
+                amount, wallet.getWalletId(), lockedAmount, balanceBefore, balanceAfter, 
+                lockedBalanceBefore, lockedBalanceAfter);
         
         return transaction;
     }

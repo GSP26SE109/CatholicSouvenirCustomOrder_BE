@@ -18,6 +18,8 @@ public class WalletResponse {
     private UUID accountId;
     private String accountName;
     private BigDecimal balance;
+    private BigDecimal availableBalance;
+    private BigDecimal lockedBalance;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

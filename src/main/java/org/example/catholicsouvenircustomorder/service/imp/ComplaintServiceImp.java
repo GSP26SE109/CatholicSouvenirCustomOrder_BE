@@ -1,5 +1,6 @@
 package org.example.catholicsouvenircustomorder.service.imp;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.dto.request.Complaint.ApproveComplaintRequest;
@@ -13,9 +14,17 @@ import org.example.catholicsouvenircustomorder.exception.NotFoundException;
 import org.example.catholicsouvenircustomorder.exception.UnauthorizedException;
 import org.example.catholicsouvenircustomorder.model.*;
 import org.example.catholicsouvenircustomorder.repository.*;
+import org.example.catholicsouvenircustomorder.service.CancellationService;
 import org.example.catholicsouvenircustomorder.service.ComplaintService;
 import org.example.catholicsouvenircustomorder.service.NotificationService;
+import org.example.catholicsouvenircustomorder.service.OfflineRecoveryService;
+import org.example.catholicsouvenircustomorder.service.RefundCalculationService;
 import org.example.catholicsouvenircustomorder.service.RefundService;
+import org.example.catholicsouvenircustomorder.util.VNPayUtil;
+import org.example.catholicsouvenircustomorder.util.VNPayErrorMapper;
+import org.example.catholicsouvenircustomorder.dto.response.VNPayRefundResponse;
+import org.example.catholicsouvenircustomorder.dto.response.StageRefundCalculation;
+import org.example.catholicsouvenircustomorder.exception.RefundProcessingException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -39,8 +50,15 @@ public class ComplaintServiceImp implements ComplaintService {
     private final CustomOrderRepository customOrderRepository;
     private final AccountRepository accountRepository;
     private final ArtisanRepository artisanRepository;
+    private final WalletRepository walletRepository;
+    private final RefundTransactionRepository refundTransactionRepository;
     private final NotificationService notificationService;
     private final RefundService refundService;
+    private final CancellationService cancellationService;
+    private final RefundCalculationService refundCalculationService;
+    private final OfflineRecoveryService offlineRecoveryService;
+    private final StagePaymentRepository stagePaymentRepository;
+    private final VNPayUtil vnPayUtil;
     
     /**
      * Create a new complaint for an order
@@ -118,6 +136,7 @@ public class ComplaintServiceImp implements ComplaintService {
         complaint.setReason(request.getReason());
         complaint.setEvidenceImages(request.getEvidenceImages());
         complaint.setStatus(ComplaintStatus.PENDING);
+        complaint.setWithdrawalFrozen(true); // Freeze withdrawals when complaint is created
         complaint.setCreatedAt(LocalDateTime.now());
         
         complaint = complaintRepository.save(complaint);
@@ -236,14 +255,32 @@ public class ComplaintServiceImp implements ComplaintService {
             complaint = complaintRepository.save(complaint);
             
             try {
-                // Process refund via VNPay
-                RefundTransaction refundTransaction = refundService.processRefund(
-                    complaint, 
-                    request.getRefundAmount()
-                );
+                RefundTransaction refundTransaction;
                 
-                // Update complaint status to APPROVED
+                // Check if this is a custom order - use custom refund calculation
+                if (complaint.getCustomOrder() != null) {
+                    log.info("Processing custom order complaint refund with platform commission");
+                    
+                    // Calculate and process refund with platform commission
+                    refundTransaction = processCustomOrderComplaintRefund(
+                        complaint,
+                        request.getRefundAmount()
+                    );
+                    
+                    // Process VNPay refund for custom order
+                    processVNPayRefundForComplaint(refundTransaction, complaint.getCustomOrder());
+                } else {
+                    // Regular order - use existing RefundService (handles VNPay internally)
+                    log.info("Processing regular order complaint refund using RefundService");
+                    refundTransaction = refundService.processRefund(
+                        complaint, 
+                        request.getRefundAmount()
+                    );
+                }
+                
+                // Update complaint status to APPROVED and unfreeze withdrawals
                 complaint.setStatus(ComplaintStatus.APPROVED);
+                complaint.setWithdrawalFrozen(false); // Unfreeze withdrawals after refund
                 complaint = complaintRepository.save(complaint);
                 
                 log.info("Complaint approved and VNPay refund processed: {}", complaintId);
@@ -378,6 +415,7 @@ public class ComplaintServiceImp implements ComplaintService {
         complaint.setReviewedBy(admin);
         complaint.setReviewedAt(LocalDateTime.now());
         complaint.setStatus(ComplaintStatus.REJECTED);
+        complaint.setWithdrawalFrozen(false); // Unfreeze withdrawals when rejected
         
         complaint = complaintRepository.save(complaint);
         
@@ -516,6 +554,238 @@ public class ComplaintServiceImp implements ComplaintService {
     }
     
     // ==================== Helper Methods ====================
+    
+    /**
+     * Process custom order complaint refund using cancellation logic
+     * Uses same refund calculation and insurance fund logic as cancellation
+     * Requirements: 4.3, 4.4, 4.5
+     */
+    private RefundTransaction processCustomOrderComplaintRefund(
+        Complaint complaint,
+        BigDecimal adminApprovedAmount
+    ) {
+        CustomOrder customOrder = complaint.getCustomOrder();
+        
+        log.info("Processing custom order complaint refund for order: {}", customOrder.getCustomOrderId());
+        
+        // Calculate refund using same logic as cancellation (100% for all paid stages)
+        List<StageRefundCalculation> stageRefunds = refundCalculationService
+            .calculateStageRefunds(customOrder, CancellationInitiator.CUSTOMER);
+        
+        BigDecimal calculatedRefundAmount = stageRefunds.stream()
+            .map(StageRefundCalculation::getNetRefund)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal platformCommission = stageRefunds.stream()
+            .map(StageRefundCalculation::getPlatformCommission)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        log.info("Calculated refund amount: {} VND, Platform commission: {} VND, Admin approved: {} VND", 
+            calculatedRefundAmount, platformCommission, adminApprovedAmount);
+        
+        // Use the admin approved amount (which should not exceed calculated amount)
+        BigDecimal finalRefundAmount = adminApprovedAmount;
+        
+        // Get artisan wallet and check available balance
+        Wallet artisanWallet = walletRepository.findByAccount(customOrder.getArtisan().getAccount())
+            .orElseThrow(() -> new NotFoundException("Artisan wallet not found"));
+        
+        BigDecimal availableBalance = artisanWallet.getAvailableBalance();
+        
+        log.info("Artisan available balance: {} VND, Required refund: {} VND", 
+            availableBalance, finalRefundAmount);
+        
+        // Check if artisan has sufficient balance
+        if (availableBalance.compareTo(finalRefundAmount) < 0) {
+            log.error("Insufficient balance for complaint refund: available={}, required={}", 
+                availableBalance, finalRefundAmount);
+            
+            // Create offline recovery task
+            offlineRecoveryService.createRecoveryTask(
+                customOrder,
+                finalRefundAmount,
+                "Complaint refund - Artisan insufficient balance"
+            );
+            
+            throw new InsufficientBalanceException(
+                String.format("Artisan không đủ số dư để hoàn tiền. Cần: %s VND, Có: %s VND. " +
+                    "Đã tạo task offline recovery.",
+                    finalRefundAmount, availableBalance)
+            );
+        }
+        
+        // Deduct from artisan wallet
+        artisanWallet.setBalance(artisanWallet.getBalance().subtract(finalRefundAmount));
+        walletRepository.save(artisanWallet);
+        
+        log.info("Deducted {} VND from artisan wallet for complaint refund", finalRefundAmount);
+        
+        // Create RefundTransaction record
+        RefundTransaction refundTransaction = new RefundTransaction();
+        refundTransaction.setCustomOrder(customOrder);
+        refundTransaction.setRefundSource(RefundSource.COMPLAINT);
+        refundTransaction.setComplaint(complaint);
+        refundTransaction.setAmount(finalRefundAmount.add(platformCommission)); // Gross amount
+        refundTransaction.setPlatformCommissionAmount(platformCommission);
+        refundTransaction.setNetRefundAmount(finalRefundAmount);
+        refundTransaction.setFromWallet(artisanWallet);
+        refundTransaction.setStatus(RefundStatus.PENDING);
+        
+        // Store calculation details
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            String calculationJson = objectMapper.writeValueAsString(stageRefunds);
+            refundTransaction.setCalculationDetails(calculationJson);
+        } catch (Exception e) {
+            log.error("Failed to serialize refund calculation details", e);
+        }
+        
+        refundTransaction = refundTransactionRepository.save(refundTransaction);
+        
+        log.info("Custom order complaint refund transaction created: {}", 
+            refundTransaction.getRefundTransactionId());
+        
+        return refundTransaction;
+    }
+    
+    /**
+     * Process VNPay refund for custom order complaint
+     * Similar to CancellationService.processVNPayRefund() but for complaints
+     * Requirements: 4.3, 4.4, 4.5
+     */
+    private void processVNPayRefundForComplaint(RefundTransaction refundTransaction, CustomOrder order) {
+        log.info("Processing VNPay refund for complaint refund transaction {}", 
+            refundTransaction.getRefundTransactionId());
+        
+        // Get all paid stages
+        List<CustomOrderStage> paidStages = order.getStages().stream()
+            .filter(CustomOrderStage::getIsPaid)
+            .toList();
+        
+        if (paidStages.isEmpty()) {
+            log.warn("No paid stages found for order {}", order.getCustomOrderId());
+            refundTransaction.setStatus(RefundStatus.FAILED);
+            refundTransaction.setFailureReason("Không có stage nào đã thanh toán");
+            refundTransactionRepository.save(refundTransaction);
+            throw new RefundProcessingException("Không có stage nào đã thanh toán", 
+                RefundProcessingException.PAYMENT_NOT_FOUND);
+        }
+        
+        // Calculate total refund amount and proportional amounts per stage
+        BigDecimal totalRefundAmount = refundTransaction.getNetRefundAmount();
+        BigDecimal totalPaidAmount = paidStages.stream()
+            .map(CustomOrderStage::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        log.info("Total paid amount: {}, Total refund amount: {}", totalPaidAmount, totalRefundAmount);
+        
+        List<String> vnpayRefundIds = new ArrayList<>();
+        List<String> failureReasons = new ArrayList<>();
+        int successCount = 0;
+        int failCount = 0;
+        
+        // Process refund for each paid stage
+        for (CustomOrderStage stage : paidStages) {
+            try {
+                // Find the successful payment for this stage
+                StagePayment stagePayment = stagePaymentRepository
+                    .findFirstByStage_StageIdAndStatusOrderByPaidAtDesc(
+                        stage.getStageId(), 
+                        PaymentStatus.SUCCESS
+                    )
+                    .orElseThrow(() -> new NotFoundException(
+                        "Không tìm thấy thanh toán thành công cho stage " + stage.getName()
+                    ));
+                
+                // Calculate proportional refund for this stage
+                BigDecimal stageRefundAmount = calculateProportionalRefund(
+                    stage.getAmount(),
+                    totalRefundAmount,
+                    totalPaidAmount
+                );
+                
+                log.info("Processing refund for stage {}: {} VND (from original {})", 
+                    stage.getName(), stageRefundAmount, stage.getAmount());
+                
+                // Call VNPay refund API
+                VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
+                    stagePayment.getTransactionId(),
+                    stageRefundAmount,
+                    "Hoàn tiền khiếu nại #" + refundTransaction.getComplaint().getComplaintId()
+                );
+                
+                // Check VNPay response
+                if (!VNPayErrorMapper.isSuccess(vnpayResponse.getResponseCode())) {
+                    String errorMsg = String.format("VNPay từ chối hoàn tiền stage %s. Mã lỗi: %s - %s",
+                        stage.getName(), vnpayResponse.getResponseCode(), vnpayResponse.getMessage());
+                    log.error(errorMsg);
+                    failureReasons.add(errorMsg);
+                    failCount++;
+                    continue;
+                }
+                
+                // Store VNPay refund ID
+                vnpayRefundIds.add(vnpayResponse.getVnpayRefundId());
+                successCount++;
+                
+                // Store the first refund ID as primary
+                if (refundTransaction.getVnpayRefundId() == null) {
+                    refundTransaction.setVnpayRefundId(vnpayResponse.getVnpayRefundId());
+                    refundTransaction.setVnpayTransactionNo(vnpayResponse.getVnpayTransactionNo());
+                    refundTransaction.setOriginalPaymentId(stagePayment.getPaymentId());
+                }
+                
+                log.info("Stage refund successful. VNPay Refund ID: {}", vnpayResponse.getVnpayRefundId());
+                
+            } catch (Exception e) {
+                String errorMsg = String.format("Lỗi khi hoàn tiền stage %s: %s", 
+                    stage.getName(), e.getMessage());
+                log.error(errorMsg, e);
+                failureReasons.add(errorMsg);
+                failCount++;
+            }
+        }
+        
+        // Update refund transaction status based on results
+        if (failCount == 0) {
+            refundTransaction.setStatus(RefundStatus.PROCESSING);
+            log.info("All stage refunds initiated successfully");
+        } else if (successCount > 0) {
+            refundTransaction.setStatus(RefundStatus.PARTIALLY_REFUNDED);
+            refundTransaction.setFailureReason(String.join("; ", failureReasons));
+            log.warn("Partial refund: {} succeeded, {} failed", successCount, failCount);
+        } else {
+            refundTransaction.setStatus(RefundStatus.FAILED);
+            refundTransaction.setFailureReason(String.join("; ", failureReasons));
+            log.error("All stage refunds failed");
+            throw new RefundProcessingException("Tất cả stage refunds thất bại: " + String.join("; ", failureReasons),
+                RefundProcessingException.PARTIAL_REFUND_FAILURE);
+        }
+        
+        refundTransactionRepository.save(refundTransaction);
+        
+        log.info("VNPay refund processing completed. Success: {}, Failed: {}", successCount, failCount);
+    }
+    
+    /**
+     * Calculate proportional refund amount for a stage
+     */
+    private BigDecimal calculateProportionalRefund(
+        BigDecimal stageAmount,
+        BigDecimal totalRefundAmount,
+        BigDecimal totalPaidAmount
+    ) {
+        if (totalPaidAmount.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+        
+        // Calculate proportion: (stageAmount / totalPaidAmount) * totalRefundAmount
+        BigDecimal proportion = stageAmount.divide(totalPaidAmount, 10, java.math.RoundingMode.HALF_UP);
+        BigDecimal refundAmount = proportion.multiply(totalRefundAmount);
+        
+        // Round to 2 decimal places
+        return refundAmount.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
     
     /**
      * Calculate max refund amount (90% of order total)

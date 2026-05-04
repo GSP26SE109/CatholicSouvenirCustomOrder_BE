@@ -5,5 +5,6 @@ public enum RefundStatus {
     PROCESSING,          // Đã gửi yêu cầu hoàn tiền VNPay
     COMPLETED,           // Hoàn thành
     FAILED,              // Thất bại
-    PARTIALLY_REFUNDED   // Hoàn tiền một phần (cho CustomOrder với nhiều stage payments)
+    PARTIALLY_REFUNDED,  // Hoàn tiền một phần (cho CustomOrder với nhiều stage payments)
+    RECOVERED            // Đã thu hồi tiền từ Artisan (cho insurance fund)
 }

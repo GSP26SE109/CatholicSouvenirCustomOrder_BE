@@ -90,6 +90,10 @@ public class Complaint {
     @OneToMany(mappedBy = "complaint", cascade = CascadeType.ALL)
     private List<Shipment> returnShipments = new ArrayList<>();
     
+    // Withdrawal freeze flag - when true, artisan cannot withdraw funds
+    @Column(name = "withdrawal_frozen", nullable = false)
+    private Boolean withdrawalFrozen = false;
+    
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();

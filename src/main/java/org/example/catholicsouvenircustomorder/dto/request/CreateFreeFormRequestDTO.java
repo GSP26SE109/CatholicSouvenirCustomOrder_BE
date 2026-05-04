@@ -38,8 +38,7 @@ public class CreateFreeFormRequestDTO {
     
     @Builder.Default
     private List<String> referenceImages = new ArrayList<>();
-    
-    @NotBlank(message = "URL ảnh AI concept không được để trống")
+
     private String aiConceptImageUrl;
     
     private String aiImagePrompt;

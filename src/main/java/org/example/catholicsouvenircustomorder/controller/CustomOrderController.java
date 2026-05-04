@@ -1,21 +1,32 @@
 package org.example.catholicsouvenircustomorder.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
+import org.example.catholicsouvenircustomorder.dto.request.CancelOrderRequest;
 import org.example.catholicsouvenircustomorder.dto.request.CreateOrderWithStagesDTO;
 import org.example.catholicsouvenircustomorder.dto.request.InitiatePaymentDTO;
+import org.example.catholicsouvenircustomorder.dto.response.CancelOrderResponse;
+import org.example.catholicsouvenircustomorder.dto.response.CancellationEstimate;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderDetailResponse;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderResponse;
 import org.example.catholicsouvenircustomorder.dto.response.CustomOrderStageResponse;
 import org.example.catholicsouvenircustomorder.dto.response.PaymentInitiationResponse;
+import org.example.catholicsouvenircustomorder.dto.response.StageRefundCalculation;
 
+import java.util.ArrayList;
 import java.util.List;
+import org.example.catholicsouvenircustomorder.exception.InsufficientBalanceException;
+import org.example.catholicsouvenircustomorder.model.CancellationInitiator;
 import org.example.catholicsouvenircustomorder.model.CustomOrderStatus;
 import org.example.catholicsouvenircustomorder.model.PaymentMethod;
+import org.example.catholicsouvenircustomorder.model.RefundTransaction;
+import org.example.catholicsouvenircustomorder.service.CancellationService;
 import org.example.catholicsouvenircustomorder.service.CustomOrderService;
 import org.example.catholicsouvenircustomorder.service.PaymentService;
+import org.example.catholicsouvenircustomorder.service.RefundCalculationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -39,6 +50,9 @@ public class CustomOrderController {
     
     private final CustomOrderService customOrderService;
     private final PaymentService paymentService;
+    private final RefundCalculationService refundCalculationService;
+    private final CancellationService cancellationService;
+    private final ObjectMapper objectMapper;
     
     // ==================== COMMON ENDPOINTS ====================
     
@@ -176,22 +190,89 @@ public class CustomOrderController {
     
     /**
      * Cancel custom order (Customer or Artisan)
-     * POST /api/custom-orders/{id}/cancel
-     * Requirements: 8.5
+     * POST /api/custom-orders/{orderId}/cancel
+     * Requirements: 10.1, 10.2, 10.3, 10.4, 10.5
      */
-    @PostMapping("/{id}/cancel")
+    @PostMapping("/{orderId}/cancel")
     @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
     public ResponseEntity<BaseResponse> cancelOrder(
-            @PathVariable UUID id,
-            @RequestParam(required = false) String reason,
+            @PathVariable UUID orderId,
+            @Valid @RequestBody CancelOrderRequest request,
             Authentication authentication) {
         UUID userId = (UUID) authentication.getPrincipal();
-        log.info("User {} canceling order {} with reason: {}", userId, id, reason);
+        String role = authentication.getAuthorities().iterator().next().getAuthority();
         
-        CustomOrderResponse response = customOrderService.cancelOrder(id, userId, reason);
-        return ResponseEntity.ok(BaseResponse.success("Hủy đơn hàng thành công", response));
+        log.info("User {} ({}) canceling order {} with reason: {}", userId, role, orderId, request.getReason());
+        
+        // Verify ownership first
+        CustomOrderDetailResponse order = customOrderService.getOrderDetail(orderId);
+        boolean isCustomer = order.getCustomerId().equals(userId);
+        boolean isArtisan = order.getArtisanId().equals(userId);
+        
+        if (!isCustomer && !isArtisan) {
+            return ResponseEntity.status(403)
+                    .body(BaseResponse.error(403, "Bạn không có quyền hủy đơn hàng này"));
+        }
+        
+        // Determine initiator based on role
+        CancellationInitiator initiator = "CUSTOMER".equals(role) 
+            ? CancellationInitiator.CUSTOMER 
+            : CancellationInitiator.ARTISAN;
+        
+        try {
+            // Call CancellationService.cancelOrder()
+            RefundTransaction refundTransaction = cancellationService.cancelOrder(
+                orderId,
+                userId,
+                initiator,
+                request.getReason()
+            );
+            
+            // Parse calculation details JSON to get stage breakdown
+            List<StageRefundCalculation> stageBreakdown = parseCalculationDetails(
+                refundTransaction.getCalculationDetails()
+            );
+            
+            // Build response
+            CancelOrderResponse response = new CancelOrderResponse(
+                refundTransaction.getRefundTransactionId(),
+                refundTransaction.getAmount(),
+                refundTransaction.getPlatformCommissionAmount(),
+                refundTransaction.getNetRefundAmount(),
+                stageBreakdown,
+                refundTransaction.getStatus().name()
+            );
+            
+            return ResponseEntity.ok(BaseResponse.success("Hủy đơn hàng thành công", response));
+            
+        } catch (InsufficientBalanceException e) {
+            log.error("Insufficient balance for cancellation: {}", e.getMessage());
+            return ResponseEntity.status(400)
+                    .body(BaseResponse.error(400, e.getMessage()));
+        }
     }
     
+    /**
+     * Parse calculation details JSON string to StageRefundCalculation list
+     */
+    private List<StageRefundCalculation> parseCalculationDetails(String calculationDetailsJson) {
+        try {
+            if (calculationDetailsJson == null || calculationDetailsJson.isEmpty()) {
+                return new ArrayList<>();
+            }
+            
+            return objectMapper.readValue(
+                calculationDetailsJson,
+                objectMapper.getTypeFactory().constructCollectionType(
+                    List.class, 
+                    StageRefundCalculation.class
+                )
+            );
+        } catch (Exception e) {
+            log.error("Failed to parse calculation details: {}", e.getMessage());
+            return new ArrayList<>();
+        }
+    }
     /**
      * Get stages of a custom order
      * GET /api/custom-orders/{orderId}/stages
@@ -236,6 +317,41 @@ public class CustomOrderController {
         
         CustomOrderResponse response = customOrderService.confirmOrder(orderId, customerId);
         return ResponseEntity.ok(BaseResponse.success("Xác nhận đơn hàng thành công. Bạn có thể bắt đầu thanh toán giai đoạn đầu tiên.", response));
+    }
+    
+    /**
+     * Get refund estimate for order cancellation
+     * GET /api/custom-orders/{orderId}/refund-estimate
+     * Requirements: 7.5
+     */
+    @GetMapping("/{orderId}/refund-estimate")
+    @PreAuthorize("hasAnyAuthority('CUSTOMER', 'ARTISAN')")
+    public ResponseEntity<BaseResponse> getRefundEstimate(
+            @PathVariable UUID orderId,
+            Authentication authentication) {
+        UUID userId = (UUID) authentication.getPrincipal();
+        String role = authentication.getAuthorities().iterator().next().getAuthority();
+        
+        log.info("User {} ({}) requesting refund estimate for order {}", userId, role, orderId);
+        
+        // Verify ownership first
+        CustomOrderDetailResponse order = customOrderService.getOrderDetail(orderId);
+        boolean isCustomer = order.getCustomerId().equals(userId);
+        boolean isArtisan = order.getArtisanId().equals(userId);
+        
+        if (!isCustomer && !isArtisan) {
+            return ResponseEntity.status(403)
+                    .body(BaseResponse.error(403, "Bạn không có quyền xem ước tính hoàn tiền cho đơn hàng này"));
+        }
+        
+        // Determine initiator based on role
+        CancellationInitiator initiator = "CUSTOMER".equals(role) 
+            ? CancellationInitiator.CUSTOMER 
+            : CancellationInitiator.ARTISAN;
+        
+        CancellationEstimate estimate = refundCalculationService.calculateRefundEstimate(orderId, initiator);
+        
+        return ResponseEntity.ok(BaseResponse.success("Tính toán ước tính hoàn tiền thành công", estimate));
     }
     
     /**

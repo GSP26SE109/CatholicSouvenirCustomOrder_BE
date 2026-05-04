@@ -55,6 +55,23 @@ public class CustomOrderStageController {
      * Use GET /api/custom-orders/{orderId}/stages instead
      */
     
+    @PutMapping("/stages/{stageId}/start")
+    @PreAuthorize("hasAuthority('ARTISAN')")
+    public ResponseEntity<BaseResponse<CustomOrderStageResponse>> startStage(
+            @PathVariable UUID stageId,
+            @AuthenticationPrincipal UUID artisanId) {
+        
+        log.info("PUT /api/stages/{}/start - Artisan: {}", stageId, artisanId);
+        
+        CustomOrderStageResponse response = stageService.startStage(stageId, artisanId);
+        
+        return ResponseEntity.ok(BaseResponse.<CustomOrderStageResponse>builder()
+                .code(HttpStatus.OK.value())
+                .message("Đã bắt đầu thực hiện giai đoạn")
+                .data(response)
+                .build());
+    }
+    
     @PutMapping("/stages/{stageId}/complete")
     @PreAuthorize("hasAuthority('ARTISAN')")
     public ResponseEntity<BaseResponse<CustomOrderStageResponse>> completeStage(

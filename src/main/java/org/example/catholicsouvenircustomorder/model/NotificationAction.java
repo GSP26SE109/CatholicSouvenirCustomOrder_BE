@@ -21,6 +21,9 @@ public enum NotificationAction {
     // Wallet Actions
     VIEW_WALLET_TRANSACTION, // View wallet transaction details
     
+    // Recovery Actions
+    REVIEW_RECOVERY,         // Admin reviews offline recovery task
+    
     // General Actions
     VIEW_NOTIFICATION        // View notification details
 }

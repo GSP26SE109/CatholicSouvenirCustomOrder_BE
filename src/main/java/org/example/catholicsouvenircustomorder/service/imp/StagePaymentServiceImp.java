@@ -412,14 +412,15 @@ public class StagePaymentServiceImp implements StagePaymentService {
     }
     
     /**
-     * Distribute stage payment with commission deduction
+     * Distribute stage payment with commission deduction and 70/30 split
      * This method handles the wallet distribution after commission calculation
+     * 70% is immediately available for withdrawal, 30% is locked until stage completion + 3 days
      */
     private WalletTransaction distributeStagePaymentWithCommission(StagePayment stagePayment, 
                                                      Artisan artisan, 
                                                      Account platformAdmin,
                                                      CommissionCalculation calc) {
-        // Use the new wallet service method that supports commission
+        // Use the new wallet service method that supports commission and 70/30 split
         WalletTransaction walletTx = walletService.processStagePaymentDistributionWithCommission(
             stagePayment, 
             artisan, 
@@ -428,7 +429,7 @@ public class StagePaymentServiceImp implements StagePaymentService {
             stagePayment.getCommissionRate()
         );
         
-        log.info("Stage payment distribution completed with commission tracking: Original={}, Commission={}, Net={}", 
+        log.info("Stage payment distribution completed with commission tracking and 70/30 split: Original={}, Commission={}, Net={}, Available=70%, Locked=30%", 
                 calc.getOriginalAmount(), calc.getCommissionAmount(), calc.getNetAmount());
         
         return walletTx;

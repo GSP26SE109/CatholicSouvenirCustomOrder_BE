@@ -15,9 +15,31 @@ public class RefundTransaction {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID refundTransactionId;
     
-    @OneToOne(optional = false)
-    @JoinColumn(name = "complaint_id", unique = true)
+    @OneToOne
+    @JoinColumn(name = "complaint_id")
     private Complaint complaint;
+    
+    @ManyToOne
+    @JoinColumn(name = "custom_order_id")
+    private CustomOrder customOrder;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "refund_source")
+    private RefundSource refundSource;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cancelled_by")
+    private CancellationInitiator cancelledBy;
+
+    
+    @Column(name = "refund_calculation_details", columnDefinition = "TEXT")
+    private String calculationDetails;
+    
+    @Column(name = "platform_commission_amount", precision = 18, scale = 2)
+    private BigDecimal platformCommissionAmount = BigDecimal.ZERO;
+    
+    @Column(name = "net_refund_amount", precision = 18, scale = 2)
+    private BigDecimal netRefundAmount = BigDecimal.ZERO;
     
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;

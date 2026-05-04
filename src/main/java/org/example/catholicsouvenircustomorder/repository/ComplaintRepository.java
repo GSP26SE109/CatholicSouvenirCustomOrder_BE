@@ -79,4 +79,14 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
            "OR c.customOrder.artisan.artisanUuid = :artisanId)")
     Double getComplaintRate(@Param("artisanId") UUID artisanId, 
                            @Param("totalOrders") Long totalOrders);
+    
+    /**
+     * Check if artisan has any active complaints with withdrawal frozen
+     * Requirements: 4.2
+     */
+    @Query("SELECT CASE WHEN COUNT(c) > 0 THEN true ELSE false END FROM Complaint c " +
+           "WHERE c.artisan.artisanUuid = :artisanId " +
+           "AND c.withdrawalFrozen = true " +
+           "AND c.status IN ('PENDING', 'WAITING_RETURN', 'PROCESSING_REFUND')")
+    boolean hasActiveComplaintWithWithdrawalFrozen(@Param("artisanId") UUID artisanId);
 }

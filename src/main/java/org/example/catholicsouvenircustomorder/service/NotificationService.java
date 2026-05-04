@@ -60,6 +60,18 @@ public interface NotificationService {
     void notifyCustomerRefundCompleted(UUID customerId, UUID complaintId, BigDecimal amount);
     void notifyCustomerRefundFailed(UUID customerId, UUID complaintId, BigDecimal amount, String reason);
     
+    // Cancellation notifications
+    void notifyArtisanOfCustomerCancellation(UUID artisanId, UUID orderId, String customerName, 
+                                            String reason, BigDecimal grossRefund, 
+                                            BigDecimal platformCommission, BigDecimal netRefund);
+    void notifyCustomerOfArtisanCancellation(UUID customerId, UUID orderId, String artisanName, 
+                                            String reason, BigDecimal netRefund);
+    void notifyCustomerOfRefundCompletion(UUID customerId, UUID orderId, BigDecimal netRefund, 
+                                         String vnpayTransactionNo);
+    void notifyAdminOfInsuranceFundUsage(UUID orderId, UUID artisanId, String artisanName, 
+                                        BigDecimal shortfallAmount, String artisanCccd, 
+                                        String artisanPhone, String artisanAddress);
+    
     // Query notifications
     Page<NotificationResponse> getUserNotifications(UUID userId, Pageable pageable);
     Page<NotificationResponse> getUnreadNotifications(UUID userId, Pageable pageable);

@@ -16,6 +16,12 @@ public interface CustomOrderStageService {
     CustomOrderStageResponse getStageById(UUID stageId, UUID userId);
     
     /**
+     * Artisan starts working on a stage
+     * Changes status from PAID to IN_PROGRESS
+     */
+    CustomOrderStageResponse startStage(UUID stageId, UUID artisanId);
+    
+    /**
      * Artisan completes a stage
      * This will unlock the next stage for payment
      */

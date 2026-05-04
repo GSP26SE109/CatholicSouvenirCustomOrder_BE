@@ -6,14 +6,11 @@ import org.example.catholicsouvenircustomorder.dto.response.AIImageResponse;
 import org.example.catholicsouvenircustomorder.model.ProductTemplate;
 import org.example.catholicsouvenircustomorder.model.TemplateCustomZone;
 import org.example.catholicsouvenircustomorder.service.AIImageService;
-import org.example.catholicsouvenircustomorder.service.SupabaseStorageService;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -21,28 +18,14 @@ import java.util.concurrent.CompletableFuture;
 @Service
 @Slf4j
 public class AIImageServiceImp implements AIImageService {
-
-    @Value("${ai.image.provider:huggingface}")
-    private String imageProvider;
     
     @Value("${ai.image.mock-mode:false}")
     private boolean mockMode;
 
-    @Value("${huggingface.api.key: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}")
-    private String huggingfaceApiKey;
+    private final CloudflareProvider cloudflareProvider;
 
-    private final RestTemplate restTemplate;
-    private final SupabaseStorageService supabaseStorageService;
-
-    public AIImageServiceImp(SupabaseStorageService supabaseStorageService) {
-        this.supabaseStorageService = supabaseStorageService;
-        
-        // Configure RestTemplate with longer timeout for AI image generation
-        this.restTemplate = new RestTemplate();
-        this.restTemplate.setRequestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
-            setConnectTimeout(30000); // 30 seconds
-            setReadTimeout(120000);   // 120 seconds (2 minutes) for model loading
-        }});
+    public AIImageServiceImp(CloudflareProvider cloudflareProvider) {
+        this.cloudflareProvider = cloudflareProvider;
     }
 
     @Override
@@ -52,7 +35,6 @@ public class AIImageServiceImp implements AIImageService {
         retryFor = {Exception.class}
     )
     public String generateImage(String prompt) {
-        // Mock mode for testing without AI API
         if (mockMode) {
             log.info("Mock mode enabled, returning placeholder image");
             return generatePlaceholderImage(prompt);
@@ -61,28 +43,18 @@ public class AIImageServiceImp implements AIImageService {
         try {
             String enhancedPrompt = enhancePromptForReligiousArt(prompt);
             
-            if ("huggingface".equalsIgnoreCase(imageProvider)) {
-                String result = generateWithHuggingFace(enhancedPrompt);
-                
-                // If Hugging Face fails, return a placeholder
-                if (result == null) {
-                    log.warn("Hugging Face API unavailable, returning placeholder");
-                    return generatePlaceholderImage(prompt);
-                }
-                
-                return result;
-            } else {
-                log.warn("Unknown image provider: {}, falling back to Hugging Face", imageProvider);
-                String result = generateWithHuggingFace(enhancedPrompt);
-                
-                if (result == null) {
-                    return generatePlaceholderImage(prompt);
-                }
-                
-                return result;
+            log.info("🎨 Using Cloudflare AI to generate image");
+            String result = cloudflareProvider.generateImage(enhancedPrompt);
+            
+            if (result == null) {
+                log.warn("⚠️ Cloudflare API unavailable, returning placeholder");
+                return generatePlaceholderImage(prompt);
             }
+            
+            return result;
+            
         } catch (Exception e) {
-            log.error("Error generating AI image: {}", e.getMessage());
+            log.error("❌ Error generating AI image: {}", e.getMessage());
             return generatePlaceholderImage(prompt);
         }
     }
@@ -136,99 +108,167 @@ public class AIImageServiceImp implements AIImageService {
         return "data:image/svg+xml;base64," + base64Svg;
     }
 
-    private String generateWithHuggingFace(String prompt) {
-        // Debug: Log API key status
-        if (huggingfaceApiKey == null || huggingfaceApiKey.isEmpty()) {
-            log.error("❌ Hugging Face API key not configured!");
-            return null;
-        }
-        
-        log.info("✅ API Key found: {}...", huggingfaceApiKey.substring(0, Math.min(10, huggingfaceApiKey.length())));
 
-        // Use only stable-diffusion-3.5-medium
-        String[] models = {
-            "stabilityai/stable-diffusion-3.5-medium"
-        };
-
-        for (String model : models) {
-            try {
-                log.info("🎨 Attempting to generate image with model: {}", model);
-                String apiUrl = "https://api-inference.huggingface.co/models/" + model;
-                
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-                headers.set("Authorization", "Bearer " + huggingfaceApiKey);
-
-                Map<String, Object> requestBody = new HashMap<>();
-                requestBody.put("inputs", prompt);
-                
-                // Simpler parameters - some models don't support all params
-                Map<String, Object> parameters = new HashMap<>();
-                parameters.put("wait_for_model", true); // Wait if model is loading
-                requestBody.put("parameters", parameters);
-                
-                log.info("📤 Sending request to: {}", apiUrl);
-                log.info("📝 Prompt: {}", prompt);
-
-                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
-                // Increase timeout for model loading
-                restTemplate.getInterceptors().clear();
-                
-                ResponseEntity<byte[]> response = restTemplate.exchange(
-                    apiUrl,
-                    HttpMethod.POST,
-                    entity,
-                    byte[].class
-                );
-
-                log.info("📥 Response status: {}", response.getStatusCode());
-                log.info("📦 Response body size: {} bytes", response.getBody() != null ? response.getBody().length : 0);
-
-                if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                    byte[] imageBytes = response.getBody();
-                    
-                    // Check if response is actually an image (not JSON error)
-                    if (imageBytes.length > 100) {
-                        // Check if it's an error JSON response
-                        String responseStr = new String(imageBytes, 0, Math.min(100, imageBytes.length));
-                        if (responseStr.trim().startsWith("{")) {
-                            log.error("❌ Received JSON error response: {}", responseStr);
-                            continue;
-                        }
-                        
-                        String fileName = "ai_concept_" + System.currentTimeMillis();
-                        String supabaseUrl = supabaseStorageService.uploadImage(imageBytes, fileName);
-                        
-                        if (supabaseUrl != null) {
-                            log.info("✅ Successfully generated and uploaded image to Supabase using model: {}", model);
-                            return supabaseUrl;
-                        } else {
-                            log.warn("⚠️ Failed to upload to Supabase, falling back to base64");
-                            String base64Image = Base64.getEncoder().encodeToString(imageBytes);
-                            return "data:image/png;base64," + base64Image;
-                        }
-                    } else {
-                        log.warn("⚠️ Response too small ({} bytes), likely an error", imageBytes.length);
-                    }
-                }
-
-                log.warn("⚠️ Model {} returned invalid response, trying next model", model);
-
-            } catch (Exception e) {
-                log.error("❌ Failed with model {}: {}", model, e.getMessage());
-                log.error("Stack trace: ", e);
-            }
-        }
-
-        log.error("❌ All Hugging Face models failed to generate image");
-        return null;
-    }
 
     private String enhancePromptForReligiousArt(String originalPrompt) {
-        return "Catholic religious art, traditional style, peaceful and reverent: " + 
-               originalPrompt + 
-               ". High quality craftsmanship, detailed, beautiful, sacred art.";
+        // Only translate Vietnamese to English if needed
+        // Don't add extra context that might override customer's specific requirements
+        String translatedPrompt = translateToEnglishIfNeeded(originalPrompt);
+        
+        // Add minimal context only if prompt is very short (less than 5 words)
+        String[] words = translatedPrompt.trim().split("\\s+");
+        if (words.length < 5) {
+            return "Catholic religious souvenir: " + translatedPrompt;
+        }
+        
+        // For detailed prompts, use as-is to respect customer's specifications
+        return translatedPrompt;
+    }
+    
+    /**
+     * Translate Vietnamese prompt to English for better AI image generation
+     * Uses simple keyword mapping for common Catholic terms
+     */
+    private String translateToEnglishIfNeeded(String prompt) {
+        // Check if prompt contains Vietnamese characters
+        if (!containsVietnamese(prompt)) {
+            return prompt;
+        }
+        
+        log.info("📝 Translating Vietnamese prompt to English");
+        
+        // Common Vietnamese -> English mappings for Catholic items
+        Map<String, String> translations = new HashMap<>();
+        
+        // Religious figures
+        translations.put("đức mẹ", "Virgin Mary");
+        translations.put("đức maria", "Virgin Mary");
+        translations.put("mẹ maria", "Virgin Mary");
+        translations.put("thánh mẫu", "Holy Mother");
+        translations.put("chúa giêsu", "Jesus Christ");
+        translations.put("chúa jesus", "Jesus Christ");
+        translations.put("chúa kitô", "Jesus Christ");
+        translations.put("thánh giuse", "Saint Joseph");
+        translations.put("thánh joseph", "Saint Joseph");
+        translations.put("thánh gioan", "Saint John");
+        translations.put("thánh phêrô", "Saint Peter");
+        translations.put("thánh phaolô", "Saint Paul");
+        
+        // Religious items
+        translations.put("tượng", "statue");
+        translations.put("thánh giá", "crucifix");
+        translations.put("cây thánh giá", "holy cross");
+        translations.put("thánh tích", "relic");
+        translations.put("huy chương", "medal");
+        translations.put("tràng hạt", "rosary");
+        translations.put("chuỗi hạt", "rosary beads");
+        translations.put("nhẫn", "ring");
+        translations.put("dây chuyền", "necklace");
+        translations.put("mặt dây chuyền", "pendant");
+        translations.put("khung ảnh", "picture frame");
+        translations.put("tranh", "painting");
+        
+        // Materials
+        translations.put("gỗ", "wood");
+        translations.put("gỗ sồi", "oak wood");
+        translations.put("gỗ hương", "rosewood");
+        translations.put("đồng", "bronze");
+        translations.put("bạc", "silver");
+        translations.put("vàng", "gold");
+        translations.put("đá", "stone");
+        translations.put("đá cẩm thạch", "marble");
+        translations.put("sứ", "ceramic");
+        translations.put("thủy tinh", "glass");
+        translations.put("pha lê", "crystal");
+        
+        // Styles
+        translations.put("cổ điển", "classical style");
+        translations.put("hiện đại", "modern style");
+        translations.put("truyền thống", "traditional style");
+        translations.put("gothic", "gothic style");
+        translations.put("baroque", "baroque style");
+        translations.put("phong cách", "style");
+        
+        // Colors
+        translations.put("màu xanh", "blue");
+        translations.put("màu trắng", "white");
+        translations.put("màu vàng", "golden");
+        translations.put("màu đỏ", "red");
+        translations.put("màu nâu", "brown");
+        
+        // Attributes
+        translations.put("cao", "tall");
+        translations.put("lớn", "large");
+        translations.put("nhỏ", "small");
+        translations.put("đẹp", "beautiful");
+        translations.put("trang nhã", "elegant");
+        translations.put("tinh xảo", "intricate");
+        translations.put("chi tiết", "detailed");
+        translations.put("trang trí", "decorated");
+        translations.put("khắc", "carved");
+        translations.put("chạm khắc", "engraved");
+        
+        // Religious concepts
+        translations.put("thiên chúa", "God");
+        translations.put("thánh thần", "Holy Spirit");
+        translations.put("thiên thần", "angel");
+        translations.put("thánh", "saint");
+        translations.put("phép lạ", "miracle");
+        translations.put("phước lành", "blessing");
+        translations.put("cầu nguyện", "prayer");
+        translations.put("nhà thờ", "church");
+        translations.put("nhà nguyện", "chapel");
+        
+        // Occasions
+        translations.put("rửa tội", "baptism");
+        translations.put("thêm sức", "confirmation");
+        translations.put("hôn phối", "wedding");
+        translations.put("cưới", "wedding");
+        translations.put("giáng sinh", "Christmas");
+        translations.put("phục sinh", "Easter");
+        translations.put("lễ", "feast");
+        
+        // Common phrases
+        translations.put("với", "with");
+        translations.put("và", "and");
+        translations.put("có", "with");
+        translations.put("áo choàng", "robe");
+        translations.put("vương miện", "crown");
+        translations.put("hào quang", "halo");
+        translations.put("tia sáng", "rays of light");
+        
+        String result = prompt.toLowerCase();
+        
+        // Apply translations
+        for (Map.Entry<String, String> entry : translations.entrySet()) {
+            result = result.replace(entry.getKey(), entry.getValue());
+        }
+        
+        log.info("🔄 Original: {}", prompt);
+        log.info("🔄 Translated: {}", result);
+        
+        return result;
+    }
+    
+    /**
+     * Check if string contains Vietnamese characters
+     */
+    private boolean containsVietnamese(String text) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        
+        // Vietnamese specific characters
+        String vietnameseChars = "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ" +
+                                "ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ";
+        
+        for (char c : text.toCharArray()) {
+            if (vietnameseChars.indexOf(c) >= 0) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     @Override

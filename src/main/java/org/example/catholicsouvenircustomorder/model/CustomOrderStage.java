@@ -54,6 +54,9 @@ public class CustomOrderStage {
     @Column(nullable = false)
     private Boolean isCompleted = false;  // Has artisan completed this stage?
     
+
+    private Boolean balanceReleased = false;  // Has 30% locked balance been released?
+    
     private LocalDateTime dueDate;
     private LocalDateTime paidAt;
     private LocalDateTime completedAt;

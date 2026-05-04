@@ -4,6 +4,7 @@ public enum NotificationType {
     // Customer notifications
     ORDER_CREATED,         // When custom order is created with stages
     ORDER_CONFIRMED,       // When customer confirms order (Request-Based flow)
+    STAGE_STARTED,         // When artisan starts a stage
     STAGE_COMPLETED,       // When artisan completes a stage
     ORDER_SHIPPED,         // When order is shipped
     ORDER_DELIVERED,       // When order is delivered
@@ -35,6 +36,11 @@ public enum NotificationType {
     COMPLAINT_REJECTED,    // When admin rejects complaint
     REFUND_COMPLETED,      // When refund is completed
     REFUND_FAILED,         // When refund fails
+    
+    // Cancellation notifications
+    ORDER_CANCELLED,       // When order is cancelled by customer or artisan
+    INSURANCE_FUND_USED,   // When insurance fund is used to cover refund shortage
+    OFFLINE_RECOVERY_REQUIRED, // When artisan has insufficient balance for refund
     
     // Commission notifications
     COMMISSION_RATE_UPDATED, // When admin updates commission rate

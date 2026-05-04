@@ -6,5 +6,6 @@ public enum WalletTransactionType {
     WITHDRAW,       // Rút tiền
     REFUND,         // Hoàn tiền (làm sau)
     REFUND_DEBIT,   // Trừ tiền từ ví Artisan khi hoàn tiền
-    REFUND_CREDIT   // Cộng tiền vào ví Customer khi hoàn tiền
+    REFUND_CREDIT,  // Cộng tiền vào ví Customer khi hoàn tiền
+    PLATFORM_INSURANCE_PAYOUT  // Platform covers refund shortage
 }

@@ -76,4 +76,9 @@ public interface CustomOrderService {
      * Useful for customer to retrieve order created by artisan from their request
      */
     CustomOrderResponse getOrderByRequestId(UUID requestId);
+    
+    /**
+     * Get refund estimate for order cancellation
+     * Calculate refund amount without processing actual cancellation
+     */
 }

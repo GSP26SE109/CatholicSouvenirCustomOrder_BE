@@ -55,6 +55,8 @@ public class WalletController {
                 .accountId(account.getAccountId())
                 .accountName(account.getFullName())
                 .balance(wallet.getBalance())
+                .availableBalance(wallet.getAvailableBalance())
+                .lockedBalance(wallet.getLockedBalance())
                 .createdAt(wallet.getCreatedAt())
                 .updatedAt(wallet.getUpdatedAt())
                 .build();
@@ -150,6 +152,8 @@ public class WalletController {
                 .accountId(account.getAccountId())
                 .accountName(account.getFullName())
                 .balance(wallet.getBalance())
+                .availableBalance(wallet.getAvailableBalance())
+                .lockedBalance(wallet.getLockedBalance())
                 .createdAt(wallet.getCreatedAt())
                 .updatedAt(wallet.getUpdatedAt())
                 .build();

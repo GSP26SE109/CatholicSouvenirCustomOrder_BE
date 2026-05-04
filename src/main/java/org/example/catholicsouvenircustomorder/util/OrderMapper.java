@@ -3,6 +3,7 @@ package org.example.catholicsouvenircustomorder.util;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.CreateOrderRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderDetailResponseDTO;
+import org.example.catholicsouvenircustomorder.dto.response.Order.OrderDetailReviewDTO;
 import org.example.catholicsouvenircustomorder.dto.response.Order.OrderResponseDTO;
 import org.example.catholicsouvenircustomorder.model.Order;
 import org.example.catholicsouvenircustomorder.model.OrderDetail;
@@ -23,6 +24,7 @@ public interface OrderMapper {
     @Mapping(target = "productId", source = "product.productId")
     @Mapping(target = "productName", source = "product.productName")
     @Mapping(target = "image", source = "product.images")
+    @Mapping(target = "review", source = "feedbacks", qualifiedByName = "mapFeedbacksToReview")
     OrderDetailResponseDTO toDetailResponse(OrderDetail detail);
 
     List<OrderDetailResponseDTO> toDetailResponseList(List<OrderDetail> details);
@@ -53,5 +55,20 @@ public interface OrderMapper {
             return null;
         }
         return images.get(0).getImage_url();
+    }
+    
+    // Custom mapping method to convert List<Feedback> to OrderDetailReviewDTO
+    @Named("mapFeedbacksToReview")
+    default OrderDetailReviewDTO mapFeedbacksToReview(List<org.example.catholicsouvenircustomorder.model.Feedback> feedbacks) {
+        if (feedbacks == null || feedbacks.isEmpty()) {
+            return null;
+        }
+        org.example.catholicsouvenircustomorder.model.Feedback feedback = feedbacks.get(0);
+        return OrderDetailReviewDTO.builder()
+                .feedbackId(feedback.getFeedbackId())
+                .rating(feedback.getRating())
+                .comment(feedback.getComment())
+                .createdAt(feedback.getCreatedAt())
+                .build();
     }
 }

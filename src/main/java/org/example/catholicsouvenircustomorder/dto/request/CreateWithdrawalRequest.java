@@ -24,4 +24,8 @@ public class CreateWithdrawalRequest {
     @NotBlank(message = "Tên chủ tài khoản không được để trống")
     @Size(max = 255, message = "Tên chủ tài khoản không được vượt quá 255 ký tự")
     private String bankAccountName;
+    
+    @NotBlank(message = "Lý do rút tiền không được để trống")
+    @Size(min = 10, max = 500, message = "Lý do rút tiền phải có từ 10 đến 500 ký tự")
+    private String reason;
 }

@@ -81,4 +81,29 @@ public class ArtisanServiceImp implements ArtisanService {
                 .portfolioUrl(artisan.getPortfolioUrl())
                 .build();
     }
+    
+    @Override
+    @Transactional
+    public void blacklistArtisan(UUID artisanId) {
+        Artisan artisan = artisanRepository.findById(artisanId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thợ thủ công với ID: " + artisanId));
+        artisan.setBlacklisted(true);
+        artisanRepository.save(artisan);
+    }
+    
+    @Override
+    @Transactional
+    public void unblacklistArtisan(UUID artisanId) {
+        Artisan artisan = artisanRepository.findById(artisanId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thợ thủ công với ID: " + artisanId));
+        artisan.setBlacklisted(false);
+        artisanRepository.save(artisan);
+    }
+    
+    @Override
+    public boolean isArtisanBlacklisted(UUID artisanId) {
+        Artisan artisan = artisanRepository.findById(artisanId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thợ thủ công với ID: " + artisanId));
+        return artisan.isBlacklisted();
+    }
 }
