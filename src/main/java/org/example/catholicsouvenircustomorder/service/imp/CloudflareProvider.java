@@ -49,6 +49,9 @@ public class CloudflareProvider {
             return null;
         }
         
+        log.info("🔑 Using Cloudflare Account: {}", accountId);
+        log.info("🔑 API Token length: {}", apiToken.length());
+        
         try {
             String url = "https://api.cloudflare.com/client/v4/accounts/"
                     + accountId + "/ai/run/" + model;
@@ -62,6 +65,7 @@ public class CloudflareProvider {
 
             log.info("🎨 Generating image with Cloudflare AI: {}", model);
             log.info("📝 Prompt: {}", prompt);
+            log.info("🌐 API URL: {}", url);
 
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     url,
@@ -70,14 +74,19 @@ public class CloudflareProvider {
                     byte[].class
             );
 
+            log.info("📥 Response status: {}", response.getStatusCode());
+            
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 byte[] responseBody = response.getBody();
+                log.info("📦 Response body size: {} bytes", responseBody.length);
                 
                 // Check if response is JSON (contains base64 image)
                 String responseStr = new String(responseBody);
                 if (responseStr.trim().startsWith("{")) {
                     ObjectMapper mapper = new ObjectMapper();
                     JsonNode root = mapper.readTree(responseStr);
+                    
+                    log.info("📄 JSON Response: {}", responseStr.substring(0, Math.min(200, responseStr.length())));
                     
                     // Check for error
                     if (root.has("errors") && root.get("errors").isArray() && root.get("errors").size() > 0) {
@@ -88,14 +97,16 @@ public class CloudflareProvider {
                     // Extract base64 image from result
                     String base64 = root.path("result").path("image").asText();
                     if (base64 == null || base64.isEmpty()) {
-                        log.error("❌ No image in response");
+                        log.error("❌ No image in response. Full response: {}", responseStr);
                         return null;
                     }
                     
+                    log.info("✅ Got base64 image, length: {}", base64.length());
                     byte[] imageBytes = Base64.getDecoder().decode(base64);
                     return uploadOrBase64(imageBytes);
                 } else {
                     // Raw image bytes
+                    log.info("📷 Got raw image bytes");
                     return uploadOrBase64(responseBody);
                 }
             }
