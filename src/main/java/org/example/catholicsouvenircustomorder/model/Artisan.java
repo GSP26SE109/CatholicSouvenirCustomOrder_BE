@@ -41,7 +41,7 @@ public class Artisan {
     @JsonIgnore
     private Account reviewedBy;
     
-    @Column(name = "is_blacklisted", nullable = false, columnDefinition = "boolean default false")
+    @Column(name = "is_blacklisted")
     private boolean isBlacklisted = false;
 
     @OneToMany(mappedBy = "artisan",
