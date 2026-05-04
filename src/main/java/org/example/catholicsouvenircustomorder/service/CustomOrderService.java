@@ -72,6 +72,13 @@ public interface CustomOrderService {
     CustomOrderResponse confirmOrder(UUID orderId, UUID customerId);
     
     /**
+     * Customer rejects order (before payment)
+     * Only allowed when order is in PENDING_CONFIRMATION status
+     * No refund needed since no payment has been made
+     */
+    CustomOrderResponse rejectOrder(UUID orderId, UUID customerId, String reason);
+    
+    /**
      * Get custom order by request ID
      * Useful for customer to retrieve order created by artisan from their request
      */

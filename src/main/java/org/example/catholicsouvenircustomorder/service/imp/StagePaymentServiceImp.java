@@ -247,9 +247,10 @@ public class StagePaymentServiceImp implements StagePaymentService {
                 log.info("✅ Updated custom order status to IN_PROGRESS (partial payment)");
             }
 
-            // Distribute money AFTER status is committed (in async or separate transaction)
-            log.info("💰 Scheduling payment distribution");
+            // Distribute money AFTER status is committed (use @Async to avoid transaction conflict)
+            log.info("💰 Scheduling async payment distribution");
             try {
+                // Call async method - this will run in separate thread pool
                 distributePaymentAsync(payment.getPaymentId());
             } catch (Exception e) {
                 log.error("Error scheduling distribution: {}", e.getMessage(), e);
@@ -271,7 +272,9 @@ public class StagePaymentServiceImp implements StagePaymentService {
     
     /**
      * Distribute payment in separate transaction to avoid blocking callback
+     * MUST use @Async to run in separate thread and avoid transaction conflict
      */
+    @org.springframework.scheduling.annotation.Async
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void distributePaymentAsync(UUID paymentId) {
         log.info("💰 Starting async payment distribution for paymentId: {}", paymentId);
