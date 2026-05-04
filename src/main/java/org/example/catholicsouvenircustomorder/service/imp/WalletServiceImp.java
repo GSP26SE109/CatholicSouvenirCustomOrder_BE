@@ -359,7 +359,8 @@ public class WalletServiceImp implements WalletService {
         Wallet wallet = getOrCreateWallet(account);
         
         BigDecimal balanceBefore = wallet.getBalance();
-        BigDecimal lockedBalanceBefore = wallet.getLockedBalance();
+        // Handle null lockedBalance for old wallets
+        BigDecimal lockedBalanceBefore = wallet.getLockedBalance() != null ? wallet.getLockedBalance() : BigDecimal.ZERO;
         
         // Add full amount to balance
         BigDecimal balanceAfter = balanceBefore.add(amount);

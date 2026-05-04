@@ -23,8 +23,8 @@ public class UpdateProductRequest {
     private String size;
     private UUID categoryId;
     
-    // Initialize with empty lists to handle null/empty cases
-    private List<String> tags = new ArrayList<>();
-    private List<UUID> deleteImageIds = new ArrayList<>();
-    private List<MultipartFile> newImages = new ArrayList<>();
+    // Don't initialize - null means "don't update", empty list means "clear all"
+    private List<String> tags;
+    private List<UUID> deleteImageIds;
+    private List<MultipartFile> newImages;
 }
