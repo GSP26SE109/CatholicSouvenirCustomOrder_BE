@@ -10,6 +10,7 @@ import org.example.catholicsouvenircustomorder.dto.request.ScriptureRecommendReq
 import org.example.catholicsouvenircustomorder.dto.response.AIImageResponse;
 import org.example.catholicsouvenircustomorder.dto.response.ScriptureRecommendResponse;
 import org.example.catholicsouvenircustomorder.service.AIImageService;
+import org.example.catholicsouvenircustomorder.service.AIImageValidationService;
 import org.example.catholicsouvenircustomorder.service.AIProductDescriptionService;
 import org.example.catholicsouvenircustomorder.service.AIScriptureService;
 import org.springframework.http.HttpStatus;
@@ -28,7 +29,7 @@ public class AIController {
     private final AIImageService aiImageService;
     private final AIScriptureService aiScriptureService;
     private final AIProductDescriptionService aiProductDescriptionService;
-    private final org.example.catholicsouvenircustomorder.service.AIImageValidationService aiImageValidationService;
+    private final AIImageValidationService aiImageValidationService;
     
     @PostMapping("/generate-design")
     public ResponseEntity<BaseResponse<String>> generateDesign(
