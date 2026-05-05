@@ -302,10 +302,12 @@ public class CustomOrderServiceImp implements CustomOrderService {
                 .artisanName(order.getArtisan().getAccount().getFullName())
                 .status(order.getStatus())
                 .totalPrice(order.getTotalPrice())
+                .rejectionReason(order.getRejectionReason())
                 .stages(stageResponses)
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .build();
+
     }
     
     private CustomOrderStageResponse mapToStageResponse(CustomOrderStage stage) {
@@ -411,7 +413,8 @@ public class CustomOrderServiceImp implements CustomOrderService {
 
         // Update order status to CANCELLED_BY_CUSTOMER
         order.setStatus(CustomOrderStatus.CANCELLED_BY_CUSTOMER);
-        order.setCancellationReason(reason);
+        order.setRejectionReason(reason); // Store rejection reason separately
+        order.setCancellationReason(reason); // Also store in cancellation reason for consistency
         order.setCancelledBy(CancellationInitiator.CUSTOMER);
         order.setCancelledAt(java.time.LocalDateTime.now());
 

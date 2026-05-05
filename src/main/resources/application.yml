@@ -74,8 +74,10 @@ huggingface:
   api:
     key: ${HUGGINGFACE_API_KEY:}
     url: ${HUGGINGFACE_API_URL:https://router.huggingface.co/v1/chat/completions}
-    text:
-      model: ${HUGGINGFACE_TEXT_MODEL:meta-llama/Llama-3.1-8B-Instruct:novita}
+  text:
+    model: ${HUGGINGFACE_TEXT_MODEL:meta-llama/Llama-3.1-8B-Instruct:novita}
+  vision:
+    model: ${HUGGINGFACE_VISION_MODEL:Qwen/Qwen2.5-VL-72B-Instruct}
 
 zalopay:
   app-id: ${ZALOPAY_APP_ID:554}
