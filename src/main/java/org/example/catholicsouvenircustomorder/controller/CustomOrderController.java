@@ -320,6 +320,26 @@ public class CustomOrderController {
     }
     
     /**
+     * Customer rejects custom order (Request-Based flow)
+     * POST /api/custom-orders/{orderId}/reject
+     * Requirements: RB-3 (Customer can reject order before payment)
+     * Only allowed when order is in PENDING_CONFIRMATION status
+     * No refund needed since no payment has been made
+     */
+    @PostMapping("/{orderId}/reject")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
+    public ResponseEntity<BaseResponse> rejectOrder(
+            @PathVariable UUID orderId,
+            @Valid @RequestBody org.example.catholicsouvenircustomorder.dto.request.RejectOrderRequest request,
+            Authentication authentication) {
+        UUID customerId = (UUID) authentication.getPrincipal();
+        log.info("Customer {} rejecting order {} with reason: {}", customerId, orderId, request.getReason());
+        
+        CustomOrderResponse response = customOrderService.rejectOrder(orderId, customerId, request.getReason());
+        return ResponseEntity.ok(BaseResponse.success("Từ chối đơn hàng thành công", response));
+    }
+    
+    /**
      * Get refund estimate for order cancellation
      * GET /api/custom-orders/{orderId}/refund-estimate
      * Requirements: 7.5

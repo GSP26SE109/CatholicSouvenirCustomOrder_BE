@@ -33,6 +33,8 @@ public class CustomOrder {
     
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal totalPrice;
+
+    private String rejectionReason;
     
     @Column(name = "cancellation_reason", length = 500)
     private String cancellationReason;

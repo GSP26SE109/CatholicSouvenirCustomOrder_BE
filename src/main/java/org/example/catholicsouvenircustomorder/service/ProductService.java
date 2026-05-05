@@ -43,4 +43,6 @@ public interface ProductService {
     );
     Page<ProductResponse> findApprovedProduct(Pageable pageable);
     Page<ProductResponse> search(String keyword,Pageable pageable);
+    
+    AIProductDescriptionService getAIDescriptionService();
 }

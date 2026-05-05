@@ -3,6 +3,7 @@ package org.example.catholicsouvenircustomorder.service.imp;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.dto.request.Product.CreateProductRequest;
 import org.example.catholicsouvenircustomorder.dto.request.OrderDTO.OrderItemRequest;
 import org.example.catholicsouvenircustomorder.dto.request.Product.ProductFilterRequest;
@@ -16,6 +17,7 @@ import org.example.catholicsouvenircustomorder.model.ProductImage;
 import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.ArtisanRepository;
 import org.example.catholicsouvenircustomorder.repository.ProductRepository;
+import org.example.catholicsouvenircustomorder.service.AIProductDescriptionService;
 import org.example.catholicsouvenircustomorder.util.ProductMapper;
 import org.example.catholicsouvenircustomorder.service.ProductImageService;
 import org.example.catholicsouvenircustomorder.service.ProductService;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductServiceImp implements ProductService {
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
@@ -48,6 +51,7 @@ public class ProductServiceImp implements ProductService {
     private final ArtisanRepository artisanRepository;
     private final CategoryRepository categoryRepository;
     private final TagService tagService;
+    private final AIProductDescriptionServiceImp aiProductDescriptionService;
 
     @Override
     public Page<ProductResponse> findAll(Pageable pageable) {
@@ -262,5 +266,10 @@ public class ProductServiceImp implements ProductService {
         Page<Product> productPage = productRepository.findAll(spec, pageable);
 
         return productPage.map(productMapper::toResponse);
+    }
+
+    @Override
+    public AIProductDescriptionService getAIDescriptionService() {
+        return aiProductDescriptionService;
     }
 }

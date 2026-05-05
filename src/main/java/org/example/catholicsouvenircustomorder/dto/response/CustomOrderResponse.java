@@ -41,6 +41,9 @@ public class CustomOrderResponse {
     // Pricing
     private BigDecimal totalPrice;
     
+    // Rejection reason (when status is REJECTED)
+    private String rejectionReason;
+    
     // Stages (full details)
     private List<CustomOrderStageResponse> stages;
     
