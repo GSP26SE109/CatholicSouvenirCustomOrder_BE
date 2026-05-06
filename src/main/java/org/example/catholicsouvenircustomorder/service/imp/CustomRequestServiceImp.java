@@ -195,7 +195,9 @@ public class CustomRequestServiceImp implements CustomRequestService {
 
     @Override
     public Page<CustomRequestResponse> getOpenRequests(Pageable pageable) {
-        // Get all OPEN requests for artisans to browse
+        // Get all OPEN and ARTISAN_SELECTED requests for artisans to browse
+        // OPEN = available for bidding
+        // ARTISAN_SELECTED = already taken by another artisan (for transparency)
         Page<CustomRequest> requests = customRequestRepository.findOpenRequestsForBidding(pageable);
         return requests.map(this::mapToResponse);
     }

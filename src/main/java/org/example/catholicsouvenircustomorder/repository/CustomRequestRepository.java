@@ -197,10 +197,11 @@ public interface CustomRequestRepository extends JpaRepository<CustomRequest, UU
     
     /**
      * Find open requests for bidding (Request-Based flow)
-     * Returns all OPEN requests with REQUEST_BASED type
+     * Returns all OPEN and ARTISAN_SELECTED requests with REQUEST_BASED type
+     * This allows artisans to see both available requests and requests already taken
      */
     @Query("SELECT cr FROM CustomRequest cr WHERE cr.requestType = 'REQUEST_BASED' " +
-           "AND cr.status = 'OPEN' ORDER BY cr.createdAt DESC")
+           "AND cr.status IN ('OPEN', 'ARTISAN_SELECTED') ORDER BY cr.createdAt DESC")
     Page<CustomRequest> findOpenRequestsForBidding(Pageable pageable);
     
     /**

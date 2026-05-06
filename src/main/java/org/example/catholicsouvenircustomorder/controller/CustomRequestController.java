@@ -90,6 +90,8 @@ public class CustomRequestController {
     
     /**
      * Get open requests (for artisans to browse)
+     * Returns both OPEN (available) and ARTISAN_SELECTED (already taken) requests
+     * This provides transparency so artisans can see which requests are still available
      */
     @GetMapping("/open")
     @PreAuthorize("hasAuthority('ARTISAN')")
