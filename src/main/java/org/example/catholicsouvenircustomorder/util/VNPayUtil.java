@@ -254,7 +254,7 @@ public class VNPayUtil {
         params.put("vnp_Version", vnPayConfig.getVersion());
         params.put("vnp_Command", "refund");
         params.put("vnp_TmnCode", vnPayConfig.getTmnCode());
-        params.put("vnp_TransactionType", "03"); // 02 = Full refund, 03 = Partial refund
+        params.put("vnp_TransactionType", "03"); // 03 = Partial refund (allows platform to keep commission)
         params.put("vnp_TxnRef", originalReferenceId); // Original reference ID we sent to VNPay
         params.put("vnp_Amount", String.valueOf(refundAmount.multiply(new BigDecimal(100)).longValue()));
         params.put("vnp_OrderInfo", refundReason);
@@ -296,6 +296,14 @@ public class VNPayUtil {
 
             // Parse response
             JsonNode responseJson = objectMapper.readTree(response.getBody());
+            
+            // Verify response hash (optional but recommended for security)
+            boolean hashValid = verifyRefundResponseHash(responseJson, vnPayConfig.getHashSecret());
+            if (!hashValid) {
+                log.warn("VNPay refund response hash verification failed - proceeding with caution");
+                // Note: We log warning but don't fail the request as some VNPay environments may not include hash
+            }
+            
             String responseCode = responseJson.get("vnp_ResponseCode").asText();
             String message = VNPayErrorMapper.mapErrorCode(responseCode);
 
@@ -359,6 +367,10 @@ public class VNPayUtil {
 
     /**
      * Generate secure hash specifically for refund requests
+     * According to VNPay documentation, refund hash uses pipe-separated format:
+     * data = vnp_RequestId + "|" + vnp_Version + "|" + vnp_Command + "|" + vnp_TmnCode + "|" + 
+     *        vnp_TransactionType + "|" + vnp_TxnRef + "|" + vnp_Amount + "|" + vnp_TransactionNo + "|" + 
+     *        vnp_TransactionDate + "|" + vnp_CreateBy + "|" + vnp_CreateDate + "|" + vnp_IpAddr + "|" + vnp_OrderInfo
      * 
      * @param params Refund request parameters
      * @param secretKey VNPay secret key
@@ -366,24 +378,183 @@ public class VNPayUtil {
      * @throws Exception if hash generation fails
      */
     public String generateRefundHash(Map<String, String> params, String secretKey) throws Exception {
-        log.info("=== Generating Refund Hash ===");
+        log.info("=== Generating Refund Hash (VNPay Format) ===");
         
-        // Create a copy without vnp_SecureHash
-        Map<String, String> paramsCopy = new TreeMap<>(params);
-        paramsCopy.remove("vnp_SecureHash");
-        paramsCopy.remove("vnp_SecureHashType");
+        // Build hash data according to VNPay refund documentation (pipe-separated)
+        StringBuilder hashData = new StringBuilder();
+        hashData.append(params.get("vnp_RequestId")).append("|");
+        hashData.append(params.get("vnp_Version")).append("|");
+        hashData.append(params.get("vnp_Command")).append("|");
+        hashData.append(params.get("vnp_TmnCode")).append("|");
+        hashData.append(params.get("vnp_TransactionType")).append("|");
+        hashData.append(params.get("vnp_TxnRef")).append("|");
+        hashData.append(params.get("vnp_Amount")).append("|");
+        hashData.append(params.getOrDefault("vnp_TransactionNo", "")).append("|");
+        hashData.append(params.get("vnp_TransactionDate")).append("|");
+        hashData.append(params.get("vnp_CreateBy")).append("|");
+        hashData.append(params.get("vnp_CreateDate")).append("|");
+        hashData.append(params.get("vnp_IpAddr")).append("|");
+        hashData.append(params.get("vnp_OrderInfo"));
         
-        String hashData = buildHashData(paramsCopy);
-        log.info("Refund hash data: {}", hashData);
+        String data = hashData.toString();
+        log.info("Refund hash data (pipe-separated): {}", data);
         log.info("Secret key length: {}", secretKey.length());
         
-        String hash = hmacSHA512(hashData, secretKey);
+        String hash = hmacSHA512(data, secretKey);
         log.info("Generated refund hash: {}", hash);
-        log.info("==============================");
+        log.info("=============================================");
         
         return hash;
     }
 
+    /**
+     * Verify secure hash for refund response from VNPay
+     * Response hash format (according to VNPay documentation):
+     * data = vnp_ResponseId + "|" + vnp_Command + "|" + vnp_ResponseCode + "|" + vnp_Message + "|" + 
+     *        vnp_TmnCode + "|" + vnp_TxnRef + "|" + vnp_Amount + "|" + vnp_BankCode + "|" + 
+     *        vnp_PayDate + "|" + vnp_TransactionNo + "|" + vnp_TransactionType + "|" + 
+     *        vnp_TransactionStatus + "|" + vnp_OrderInfo
+     * 
+     * @param responseJson JsonNode containing VNPay response
+     * @param secretKey VNPay secret key
+     * @return true if hash is valid, false otherwise
+     */
+    public boolean verifyRefundResponseHash(JsonNode responseJson, String secretKey) {
+        try {
+            String receivedHash = responseJson.has("vnp_SecureHash") 
+                    ? responseJson.get("vnp_SecureHash").asText() 
+                    : "";
+            
+            if (receivedHash.isEmpty()) {
+                log.warn("No vnp_SecureHash in response");
+                return false;
+            }
+            
+            // Build hash data according to VNPay refund response documentation (pipe-separated)
+            StringBuilder hashData = new StringBuilder();
+            hashData.append(responseJson.has("vnp_ResponseId") ? responseJson.get("vnp_ResponseId").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_Command") ? responseJson.get("vnp_Command").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_ResponseCode") ? responseJson.get("vnp_ResponseCode").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_Message") ? responseJson.get("vnp_Message").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_TmnCode") ? responseJson.get("vnp_TmnCode").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_TxnRef") ? responseJson.get("vnp_TxnRef").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_Amount") ? responseJson.get("vnp_Amount").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_BankCode") ? responseJson.get("vnp_BankCode").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_PayDate") ? responseJson.get("vnp_PayDate").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_TransactionNo") ? responseJson.get("vnp_TransactionNo").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_TransactionType") ? responseJson.get("vnp_TransactionType").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_TransactionStatus") ? responseJson.get("vnp_TransactionStatus").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_OrderInfo") ? responseJson.get("vnp_OrderInfo").asText() : "");
+            
+            String data = hashData.toString();
+            String calculatedHash = hmacSHA512(data, secretKey);
+            
+            log.info("=== VNPay Refund Response Hash Verification ===");
+            log.info("Received hash: {}", receivedHash);
+            log.info("Calculated hash: {}", calculatedHash);
+            log.info("Match: {}", calculatedHash.equalsIgnoreCase(receivedHash));
+            log.info("==============================================");
+            
+            return calculatedHash.equalsIgnoreCase(receivedHash);
+        } catch (Exception e) {
+            log.error("Error verifying VNPay refund response hash", e);
+            return false;
+        }
+    }
+
+    /**
+     * Generate secure hash for querydr (query transaction) requests
+     * According to VNPay documentation, querydr hash format:
+     * data = vnp_RequestId + "|" + vnp_Version + "|" + vnp_Command + "|" + vnp_TmnCode + "|" + 
+     *        vnp_TxnRef + "|" + vnp_TransactionDate + "|" + vnp_CreateDate + "|" + vnp_IpAddr + "|" + vnp_OrderInfo
+     * 
+     * @param params Query request parameters
+     * @param secretKey VNPay secret key
+     * @return HMAC SHA512 hash
+     * @throws Exception if hash generation fails
+     */
+    public String generateQueryHash(Map<String, String> params, String secretKey) throws Exception {
+        log.info("=== Generating QueryDR Hash (VNPay Format) ===");
+        
+        // Build hash data according to VNPay querydr documentation (pipe-separated)
+        StringBuilder hashData = new StringBuilder();
+        hashData.append(params.get("vnp_RequestId")).append("|");
+        hashData.append(params.get("vnp_Version")).append("|");
+        hashData.append(params.get("vnp_Command")).append("|");
+        hashData.append(params.get("vnp_TmnCode")).append("|");
+        hashData.append(params.get("vnp_TxnRef")).append("|");
+        hashData.append(params.get("vnp_TransactionDate")).append("|");
+        hashData.append(params.get("vnp_CreateDate")).append("|");
+        hashData.append(params.get("vnp_IpAddr")).append("|");
+        hashData.append(params.get("vnp_OrderInfo"));
+        
+        String data = hashData.toString();
+        log.info("QueryDR hash data (pipe-separated): {}", data);
+        log.info("Secret key length: {}", secretKey.length());
+        
+        String hash = hmacSHA512(data, secretKey);
+        log.info("Generated querydr hash: {}", hash);
+        log.info("=============================================");
+        
+        return hash;
+    }
+
+    /**
+     * Verify secure hash for querydr response from VNPay
+     * Response hash format (according to VNPay documentation):
+     * data = vnp_ResponseId + "|" + vnp_Command + "|" + vnp_ResponseCode + "|" + vnp_Message + "|" + 
+     *        vnp_TmnCode + "|" + vnp_TxnRef + "|" + vnp_Amount + "|" + vnp_BankCode + "|" + 
+     *        vnp_PayDate + "|" + vnp_TransactionNo + "|" + vnp_TransactionType + "|" + 
+     *        vnp_TransactionStatus + "|" + vnp_OrderInfo + "|" + vnp_PromotionCode + "|" + vnp_PromotionAmount
+     * 
+     * @param responseJson JsonNode containing VNPay response
+     * @param secretKey VNPay secret key
+     * @return true if hash is valid, false otherwise
+     */
+    public boolean verifyQueryResponseHash(JsonNode responseJson, String secretKey) {
+        try {
+            String receivedHash = responseJson.has("vnp_SecureHash") 
+                    ? responseJson.get("vnp_SecureHash").asText() 
+                    : "";
+            
+            if (receivedHash.isEmpty()) {
+                log.warn("No vnp_SecureHash in querydr response");
+                return false;
+            }
+            
+            // Build hash data according to VNPay querydr response documentation (pipe-separated)
+            StringBuilder hashData = new StringBuilder();
+            hashData.append(responseJson.has("vnp_ResponseId") ? responseJson.get("vnp_ResponseId").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_Command") ? responseJson.get("vnp_Command").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_ResponseCode") ? responseJson.get("vnp_ResponseCode").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_Message") ? responseJson.get("vnp_Message").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_TmnCode") ? responseJson.get("vnp_TmnCode").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_TxnRef") ? responseJson.get("vnp_TxnRef").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_Amount") ? responseJson.get("vnp_Amount").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_BankCode") ? responseJson.get("vnp_BankCode").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_PayDate") ? responseJson.get("vnp_PayDate").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_TransactionNo") ? responseJson.get("vnp_TransactionNo").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_TransactionType") ? responseJson.get("vnp_TransactionType").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_TransactionStatus") ? responseJson.get("vnp_TransactionStatus").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_OrderInfo") ? responseJson.get("vnp_OrderInfo").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_PromotionCode") ? responseJson.get("vnp_PromotionCode").asText() : "").append("|");
+            hashData.append(responseJson.has("vnp_PromotionAmount") ? responseJson.get("vnp_PromotionAmount").asText() : "");
+            
+            String data = hashData.toString();
+            String calculatedHash = hmacSHA512(data, secretKey);
+            
+            log.info("=== VNPay QueryDR Response Hash Verification ===");
+            log.info("Received hash: {}", receivedHash);
+            log.info("Calculated hash: {}", calculatedHash);
+            log.info("Match: {}", calculatedHash.equalsIgnoreCase(receivedHash));
+            log.info("===============================================");
+            
+            return calculatedHash.equalsIgnoreCase(receivedHash);
+        } catch (Exception e) {
+            log.error("Error verifying VNPay querydr response hash", e);
+            return false;
+        }
+    }
     /**
      * Query the status of a refund transaction
      * Requirements: 12.2 - Add @Retryable annotation with exponential backoff
@@ -419,9 +590,9 @@ public class VNPayUtil {
         params.put("vnp_CreateDate", createDate);
         params.put("vnp_IpAddr", "127.0.0.1");
 
-        // Generate secure hash
+        // Generate secure hash for querydr (different format from refund)
         try {
-            String secureHash = generateRefundHash(params, vnPayConfig.getHashSecret());
+            String secureHash = generateQueryHash(params, vnPayConfig.getHashSecret());
             params.put("vnp_SecureHash", secureHash);
 
             log.info("Query parameters prepared");
@@ -449,6 +620,13 @@ public class VNPayUtil {
 
             // Parse response
             JsonNode responseJson = objectMapper.readTree(response.getBody());
+            
+            // Verify response hash for querydr
+            boolean hashValid = verifyQueryResponseHash(responseJson, vnPayConfig.getHashSecret());
+            if (!hashValid) {
+                log.warn("VNPay querydr response hash verification failed - proceeding with caution");
+            }
+            
             String responseCode = responseJson.get("vnp_ResponseCode").asText();
             String transactionStatus = responseJson.has("vnp_TransactionStatus") 
                     ? responseJson.get("vnp_TransactionStatus").asText() 
