@@ -709,9 +709,22 @@ public class ComplaintServiceImp implements ComplaintService {
                 log.info("Processing refund for stage {}: {} VND (from original {})", 
                     stage.getName(), stageRefundAmount, stage.getAmount());
                 
+                // Validate payment has paidAt date
+                if (stagePayment.getPaidAt() == null) {
+                    String errorMsg = String.format("Stage %s không có ngày thanh toán", stage.getName());
+                    log.error(errorMsg);
+                    failureReasons.add(errorMsg);
+                    failCount++;
+                    continue;
+                }
+                
+                // Convert payment date to VNPay format
+                String originalTransactionDate = vnPayUtil.formatVNPayDate(stagePayment.getPaidAt());
+                
                 // Call VNPay refund API
                 VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
                     stagePayment.getTransactionId(),
+                    originalTransactionDate,
                     stageRefundAmount,
                     "Hoàn tiền khiếu nại #" + refundTransaction.getComplaint().getComplaintId()
                 );

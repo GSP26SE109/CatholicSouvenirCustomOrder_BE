@@ -318,9 +318,22 @@ public class CancellationServiceImp implements CancellationService {
                 log.info("Processing refund for stage {}: {} VND (from original {})", 
                     stage.getName(), stageRefundAmount, stage.getAmount());
                 
+                // Validate payment has paidAt date
+                if (stagePayment.getPaidAt() == null) {
+                    String errorMsg = String.format("Stage %s không có ngày thanh toán", stage.getName());
+                    log.error(errorMsg);
+                    failureReasons.add(errorMsg);
+                    failCount++;
+                    continue;
+                }
+                
+                // Convert payment date to VNPay format
+                String originalTransactionDate = vnPayUtil.formatVNPayDate(stagePayment.getPaidAt());
+                
                 // Call VNPay refund API with retry logic
                 VNPayRefundResponse vnpayResponse = callVNPayRefundWithRetry(
                     stagePayment.getTransactionId(),
+                    originalTransactionDate,
                     stageRefundAmount,
                     "Hoàn tiền hủy đơn #" + order.getCustomOrderId()
                 );
@@ -393,6 +406,7 @@ public class CancellationServiceImp implements CancellationService {
      */
     private VNPayRefundResponse callVNPayRefundWithRetry(
         String transactionId,
+        String originalTransactionDate,
         BigDecimal amount,
         String reason
     ) throws Exception {
@@ -401,7 +415,7 @@ public class CancellationServiceImp implements CancellationService {
         for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
             try {
                 log.info("VNPay refund attempt {} of {}", attempt, MAX_RETRY_ATTEMPTS);
-                return vnPayUtil.createRefundRequest(transactionId, amount, reason);
+                return vnPayUtil.createRefundRequest(transactionId, originalTransactionDate, amount, reason);
             } catch (org.example.catholicsouvenircustomorder.exception.VNPayTimeoutException e) {
                 log.warn("VNPay timeout on attempt {}: {}", attempt, e.getMessage());
                 lastException = e;
