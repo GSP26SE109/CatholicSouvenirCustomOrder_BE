@@ -215,7 +215,8 @@ public class VNPayUtil {
      * Create a refund request to VNPay
      * Requirements: 12.2 - Add @Retryable annotation with exponential backoff
      * 
-     * @param originalTransactionId Original vnp_TransactionNo from the payment
+     * @param originalReferenceId Original vnp_TxnRef (reference ID) from the payment
+     * @param originalTransactionNo Original vnp_TransactionNo from VNPay response
      * @param originalTransactionDate Original transaction date in yyyyMMddHHmmss format
      * @param refundAmount Amount to refund in VND
      * @param refundReason Reason for the refund
@@ -230,13 +231,15 @@ public class VNPayUtil {
         backoff = @Backoff(delay = 2000, multiplier = 2.0)
     )
     public VNPayRefundResponse createRefundRequest(
-            String originalTransactionId,
+            String originalReferenceId,
+            String originalTransactionNo,
             String originalTransactionDate,
             BigDecimal refundAmount,
             String refundReason
     ) throws VNPayException, VNPayTimeoutException, VNPayNetworkException {
         log.info("=== Creating VNPay Refund Request (Attempt) ===");
-        log.info("Original Transaction ID: {}", originalTransactionId);
+        log.info("Original Reference ID (TxnRef): {}", originalReferenceId);
+        log.info("Original Transaction No: {}", originalTransactionNo);
         log.info("Original Transaction Date: {}", originalTransactionDate);
         log.info("Refund Amount: {} VND", refundAmount);
         log.info("Refund Reason: {}", refundReason);
@@ -251,14 +254,14 @@ public class VNPayUtil {
         params.put("vnp_Version", vnPayConfig.getVersion());
         params.put("vnp_Command", "refund");
         params.put("vnp_TmnCode", vnPayConfig.getTmnCode());
-        params.put("vnp_TransactionType", "03"); // 03 = Partial refund (allows refunding less than original amount)
-        params.put("vnp_TxnRef", originalTransactionId);
+        params.put("vnp_TransactionType", "02"); // 02 = Full refund, 03 = Partial refund
+        params.put("vnp_TxnRef", originalReferenceId); // Original reference ID we sent to VNPay
         params.put("vnp_Amount", String.valueOf(refundAmount.multiply(new BigDecimal(100)).longValue()));
         params.put("vnp_OrderInfo", refundReason);
-        params.put("vnp_TransactionNo", originalTransactionId);
-        params.put("vnp_TransactionDate", originalTransactionDate); // CRITICAL: Must be original payment date
+        params.put("vnp_TransactionNo", originalTransactionNo); // VNPay transaction number from response
+        params.put("vnp_TransactionDate", originalTransactionDate); // Original payment date
         params.put("vnp_CreateBy", "system");
-        params.put("vnp_CreateDate", createDate);
+        params.put("vnp_CreateDate", createDate); // Current refund request date
         params.put("vnp_IpAddr", "127.0.0.1");
 
         // Generate secure hash for refund
@@ -300,7 +303,7 @@ public class VNPayUtil {
                     .vnpayRefundId(requestId)
                     .vnpayTransactionNo(responseJson.has("vnp_TransactionNo") 
                             ? responseJson.get("vnp_TransactionNo").asText() 
-                            : originalTransactionId)
+                            : originalTransactionNo)
                     .responseCode(responseCode)
                     .message(message)
                     .refundAmount(refundAmount)

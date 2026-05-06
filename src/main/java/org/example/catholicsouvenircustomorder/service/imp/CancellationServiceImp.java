@@ -332,6 +332,7 @@ public class CancellationServiceImp implements CancellationService {
                 
                 // Call VNPay refund API with retry logic
                 VNPayRefundResponse vnpayResponse = callVNPayRefundWithRetry(
+                    stagePayment.getReferenceId(),
                     stagePayment.getTransactionId(),
                     originalTransactionDate,
                     stageRefundAmount,
@@ -405,7 +406,8 @@ public class CancellationServiceImp implements CancellationService {
      * Requirements: 2.6
      */
     private VNPayRefundResponse callVNPayRefundWithRetry(
-        String transactionId,
+        String referenceId,
+        String transactionNo,
         String originalTransactionDate,
         BigDecimal amount,
         String reason
@@ -415,7 +417,7 @@ public class CancellationServiceImp implements CancellationService {
         for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
             try {
                 log.info("VNPay refund attempt {} of {}", attempt, MAX_RETRY_ATTEMPTS);
-                return vnPayUtil.createRefundRequest(transactionId, originalTransactionDate, amount, reason);
+                return vnPayUtil.createRefundRequest(referenceId, transactionNo, originalTransactionDate, amount, reason);
             } catch (org.example.catholicsouvenircustomorder.exception.VNPayTimeoutException e) {
                 log.warn("VNPay timeout on attempt {}: {}", attempt, e.getMessage());
                 lastException = e;

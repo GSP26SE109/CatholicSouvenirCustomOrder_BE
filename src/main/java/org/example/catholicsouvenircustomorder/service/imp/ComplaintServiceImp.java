@@ -723,6 +723,7 @@ public class ComplaintServiceImp implements ComplaintService {
                 
                 // Call VNPay refund API
                 VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
+                    stagePayment.getReferenceId(),
                     stagePayment.getTransactionId(),
                     originalTransactionDate,
                     stageRefundAmount,
