@@ -254,7 +254,7 @@ public class VNPayUtil {
         params.put("vnp_Version", vnPayConfig.getVersion());
         params.put("vnp_Command", "refund");
         params.put("vnp_TmnCode", vnPayConfig.getTmnCode());
-        params.put("vnp_TransactionType", "02"); // 02 = Full refund, 03 = Partial refund
+        params.put("vnp_TransactionType", "03"); // 02 = Full refund, 03 = Partial refund
         params.put("vnp_TxnRef", originalReferenceId); // Original reference ID we sent to VNPay
         params.put("vnp_Amount", String.valueOf(refundAmount.multiply(new BigDecimal(100)).longValue()));
         params.put("vnp_OrderInfo", refundReason);
