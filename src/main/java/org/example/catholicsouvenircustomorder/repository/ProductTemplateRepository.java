@@ -21,6 +21,11 @@ public interface ProductTemplateRepository extends JpaRepository<ProductTemplate
     Page<ProductTemplate> findByArtisanAndIsActiveTrue(org.example.catholicsouvenircustomorder.model.Artisan artisan, Pageable pageable);
     Page<ProductTemplate> findByArtisan_ArtisanUuidAndIsActiveTrue(UUID artisanId, Pageable pageable);
     
+    // Admin queries
+    Page<ProductTemplate> findByIsActiveFalse(Pageable pageable);
+    
+    Page<ProductTemplate> findAll(Pageable pageable);
+    
     // Count methods
     long countByCategoryAndIsActiveTrue(org.example.catholicsouvenircustomorder.model.Category category);
     long countByCategory_CategoryIdAndIsActiveTrue(UUID categoryId);

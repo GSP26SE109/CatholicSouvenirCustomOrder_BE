@@ -59,7 +59,7 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         if (request.getBaseImages() != null) {
             template.setBaseImages(request.getBaseImages());
         }
-        template.setIsActive(true);
+        template.setIsActive(false); // Mặc định chờ admin duyệt
         
         ProductTemplate savedTemplate = templateRepository.save(template);
         
@@ -467,5 +467,47 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         response.setIsRequired(zone.getIsRequired());
         response.setSortOrder(zone.getSortOrder());
         return response;
+    }
+    
+    // ==================== ADMIN OPERATIONS ====================
+    
+    @Override
+    @Transactional
+    public TemplateResponse approveTemplate(UUID templateId) {
+        ProductTemplate template = templateRepository.findById(templateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Template không tồn tại"));
+        
+        template.setIsActive(true);
+        template.setUpdatedAt(java.time.LocalDateTime.now());
+        ProductTemplate savedTemplate = templateRepository.save(template);
+        
+        return mapToTemplateResponse(savedTemplate);
+    }
+    
+    @Override
+    @Transactional
+    public TemplateResponse rejectTemplate(UUID templateId) {
+        ProductTemplate template = templateRepository.findById(templateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Template không tồn tại"));
+        
+        template.setIsActive(false);
+        template.setUpdatedAt(java.time.LocalDateTime.now());
+        ProductTemplate savedTemplate = templateRepository.save(template);
+        
+        return mapToTemplateResponse(savedTemplate);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TemplateResponse> getPendingTemplates(Pageable pageable) {
+        Page<ProductTemplate> templates = templateRepository.findByIsActiveFalse(pageable);
+        return templates.map(this::mapToTemplateResponse);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TemplateResponse> getApprovedTemplates(Pageable pageable) {
+        Page<ProductTemplate> templates = templateRepository.findByIsActiveTrue(pageable);
+        return templates.map(this::mapToTemplateResponse);
     }
 }

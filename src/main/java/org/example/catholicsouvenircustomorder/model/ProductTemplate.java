@@ -49,7 +49,7 @@ public class ProductTemplate {
     private List<String> baseImages = new ArrayList<>();
     
     @Column(nullable = false)
-    private Boolean isActive = true;
+    private Boolean isActive = false; // Mặc định chờ admin duyệt
     
     @OneToMany(mappedBy = "template", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder ASC")
