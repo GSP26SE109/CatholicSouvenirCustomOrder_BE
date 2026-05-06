@@ -90,8 +90,7 @@ public class ArtisanComplaintController {
             @Valid @RequestBody ArtisanResponseRequest request,
             Authentication authentication) {
         UUID artisanId = (UUID) authentication.getPrincipal();
-        log.info("Artisan {} responding to complaint: {}, requireReturn: {}", 
-                artisanId, id, request.getRequireReturn());
+        log.info("Artisan {} responding to complaint: {}", artisanId, id);
         
         ComplaintResponse response = complaintService.respondToComplaint(id, request, artisanId);
         
