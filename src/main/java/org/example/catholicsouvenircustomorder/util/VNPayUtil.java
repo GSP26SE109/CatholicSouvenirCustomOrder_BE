@@ -238,16 +238,19 @@ public class VNPayUtil {
             String refundReason
     ) throws VNPayException, VNPayTimeoutException, VNPayNetworkException {
         log.info("=== Creating VNPay Refund Request (Attempt) ===");
-        log.info("Original Reference ID (for tracking): {}", originalReferenceId);
-        log.info("Original Transaction No (vnp_TransactionNo): {}", originalTransactionNo);
+        log.info("Original Reference ID (vnp_TxnRef from payment): {}", originalReferenceId);
+        log.info("Original Transaction No (vnp_TransactionNo from VNPay): {}", originalTransactionNo);
         log.info("Original Transaction Date: {}", originalTransactionDate);
         log.info("Refund Amount: {} VND", refundAmount);
         log.info("Refund Reason: {}", refundReason);
 
-        // Generate unique request ID and refund reference ID
+        // Generate unique request ID for this refund request
         String requestId = UUID.randomUUID().toString();
-        String refundTxnRef = "REFUND_" + System.currentTimeMillis(); // Unique refund reference
         String createDate = getVNPayDate();
+        
+        // CRITICAL: vnp_TxnRef MUST be the ORIGINAL payment reference ID
+        // NOT a new "REFUND_xxx" reference - VNPay uses this to find the original transaction
+        String vnpTxnRef = originalReferenceId; // Use original reference ID
         
         // Build refund request parameters
         Map<String, String> params = new TreeMap<>();
@@ -256,7 +259,7 @@ public class VNPayUtil {
         params.put("vnp_Command", "refund");
         params.put("vnp_TmnCode", vnPayConfig.getTmnCode());
         params.put("vnp_TransactionType", "03"); // 03 = Partial refund (allows platform to keep commission)
-        params.put("vnp_TxnRef", refundTxnRef); // NEW unique refund reference (not original payment ref)
+        params.put("vnp_TxnRef", vnpTxnRef); // ORIGINAL payment reference (NOT new REFUND_xxx)
         params.put("vnp_Amount", String.valueOf(refundAmount.multiply(new BigDecimal(100)).longValue()));
         params.put("vnp_OrderInfo", refundReason);
         params.put("vnp_TransactionNo", originalTransactionNo); // VNPay transaction number from response
@@ -272,7 +275,7 @@ public class VNPayUtil {
 
             log.info("Refund request parameters prepared");
             log.info("Request ID: {}", requestId);
-            log.info("Refund TxnRef (NEW unique): {}", refundTxnRef);
+            log.info("vnp_TxnRef (ORIGINAL payment ref): {}", vnpTxnRef);
             log.info("Secure Hash: {}", secureHash);
         } catch (Exception e) {
             log.error("Failed to generate secure hash for refund request", e);
