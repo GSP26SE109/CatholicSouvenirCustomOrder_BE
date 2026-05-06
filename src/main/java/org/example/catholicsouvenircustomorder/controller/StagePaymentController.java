@@ -97,7 +97,7 @@ public class StagePaymentController {
             
             StagePaymentResponse paymentResponse = null;
             try {
-                paymentResponse = stagePaymentService.handleStagePaymentCallback(referenceId, status);
+                paymentResponse = stagePaymentService.handleStagePaymentCallback(referenceId, status, transactionId);
             } catch (Exception e) {
                 log.error("Error updating stage payment for ref: {}", referenceId, e);
             }
@@ -176,7 +176,8 @@ public class StagePaymentController {
             
             StagePaymentResponse response = stagePaymentService.handleStagePaymentCallback(
                     referenceId, 
-                    status
+                    status,
+                    transactionId
             );
             
             if (transactionId != null && response != null) {
