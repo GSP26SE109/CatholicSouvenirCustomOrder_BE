@@ -260,13 +260,13 @@ public class RefundServiceImp implements RefundService {
             String originalTransactionDate = vnPayUtil.formatVNPayDate(originalPayment.getPaidAt());
             
             // Call VNPay refund API with PARTIAL refund amount (after commission deduction)
+            // NOTE: vnp_OrderInfo must not contain special characters like #, %, (), etc.
             VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
                     originalPayment.getReferenceId(),  // vnp_TxnRef: Our reference ID
                     originalPayment.getTransactionId(), // vnp_TransactionNo: VNPay's transaction number
                     originalTransactionDate,             // vnp_TransactionDate: Original payment date
                     customerRefundAmount,                // Partial refund amount (after commission)
-                    String.format("Hoàn tiền một phần cho khiếu nại #%s (trừ phí sàn %s%%)", 
-                            refundTransaction.getComplaint().getComplaintId(), commissionRate)
+                    "Hoan tien khieu nai"  // Simple ASCII text without special characters
             );
 
             // Check if VNPay returned an error
