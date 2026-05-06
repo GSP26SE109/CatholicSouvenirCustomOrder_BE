@@ -372,6 +372,8 @@ public class VNPayUtil {
      *        vnp_TransactionType + "|" + vnp_TxnRef + "|" + vnp_Amount + "|" + vnp_TransactionNo + "|" + 
      *        vnp_TransactionDate + "|" + vnp_CreateBy + "|" + vnp_CreateDate + "|" + vnp_IpAddr + "|" + vnp_OrderInfo
      * 
+     * NOTE: vnp_TransactionNo is OPTIONAL - only include in hash if it has a value
+     * 
      * @param params Refund request parameters
      * @param secretKey VNPay secret key
      * @return HMAC SHA512 hash
@@ -381,20 +383,21 @@ public class VNPayUtil {
         log.info("=== Generating Refund Hash (VNPay Format) ===");
         
         // Build hash data according to VNPay refund documentation (pipe-separated)
+        // IMPORTANT: vnp_TransactionNo is optional - include in hash data regardless (empty string if not present)
         StringBuilder hashData = new StringBuilder();
-        hashData.append(params.get("vnp_RequestId")).append("|");
-        hashData.append(params.get("vnp_Version")).append("|");
-        hashData.append(params.get("vnp_Command")).append("|");
-        hashData.append(params.get("vnp_TmnCode")).append("|");
-        hashData.append(params.get("vnp_TransactionType")).append("|");
-        hashData.append(params.get("vnp_TxnRef")).append("|");
-        hashData.append(params.get("vnp_Amount")).append("|");
+        hashData.append(params.getOrDefault("vnp_RequestId", "")).append("|");
+        hashData.append(params.getOrDefault("vnp_Version", "")).append("|");
+        hashData.append(params.getOrDefault("vnp_Command", "")).append("|");
+        hashData.append(params.getOrDefault("vnp_TmnCode", "")).append("|");
+        hashData.append(params.getOrDefault("vnp_TransactionType", "")).append("|");
+        hashData.append(params.getOrDefault("vnp_TxnRef", "")).append("|");
+        hashData.append(params.getOrDefault("vnp_Amount", "")).append("|");
         hashData.append(params.getOrDefault("vnp_TransactionNo", "")).append("|");
-        hashData.append(params.get("vnp_TransactionDate")).append("|");
-        hashData.append(params.get("vnp_CreateBy")).append("|");
-        hashData.append(params.get("vnp_CreateDate")).append("|");
-        hashData.append(params.get("vnp_IpAddr")).append("|");
-        hashData.append(params.get("vnp_OrderInfo"));
+        hashData.append(params.getOrDefault("vnp_TransactionDate", "")).append("|");
+        hashData.append(params.getOrDefault("vnp_CreateBy", "")).append("|");
+        hashData.append(params.getOrDefault("vnp_CreateDate", "")).append("|");
+        hashData.append(params.getOrDefault("vnp_IpAddr", "")).append("|");
+        hashData.append(params.getOrDefault("vnp_OrderInfo", ""));
         
         String data = hashData.toString();
         log.info("Refund hash data (pipe-separated): {}", data);
