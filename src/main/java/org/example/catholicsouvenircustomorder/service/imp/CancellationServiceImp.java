@@ -318,9 +318,25 @@ public class CancellationServiceImp implements CancellationService {
                 log.info("Processing refund for stage {}: {} VND (from original {})", 
                     stage.getName(), stageRefundAmount, stage.getAmount());
                 
-                // Validate payment has paidAt date
+                // Validate payment has required data
                 if (stagePayment.getPaidAt() == null) {
                     String errorMsg = String.format("Stage %s không có ngày thanh toán", stage.getName());
+                    log.error(errorMsg);
+                    failureReasons.add(errorMsg);
+                    failCount++;
+                    continue;
+                }
+                
+                if (stagePayment.getReferenceId() == null || stagePayment.getReferenceId().isEmpty()) {
+                    String errorMsg = String.format("Stage %s không có reference ID", stage.getName());
+                    log.error(errorMsg);
+                    failureReasons.add(errorMsg);
+                    failCount++;
+                    continue;
+                }
+                
+                if (stagePayment.getTransactionId() == null || stagePayment.getTransactionId().isEmpty()) {
+                    String errorMsg = String.format("Stage %s không có transaction ID từ VNPay", stage.getName());
                     log.error(errorMsg);
                     failureReasons.add(errorMsg);
                     failCount++;

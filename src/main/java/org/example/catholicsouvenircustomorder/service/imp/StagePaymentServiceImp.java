@@ -190,9 +190,14 @@ public class StagePaymentServiceImp implements StagePaymentService {
     @Override
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public StagePaymentResponse handleStagePaymentCallback(String referenceId, String status) {
+        return handleStagePaymentCallback(referenceId, status, null);
+    }
+    
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public StagePaymentResponse handleStagePaymentCallback(String referenceId, String status, String transactionId) {
         log.info("========================================");
         log.info("🔔 Processing stage payment callback");
-        log.info("ReferenceId: {}, Status: {}", referenceId, status);
+        log.info("ReferenceId: {}, Status: {}, TransactionId: {}", referenceId, status, transactionId);
 
         // Find payment by our reference ID
         StagePayment payment = paymentRepository.findByReferenceId(referenceId)
@@ -221,6 +226,15 @@ public class StagePaymentServiceImp implements StagePaymentService {
             // CRITICAL: Update payment status FIRST in separate transaction
             payment.setStatus(PaymentStatus.SUCCESS);
             payment.setPaidAt(LocalDateTime.now());
+            
+            // CRITICAL: Save transaction ID from VNPay
+            if (transactionId != null && !transactionId.isEmpty()) {
+                payment.setTransactionId(transactionId);
+                log.info("✅ Transaction ID saved: {}", transactionId);
+            } else {
+                log.warn("⚠️ No transaction ID provided in callback");
+            }
+            
             payment = paymentRepository.saveAndFlush(payment); // Force immediate commit
             log.info("✅ Payment saved with SUCCESS status: {}", payment.getStatus());
 

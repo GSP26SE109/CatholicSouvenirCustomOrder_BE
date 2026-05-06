@@ -23,6 +23,11 @@ public interface StagePaymentService {
     StagePaymentResponse handleStagePaymentCallback(String transactionId, String status);
     
     /**
+     * Handle payment callback for stage payment with transaction ID
+     */
+    StagePaymentResponse handleStagePaymentCallback(String referenceId, String status, String transactionId);
+    
+    /**
      * Get successful payment for a stage
      */
     StagePaymentResponse getSuccessfulStagePayment(UUID stageId);

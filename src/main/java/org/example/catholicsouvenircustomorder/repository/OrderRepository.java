@@ -21,9 +21,12 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("""
     SELECT DISTINCT o
     FROM Order o
-    JOIN o.orderDetails od
-    JOIN od.product p
+    LEFT JOIN o.orderDetails od
+    LEFT JOIN od.product p
+    LEFT JOIN o.templateDetails otd
+    LEFT JOIN otd.template t
     WHERE p.artisan.artisanUuid = :artisanId
+    OR t.artisan.artisanUuid = :artisanId
 """)
     Page<Order> findOrdersByArtisanId(UUID artisanId, Pageable pageable);
     
@@ -32,24 +35,28 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     //====== artisan Dashboard======//
     @Query("""
     SELECT COUNT(DISTINCT o.orderId) AS totalOrders,
-           SUM(od.quantity * p.productPrice) AS totalRevenue
+           COALESCE(SUM(od.quantity * p.productPrice), 0) + COALESCE(SUM(otd.quantity * otd.unitPrice), 0) AS totalRevenue
     FROM Order o
-    JOIN o.orderDetails od
-    JOIN od.product p
+    LEFT JOIN o.orderDetails od
+    LEFT JOIN od.product p
+    LEFT JOIN o.templateDetails otd
+    LEFT JOIN otd.template t
     WHERE o.createAt >= :start
-    AND p.artisan.artisanUuid = :artisanId
+    AND (p.artisan.artisanUuid = :artisanId OR t.artisan.artisanUuid = :artisanId)
 """)
     DashboardSummary getSummary(LocalDateTime start, UUID artisanId);
 
     @Query("""
     SELECT CAST(o.createAt AS date) AS date,
-           COUNT(o.orderId) AS orderNumber,
-           SUM(od.quantity * p.productPrice) AS revenue
+           COUNT(DISTINCT o.orderId) AS orderNumber,
+           COALESCE(SUM(od.quantity * p.productPrice), 0) + COALESCE(SUM(otd.quantity * otd.unitPrice), 0) AS revenue
     FROM Order o
-    JOIN o.orderDetails od
-    JOIN od.product p
+    LEFT JOIN o.orderDetails od
+    LEFT JOIN od.product p
+    LEFT JOIN o.templateDetails otd
+    LEFT JOIN otd.template t
     WHERE o.createAt >= :startDate
-    AND p.artisan.artisanUuid = :artisanId
+    AND (p.artisan.artisanUuid = :artisanId OR t.artisan.artisanUuid = :artisanId)
     GROUP BY CAST(o.createAt AS date)
     ORDER BY CAST(o.createAt AS date)
 """)
@@ -58,9 +65,11 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("""
     SELECT o.status, COUNT(DISTINCT o.orderId)
     FROM Order o
-    JOIN o.orderDetails od
-    JOIN od.product p
-    WHERE p.artisan.artisanUuid = :artisanId
+    LEFT JOIN o.orderDetails od
+    LEFT JOIN od.product p
+    LEFT JOIN o.templateDetails otd
+    LEFT JOIN otd.template t
+    WHERE p.artisan.artisanUuid = :artisanId OR t.artisan.artisanUuid = :artisanId
     GROUP BY o.status
 """)
     List<Object[]> getOrderStatusRaw(UUID artisanId);
@@ -133,8 +142,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
            "(CAST(COUNT(CASE WHEN o.status = 'DELIVERED' THEN 1 END) AS DOUBLE) * 100.0 / " +
            "NULLIF(COUNT(CASE WHEN o.status != 'CANCELLED' THEN 1 END), 0)) as fulfillmentRate " +
            "FROM Order o " +
-           "JOIN o.orderDetails od " +
-           "WHERE od.product.artisan.artisanUuid = :artisanId")
+           "LEFT JOIN o.orderDetails od " +
+           "LEFT JOIN o.templateDetails otd " +
+           "WHERE od.product.artisan.artisanUuid = :artisanId OR otd.template.artisan.artisanUuid = :artisanId")
     Double getOrderFulfillmentRate(@Param("artisanId") UUID artisanId);
     
     /**
@@ -146,9 +156,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
            "(CAST(COUNT(CASE WHEN s.actualDelivery IS NOT NULL AND s.actualDelivery <= s.estimatedDelivery THEN 1 END) AS DOUBLE) * 100.0 / " +
            "NULLIF(COUNT(CASE WHEN o.status = 'DELIVERED' AND s.actualDelivery IS NOT NULL THEN 1 END), 0)) as onTimeRate " +
            "FROM Order o " +
-           "JOIN o.orderDetails od " +
+           "LEFT JOIN o.orderDetails od " +
+           "LEFT JOIN o.templateDetails otd " +
            "LEFT JOIN Shipment s ON s.order = o " +
-           "WHERE od.product.artisan.artisanUuid = :artisanId " +
+           "WHERE (od.product.artisan.artisanUuid = :artisanId OR otd.template.artisan.artisanUuid = :artisanId) " +
            "AND o.status = 'DELIVERED'")
     Double getOnTimeDeliveryRate(@Param("artisanId") UUID artisanId);
 }
