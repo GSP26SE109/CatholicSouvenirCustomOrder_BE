@@ -180,7 +180,6 @@ public class ComplaintServiceImp implements ComplaintService {
         
         // 2. Update complaint with response
         complaint.setArtisanResponse(request.getResponse());
-        complaint.setRequireReturn(request.getRequireReturn());
         complaint.setArtisanResponseAt(LocalDateTime.now());
         
         complaint = complaintRepository.save(complaint);
@@ -235,40 +234,23 @@ public class ComplaintServiceImp implements ComplaintService {
         complaint.setReviewedBy(admin);
         complaint.setReviewedAt(LocalDateTime.now());
         
-        // 4. Process based on requireReturn flag
-        if (complaint.getRequireReturn()) {
-            // Require return: Update status to WAITING_RETURN
-            complaint.setStatus(ComplaintStatus.WAITING_RETURN);
-            complaint = complaintRepository.save(complaint);
+        // 4. Process refund immediately (no return required)
+        complaint.setStatus(ComplaintStatus.PROCESSING_REFUND);
+        complaint = complaintRepository.save(complaint);
+        
+        try {
+            RefundTransaction refundTransaction;
             
-            log.info("Complaint approved with return required: {}", complaintId);
-            
-            // Send notification to customer with return instructions
-            notificationService.sendNotification(
-                complaint.getCustomer().getAccountId(),
-                NotificationType.COMPLAINT_APPROVED,
-                "Khiếu nại được phê duyệt",
-                "Khiếu nại của bạn đã được phê duyệt. Vui lòng trả hàng về cho nghệ nhân.",
-                complaint.getComplaintId()
-            );
-        } else {
-            // No return required: Process refund immediately
-            complaint.setStatus(ComplaintStatus.PROCESSING_REFUND);
-            complaint = complaintRepository.save(complaint);
-            
-            try {
-                RefundTransaction refundTransaction;
+            // Check if this is a custom order - use custom refund calculation
+            if (complaint.getCustomOrder() != null) {
+                log.info("Processing custom order complaint refund with platform commission");
                 
-                // Check if this is a custom order - use custom refund calculation
-                if (complaint.getCustomOrder() != null) {
-                    log.info("Processing custom order complaint refund with platform commission");
-                    
-                    // Calculate and process refund with platform commission
-                    refundTransaction = processCustomOrderComplaintRefund(
-                        complaint,
-                        request.getRefundAmount()
-                    );
-                    
+                // Calculate and process refund with platform commission
+                refundTransaction = processCustomOrderComplaintRefund(
+                    complaint,
+                    request.getRefundAmount()
+                );
+                
                     // Process VNPay refund for custom order
                     processVNPayRefundForComplaint(refundTransaction, complaint.getCustomOrder());
                 } else {
@@ -387,7 +369,6 @@ public class ComplaintServiceImp implements ComplaintService {
                 
                 throw new RuntimeException("Lỗi hệ thống khi xử lý hoàn tiền: " + e.getMessage(), e);
             }
-        }
         
         return mapToResponse(complaint);
     }
@@ -890,7 +871,6 @@ public class ComplaintServiceImp implements ComplaintService {
             .reason(complaint.getReason())
             .evidenceImages(complaint.getEvidenceImages())
             .artisanResponse(complaint.getArtisanResponse())
-            .requireReturn(complaint.getRequireReturn())
             .artisanResponseAt(complaint.getArtisanResponseAt())
             .refundAmount(complaint.getRefundAmount())
             .adminNote(complaint.getAdminNote())

@@ -30,7 +30,6 @@ public class ComplaintResponse {
     private String artisanName;
     private String reason;
     private ComplaintStatus status;
-    private Boolean requireReturn;
     private BigDecimal refundAmount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

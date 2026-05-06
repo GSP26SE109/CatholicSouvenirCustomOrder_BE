@@ -43,7 +43,6 @@ public class ComplaintDetailResponse {
     
     // Artisan response (Requirements: 7.3)
     private String artisanResponse;
-    private Boolean requireReturn;
     private LocalDateTime artisanResponseAt;
     
     // Admin decision (Requirements: 7.4)

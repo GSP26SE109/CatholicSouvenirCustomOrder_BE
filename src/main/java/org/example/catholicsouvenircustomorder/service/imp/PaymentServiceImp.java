@@ -16,6 +16,7 @@ import org.example.catholicsouvenircustomorder.service.PaymentService;
 import org.example.catholicsouvenircustomorder.service.SystemConfigService;
 import org.example.catholicsouvenircustomorder.service.CommissionService;
 import org.example.catholicsouvenircustomorder.service.NotificationService;
+import org.example.catholicsouvenircustomorder.service.InventoryService;
 import org.example.catholicsouvenircustomorder.dto.CommissionCalculation;
 import org.example.catholicsouvenircustomorder.util.VNPayUtil;
 import org.example.catholicsouvenircustomorder.util.ZaloPayUtil;
@@ -49,6 +50,7 @@ public class PaymentServiceImp implements PaymentService {
     private final SystemConfigService systemConfigService;
     private final CommissionService commissionService;
     private final NotificationService notificationService;
+    private final InventoryService inventoryService;
     @Value("${app.base-url}")
     private String baseUrl;
 
@@ -284,6 +286,16 @@ public class PaymentServiceImp implements PaymentService {
             log.info("✅ Updated {} orders in group {}", 
                     orderGroup.getOrders().size(), orderGroup.getGroupId());
             
+            // Confirm inventory reservations (convert reserved to actual deduction)
+            log.info("📦 Confirming inventory reservations");
+            try {
+                inventoryService.confirmReservations(orderGroup);
+                log.info("✅ Inventory reservations confirmed");
+            } catch (Exception e) {
+                log.error("❌ Error confirming inventory reservations: {}", e.getMessage(), e);
+                // Continue with payment distribution even if inventory confirmation fails
+            }
+            
             // Distribute payment to all artisans with commission deduction
             log.info("💰 Starting payment distribution process");
             try {
@@ -340,6 +352,17 @@ public class PaymentServiceImp implements PaymentService {
             log.warn("❌ Payment failed with status: {}", status);
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason("Payment failed with status: " + status);
+            
+            // Release inventory reservations on payment failure
+            if (payment.getOrderGroup() != null) {
+                log.info("📦 Releasing inventory reservations due to payment failure");
+                try {
+                    inventoryService.releaseReservations(payment.getOrderGroup());
+                    log.info("✅ Inventory reservations released");
+                } catch (Exception e) {
+                    log.error("❌ Error releasing inventory reservations: {}", e.getMessage(), e);
+                }
+            }
         }
         
         log.info("💾 Final save of payment record");
