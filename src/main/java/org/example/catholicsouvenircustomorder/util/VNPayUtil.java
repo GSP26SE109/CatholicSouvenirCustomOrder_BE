@@ -132,6 +132,16 @@ public class VNPayUtil {
         return sdf.format(new Date());
     }
 
+    /**
+     * Convert LocalDateTime to VNPay date format (yyyyMMddHHmmss)
+     */
+    public String formatVNPayDate(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return getVNPayDate();
+        }
+        return dateTime.format(VNPAY_DATE_FORMAT);
+    }
+
     public String getExpireDate(int minutes) {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.MINUTE, minutes);
@@ -206,6 +216,7 @@ public class VNPayUtil {
      * Requirements: 12.2 - Add @Retryable annotation with exponential backoff
      * 
      * @param originalTransactionId Original vnp_TransactionNo from the payment
+     * @param originalTransactionDate Original transaction date in yyyyMMddHHmmss format
      * @param refundAmount Amount to refund in VND
      * @param refundReason Reason for the refund
      * @return VNPayRefundResponse containing refund details
@@ -220,11 +231,13 @@ public class VNPayUtil {
     )
     public VNPayRefundResponse createRefundRequest(
             String originalTransactionId,
+            String originalTransactionDate,
             BigDecimal refundAmount,
             String refundReason
     ) throws VNPayException, VNPayTimeoutException, VNPayNetworkException {
         log.info("=== Creating VNPay Refund Request (Attempt) ===");
         log.info("Original Transaction ID: {}", originalTransactionId);
+        log.info("Original Transaction Date: {}", originalTransactionDate);
         log.info("Refund Amount: {} VND", refundAmount);
         log.info("Refund Reason: {}", refundReason);
 
@@ -243,7 +256,7 @@ public class VNPayUtil {
         params.put("vnp_Amount", String.valueOf(refundAmount.multiply(new BigDecimal(100)).longValue()));
         params.put("vnp_OrderInfo", refundReason);
         params.put("vnp_TransactionNo", originalTransactionId);
-        params.put("vnp_TransactionDate", createDate);
+        params.put("vnp_TransactionDate", originalTransactionDate); // CRITICAL: Must be original payment date
         params.put("vnp_CreateBy", "system");
         params.put("vnp_CreateDate", createDate);
         params.put("vnp_IpAddr", "127.0.0.1");

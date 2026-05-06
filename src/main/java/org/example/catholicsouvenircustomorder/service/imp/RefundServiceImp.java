@@ -189,6 +189,7 @@ public class RefundServiceImp implements RefundService {
                         paymentWrapper.setTransactionId(stagePayment.getTransactionId());
                         paymentWrapper.setAmount(stagePayment.getAmount());
                         paymentWrapper.setStatus(stagePayment.getStatus());
+                        paymentWrapper.setPaidAt(stagePayment.getPaidAt()); // Include paidAt for refund
                         payments.add(paymentWrapper);
 
                         log.info("Found stage payment for custom order stage {}: {}",
@@ -212,13 +213,22 @@ public class RefundServiceImp implements RefundService {
             BigDecimal amount
     ) throws Exception {
         log.info("Processing regular order refund via VNPay");
-        log.info("Original payment ID: {}, Transaction ID: {}",
-                originalPayment.getPaymentId(), originalPayment.getTransactionId());
+        log.info("Original payment ID: {}, Transaction ID: {}, Paid At: {}",
+                originalPayment.getPaymentId(), originalPayment.getTransactionId(), originalPayment.getPaidAt());
+
+        // Validate that payment has paidAt date
+        if (originalPayment.getPaidAt() == null) {
+            throw new Exception("Không thể hoàn tiền: Giao dịch gốc không có ngày thanh toán");
+        }
 
         try {
-            // Call VNPay refund API
+            // Convert payment date to VNPay format
+            String originalTransactionDate = vnPayUtil.formatVNPayDate(originalPayment.getPaidAt());
+            
+            // Call VNPay refund API with original transaction date
             VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
                     originalPayment.getTransactionId(),
+                    originalTransactionDate,
                     amount,
                     "Hoàn tiền cho khiếu nại #" + refundTransaction.getComplaint().getComplaintId()
             );
@@ -300,6 +310,16 @@ public class RefundServiceImp implements RefundService {
         // Refund each stage payment proportionally
         for (Payment stagePayment : stagePayments) {
             try {
+                // Validate that payment has paidAt date
+                if (stagePayment.getPaidAt() == null) {
+                    failCount++;
+                    String errorMsg = String.format("Stage %s không có ngày thanh toán",
+                            stagePayment.getPaymentId());
+                    failureReasons.append(errorMsg).append("; ");
+                    log.error("Stage refund failed: {}", errorMsg);
+                    continue;
+                }
+
                 // Calculate proportional refund amount for this stage
                 BigDecimal stageRefundAmount = calculateProportionalRefund(
                         stagePayment.getAmount(),
@@ -307,12 +327,16 @@ public class RefundServiceImp implements RefundService {
                         totalPaidAmount
                 );
 
-                log.info("Refunding stage payment {}: {} VND (proportional from {})",
-                        stagePayment.getPaymentId(), stageRefundAmount, stagePayment.getAmount());
+                log.info("Refunding stage payment {}: {} VND (proportional from {}), Paid At: {}",
+                        stagePayment.getPaymentId(), stageRefundAmount, stagePayment.getAmount(), stagePayment.getPaidAt());
+
+                // Convert payment date to VNPay format
+                String originalTransactionDate = vnPayUtil.formatVNPayDate(stagePayment.getPaidAt());
 
                 // Call VNPay refund API for this stage
                 VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
                         stagePayment.getTransactionId(),
+                        originalTransactionDate,
                         stageRefundAmount,
                         "Hoàn tiền một phần cho khiếu nại #" + refundTransaction.getComplaint().getComplaintId()
                 );
