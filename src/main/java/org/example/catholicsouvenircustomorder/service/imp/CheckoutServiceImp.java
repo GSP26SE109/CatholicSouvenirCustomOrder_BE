@@ -167,9 +167,10 @@ public class CheckoutServiceImp implements CheckoutService {
         for (CartItem item : cart.getItems()) {
             if (item.getType() == CartItemType.PRODUCT) {
                 Product product = item.getProduct();
-                if (product.getQuantity() < item.getQuantity()) {
+                if (!product.hasAvailableStock(item.getQuantity())) {
                     throw new BadRequestException(
-                        String.format("Sản phẩm '%s' không đủ hàng", product.getProductName()));
+                        String.format("Sản phẩm '%s' không đủ hàng (còn %d, cần %d)", 
+                            product.getProductName(), product.getAvailableQuantity(), item.getQuantity()));
                 }
             }
         }
@@ -193,13 +194,20 @@ public class CheckoutServiceImp implements CheckoutService {
             for (CartItem item : items) {
                 Product product = item.getProduct();
                 
-                // Update product quantity
-                if (product.getQuantity() < item.getQuantity()) {
+                // Reserve stock instead of deducting immediately
+                if (!product.hasAvailableStock(item.getQuantity())) {
                     throw new BadRequestException(
-                        String.format("Sản phẩm '%s' không đủ hàng", product.getProductName()));
+                        String.format("Sản phẩm '%s' không đủ hàng (còn %d, cần %d)", 
+                            product.getProductName(), product.getAvailableQuantity(), item.getQuantity()));
                 }
-                product.setQuantity(product.getQuantity() - item.getQuantity());
+                
+                product.reserveStock(item.getQuantity());
                 productRepository.save(product);
+                
+                log.info("Reserved {} units of product {} (available: {} -> {})", 
+                    item.getQuantity(), product.getProductId(), 
+                    product.getAvailableQuantity() + item.getQuantity(), 
+                    product.getAvailableQuantity());
                 
                 // Create order detail
                 OrderDetail detail = new OrderDetail();

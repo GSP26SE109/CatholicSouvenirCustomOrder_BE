@@ -26,6 +26,10 @@ public class Product {
     private String productDescription;
     private String size;
     private int quantity;
+    
+    @Column(nullable = false)
+    private int reservedQuantity = 0; // Quantity reserved for pending orders
+    
     private String status;
     private LocalDateTime createdAt;
 
@@ -48,6 +52,32 @@ public class Product {
             inverseJoinColumns = @JoinColumn(name = "tag_id")
     )
     private List<Tag> tags = new ArrayList<>();
+    
     @Version
     private int version;
+    
+    // Helper methods for inventory management
+    public int getAvailableQuantity() {
+        return quantity - reservedQuantity;
+    }
+    
+    public boolean hasAvailableStock(int requestedQuantity) {
+        return getAvailableQuantity() >= requestedQuantity;
+    }
+    
+    public void reserveStock(int amount) {
+        if (!hasAvailableStock(amount)) {
+            throw new IllegalStateException("Không đủ hàng để reserve");
+        }
+        this.reservedQuantity += amount;
+    }
+    
+    public void releaseReservation(int amount) {
+        this.reservedQuantity = Math.max(0, this.reservedQuantity - amount);
+    }
+    
+    public void confirmReservation(int amount) {
+        this.quantity -= amount;
+        this.reservedQuantity = Math.max(0, this.reservedQuantity - amount);
+    }
 }

@@ -100,12 +100,7 @@ public class AdminComplaintController {
         
         ComplaintResponse response = complaintService.approveComplaint(id, request, adminId);
         
-        String message;
-        if (response.getRequireReturn()) {
-            message = "Phê duyệt đơn khiếu nại thành công. Khách hàng cần trả hàng trước khi hoàn tiền.";
-        } else {
-            message = "Phê duyệt đơn khiếu nại thành công. Hệ thống đã xử lý hoàn tiền.";
-        }
+        String message = "Phê duyệt đơn khiếu nại thành công. Hệ thống đã xử lý hoàn tiền.";
         
         return ResponseEntity.ok(BaseResponse.success(message, response));
     }

@@ -13,4 +13,6 @@ public interface OrderGroupRepository extends JpaRepository<OrderGroup, UUID> {
     List<OrderGroup> findByCustomer_AccountId(UUID customerId);
     
     List<OrderGroup> findByCustomer_AccountIdOrderByCreatedAtDesc(UUID customerId);
+    
+    List<OrderGroup> findByStatusAndUpdatedAtBefore(String status, java.time.LocalDateTime updatedAt);
 }

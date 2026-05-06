@@ -89,16 +89,16 @@ public class CartServiceImp implements CartService {
             if (item.isProduct()) {
                 Product product = item.getProduct();
                 
-                if (product.getQuantity() == 0) {
+                if (product.getAvailableQuantity() == 0) {
                     throw new BadRequestException(
                         String.format("Sản phẩm '%s' đã hết hàng", product.getProductName())
                     );
                 }
                 
-                if (product.getQuantity() < newQuantity) {
+                if (!product.hasAvailableStock(newQuantity)) {
                     throw new BadRequestException(
-                        String.format("Sản phẩm '%s' chỉ còn %d sản phẩm trong kho. Bạn đã có %d trong giỏ hàng", 
-                            product.getProductName(), product.getQuantity(), item.getQuantity())
+                        String.format("Sản phẩm '%s' chỉ còn %d sản phẩm có sẵn. Bạn đã có %d trong giỏ hàng", 
+                            product.getProductName(), product.getAvailableQuantity(), item.getQuantity())
                     );
                 }
             }
@@ -133,16 +133,16 @@ public class CartServiceImp implements CartService {
         if (cartItem.isProduct()) {
             Product product = cartItem.getProduct();
             
-            if (product.getQuantity() == 0) {
+            if (product.getAvailableQuantity() == 0) {
                 throw new BadRequestException(
                     String.format("Sản phẩm '%s' đã hết hàng", product.getProductName())
                 );
             }
             
-            if (product.getQuantity() < request.getQuantity()) {
+            if (!product.hasAvailableStock(request.getQuantity())) {
                 throw new BadRequestException(
-                    String.format("Sản phẩm '%s' chỉ còn %d sản phẩm trong kho", 
-                        product.getProductName(), product.getQuantity())
+                    String.format("Sản phẩm '%s' chỉ còn %d sản phẩm có sẵn", 
+                        product.getProductName(), product.getAvailableQuantity())
                 );
             }
         }

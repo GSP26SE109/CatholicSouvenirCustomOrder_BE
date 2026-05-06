@@ -50,9 +50,6 @@ public class Complaint {
     @Column(length = 1000)
     private String artisanResponse;
     
-    @Column(nullable = false)
-    private Boolean requireReturn = false;
-    
     private LocalDateTime artisanResponseAt;
     
     // Admin decision
