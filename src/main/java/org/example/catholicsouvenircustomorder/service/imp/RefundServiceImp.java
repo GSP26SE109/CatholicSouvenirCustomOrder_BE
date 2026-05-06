@@ -240,7 +240,7 @@ public class RefundServiceImp implements RefundService {
     ) throws Exception {
         log.info("Processing regular order refund via VNPay (PARTIAL REFUND)");
         log.info("Original payment ID: {}, Reference ID: {}, Transaction ID: {}, Paid At: {}",
-                originalPayment.getPaymentId(), originalPayment.getReferenceId(), 
+                originalPayment.getPaymentId(), originalPayment.getReferenceId(),
                 originalPayment.getTransactionId(), originalPayment.getPaidAt());
         log.info("Customer refund amount (after {}% commission): {}", commissionRate, customerRefundAmount);
 
@@ -258,7 +258,7 @@ public class RefundServiceImp implements RefundService {
         try {
             // Convert payment date to VNPay format
             String originalTransactionDate = vnPayUtil.formatVNPayDate(originalPayment.getPaidAt());
-            
+
             // Call VNPay refund API with PARTIAL refund amount (after commission deduction)
             // NOTE: vnp_OrderInfo must not contain special characters like #, %, (), etc.
             VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
@@ -382,7 +382,7 @@ public class RefundServiceImp implements RefundService {
                 );
 
                 log.info("Refunding stage payment {}: {} VND (proportional from {}, after {}% commission), Paid At: {}",
-                        stagePayment.getPaymentId(), stageRefundAmount, stagePayment.getAmount(), 
+                        stagePayment.getPaymentId(), stageRefundAmount, stagePayment.getAmount(),
                         commissionRate, stagePayment.getPaidAt());
 
                 // Convert payment date to VNPay format
@@ -394,7 +394,7 @@ public class RefundServiceImp implements RefundService {
                         stagePayment.getTransactionId(), // vnp_TransactionNo
                         originalTransactionDate,          // vnp_TransactionDate
                         stageRefundAmount,                // Partial refund amount (after commission)
-                        String.format("Hoàn tiền một phần cho khiếu nại #%s (trừ phí sàn %s%%)", 
+                        String.format("Hoàn tiền một phần cho khiếu nại #%s (trừ phí sàn %s%%)",
                                 refundTransaction.getComplaint().getComplaintId(), commissionRate)
                 );
 
