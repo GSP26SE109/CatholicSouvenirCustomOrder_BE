@@ -14,6 +14,7 @@ import org.example.catholicsouvenircustomorder.repository.WalletRepository;
 import org.example.catholicsouvenircustomorder.repository.WalletTransactionRepository;
 import org.example.catholicsouvenircustomorder.service.NotificationService;
 import org.example.catholicsouvenircustomorder.service.RefundService;
+import org.example.catholicsouvenircustomorder.service.SystemConfigService;
 import org.example.catholicsouvenircustomorder.service.WalletService;
 import org.example.catholicsouvenircustomorder.util.VNPayErrorMapper;
 import org.example.catholicsouvenircustomorder.util.VNPayUtil;
@@ -47,9 +48,11 @@ public class RefundServiceImp implements RefundService {
     private final VNPayUtil vnPayUtil;
     private final PaymentRepository paymentRepository;
     private final StagePaymentRepository stagePaymentRepository;
+    private final SystemConfigService systemConfigService;
 
     /**
      * Process refund for approved complaint via VNPay
+     * Uses PARTIAL REFUND (vnp_TransactionType = 03) to deduct platform commission
      * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 11.1, 11.2, 11.3
      */
     @Override
@@ -68,24 +71,42 @@ public class RefundServiceImp implements RefundService {
             throw new ResourceNotFoundException("Không tìm thấy giao dịch thanh toán gốc cho khiếu nại này");
         }
 
-        // 3. Create RefundTransaction with status PENDING
+        // 3. Get commission rate from SystemConfig
+        BigDecimal commissionRate = systemConfigService.getCommissionRate();
+        log.info("Current platform commission rate: {}%", commissionRate);
+
+        // 4. Calculate refund amount after deducting commission
+        BigDecimal commissionAmount = amount
+                .multiply(commissionRate)
+                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+        BigDecimal customerRefundAmount = amount.subtract(commissionAmount);
+
+        log.info("Refund calculation: Original amount: {}, Commission ({}%): {}, Customer receives: {}",
+                amount, commissionRate, commissionAmount, customerRefundAmount);
+
+        // Validate customer refund amount must be greater than 0
+        if (customerRefundAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Số tiền hoàn trả cho khách hàng phải lớn hơn 0");
+        }
+
+        // 5. Create RefundTransaction with status PENDING
         RefundTransaction refundTransaction = new RefundTransaction();
         refundTransaction.setComplaint(complaint);
-        refundTransaction.setAmount(amount);
+        refundTransaction.setAmount(amount); // Store original amount
         refundTransaction.setFromWallet(artisanWallet);
         refundTransaction.setStatus(RefundStatus.PENDING);
         refundTransaction = refundTransactionRepository.save(refundTransaction);
 
         log.info("Created refund transaction: {}", refundTransaction.getRefundTransactionId());
 
-        // 4. Process VNPay refund based on order type
+        // 6. Process VNPay refund based on order type (with partial refund amount)
         try {
             if (complaint.getOrder() != null) {
                 // Regular order: Single payment refund
-                processRegularOrderRefund(refundTransaction, originalPayments.get(0), amount);
+                processRegularOrderRefund(refundTransaction, originalPayments.get(0), customerRefundAmount, commissionRate);
             } else if (complaint.getCustomOrder() != null) {
                 // Custom order: Multiple stage payments refund
-                processCustomOrderRefund(refundTransaction, originalPayments, amount);
+                processCustomOrderRefund(refundTransaction, originalPayments, customerRefundAmount, commissionRate);
             }
         } catch (Exception e) {
             log.error("VNPay refund failed: {}", e.getMessage(), e);
@@ -100,7 +121,7 @@ public class RefundServiceImp implements RefundService {
                 notificationService.notifyCustomerRefundFailed(
                         complaint.getCustomer().getAccountId(),
                         complaint.getComplaintId(),
-                        amount,
+                        customerRefundAmount,
                         e.getMessage()
                 );
             } catch (Exception notifEx) {
@@ -112,11 +133,13 @@ public class RefundServiceImp implements RefundService {
                 Account platformAdmin = walletService.getPlatformAdminAccount();
                 String adminMessage = String.format(
                         "Hoàn tiền VNPay thất bại cho khiếu nại #%s. " +
-                                "Khách hàng: %s, Số tiền: %,d VNĐ, Lỗi: %s. " +
+                                "Khách hàng: %s, Số tiền gốc: %,d VNĐ, Số tiền hoàn trả (sau trừ phí %s%%): %,d VNĐ, Lỗi: %s. " +
                                 "Vui lòng kiểm tra và xử lý thủ công nếu cần.",
                         complaint.getComplaintId(),
                         complaint.getCustomer().getFullName(),
                         amount.longValue(),
+                        commissionRate,
+                        customerRefundAmount.longValue(),
                         e.getMessage()
                 );
 
@@ -146,7 +169,7 @@ public class RefundServiceImp implements RefundService {
             throw new RuntimeException(errorMessage, e);
         }
 
-        // 5. Deduct from artisan wallet (even if VNPay is processing)
+        // 7. Deduct from artisan wallet (even if VNPay is processing)
         deductFromArtisanWallet(refundTransaction, artisanWallet, amount);
 
         log.info("Refund process completed for complaint: {}", complaint.getComplaintId());
@@ -206,17 +229,20 @@ public class RefundServiceImp implements RefundService {
 
     /**
      * Process refund for regular order (single payment)
+     * Uses PARTIAL REFUND to deduct platform commission
      * Requirements: 3.1, 3.2, 3.3, 12.3 - Exception handling
      */
     private void processRegularOrderRefund(
             RefundTransaction refundTransaction,
             Payment originalPayment,
-            BigDecimal amount
+            BigDecimal customerRefundAmount,
+            BigDecimal commissionRate
     ) throws Exception {
-        log.info("Processing regular order refund via VNPay");
+        log.info("Processing regular order refund via VNPay (PARTIAL REFUND)");
         log.info("Original payment ID: {}, Reference ID: {}, Transaction ID: {}, Paid At: {}",
                 originalPayment.getPaymentId(), originalPayment.getReferenceId(), 
                 originalPayment.getTransactionId(), originalPayment.getPaidAt());
+        log.info("Customer refund amount (after {}% commission): {}", commissionRate, customerRefundAmount);
 
         // Validate that payment has required fields
         if (originalPayment.getPaidAt() == null) {
@@ -233,13 +259,14 @@ public class RefundServiceImp implements RefundService {
             // Convert payment date to VNPay format
             String originalTransactionDate = vnPayUtil.formatVNPayDate(originalPayment.getPaidAt());
             
-            // Call VNPay refund API with correct parameters
+            // Call VNPay refund API with PARTIAL refund amount (after commission deduction)
             VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
                     originalPayment.getReferenceId(),  // vnp_TxnRef: Our reference ID
                     originalPayment.getTransactionId(), // vnp_TransactionNo: VNPay's transaction number
                     originalTransactionDate,             // vnp_TransactionDate: Original payment date
-                    amount,
-                    "Hoàn tiền cho khiếu nại #" + refundTransaction.getComplaint().getComplaintId()
+                    customerRefundAmount,                // Partial refund amount (after commission)
+                    String.format("Hoàn tiền một phần cho khiếu nại #%s (trừ phí sàn %s%%)", 
+                            refundTransaction.getComplaint().getComplaintId(), commissionRate)
             );
 
             // Check if VNPay returned an error
@@ -257,7 +284,7 @@ public class RefundServiceImp implements RefundService {
             refundTransaction.setStatus(RefundStatus.PROCESSING);
             refundTransactionRepository.save(refundTransaction);
 
-            log.info("VNPay refund initiated successfully. Refund ID: {}, Transaction No: {}",
+            log.info("VNPay partial refund initiated successfully. Refund ID: {}, Transaction No: {}",
                     vnpayResponse.getVnpayRefundId(), vnpayResponse.getVnpayTransactionNo());
 
             // Send notification to customer
@@ -265,7 +292,7 @@ public class RefundServiceImp implements RefundService {
                 notificationService.notifyCustomerRefundProcessing(
                         refundTransaction.getComplaint().getCustomer().getAccountId(),
                         refundTransaction.getComplaint().getComplaintId(),
-                        amount
+                        customerRefundAmount
                 );
             } catch (Exception e) {
                 log.error("Failed to send notification to customer: {}", e.getMessage());
@@ -294,16 +321,18 @@ public class RefundServiceImp implements RefundService {
 
     /**
      * Process refund for custom order (multiple stage payments)
+     * Uses PARTIAL REFUND to deduct platform commission
      * Requirements: 11.1, 11.2, 11.3
      */
     private void processCustomOrderRefund(
             RefundTransaction refundTransaction,
             List<Payment> stagePayments,
-            BigDecimal totalRefundAmount
+            BigDecimal totalCustomerRefundAmount,
+            BigDecimal commissionRate
     ) throws Exception {
-        log.info("Processing custom order refund via VNPay");
-        log.info("Number of stage payments: {}, Total refund amount: {}",
-                stagePayments.size(), totalRefundAmount);
+        log.info("Processing custom order refund via VNPay (PARTIAL REFUND)");
+        log.info("Number of stage payments: {}, Total customer refund amount (after {}% commission): {}",
+                stagePayments.size(), commissionRate, totalCustomerRefundAmount);
 
         int successCount = 0;
         int failCount = 0;
@@ -345,26 +374,28 @@ public class RefundServiceImp implements RefundService {
                     continue;
                 }
 
-                // Calculate proportional refund amount for this stage
+                // Calculate proportional refund amount for this stage (already after commission)
                 BigDecimal stageRefundAmount = calculateProportionalRefund(
                         stagePayment.getAmount(),
-                        totalRefundAmount,
+                        totalCustomerRefundAmount,
                         totalPaidAmount
                 );
 
-                log.info("Refunding stage payment {}: {} VND (proportional from {}), Paid At: {}",
-                        stagePayment.getPaymentId(), stageRefundAmount, stagePayment.getAmount(), stagePayment.getPaidAt());
+                log.info("Refunding stage payment {}: {} VND (proportional from {}, after {}% commission), Paid At: {}",
+                        stagePayment.getPaymentId(), stageRefundAmount, stagePayment.getAmount(), 
+                        commissionRate, stagePayment.getPaidAt());
 
                 // Convert payment date to VNPay format
                 String originalTransactionDate = vnPayUtil.formatVNPayDate(stagePayment.getPaidAt());
 
-                // Call VNPay refund API for this stage
+                // Call VNPay refund API for this stage with PARTIAL refund
                 VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
                         stagePayment.getReferenceId(),   // vnp_TxnRef
                         stagePayment.getTransactionId(), // vnp_TransactionNo
                         originalTransactionDate,          // vnp_TransactionDate
-                        stageRefundAmount,
-                        "Hoàn tiền một phần cho khiếu nại #" + refundTransaction.getComplaint().getComplaintId()
+                        stageRefundAmount,                // Partial refund amount (after commission)
+                        String.format("Hoàn tiền một phần cho khiếu nại #%s (trừ phí sàn %s%%)", 
+                                refundTransaction.getComplaint().getComplaintId(), commissionRate)
                 );
 
                 // Check if VNPay returned an error for this stage
@@ -384,7 +415,7 @@ public class RefundServiceImp implements RefundService {
                     refundTransaction.setOriginalPaymentId(stagePayment.getPaymentId());
                 }
 
-                log.info("Stage refund successful. Refund ID: {}", vnpayResponse.getVnpayRefundId());
+                log.info("Stage partial refund successful. Refund ID: {}", vnpayResponse.getVnpayRefundId());
 
             } catch (org.example.catholicsouvenircustomorder.exception.VNPayTimeoutException e) {
                 // VNPay timeout for this stage (retryable)
@@ -421,7 +452,7 @@ public class RefundServiceImp implements RefundService {
         // Update status based on results
         if (failCount == 0) {
             refundTransaction.setStatus(RefundStatus.PROCESSING);
-            log.info("All stage refunds initiated successfully");
+            log.info("All stage partial refunds initiated successfully");
         } else if (successCount > 0) {
             refundTransaction.setStatus(RefundStatus.PARTIALLY_REFUNDED);
             refundTransaction.setFailureReason(failureReasons.toString());
@@ -442,7 +473,7 @@ public class RefundServiceImp implements RefundService {
                 notificationService.notifyCustomerRefundProcessing(
                         refundTransaction.getComplaint().getCustomer().getAccountId(),
                         refundTransaction.getComplaint().getComplaintId(),
-                        totalRefundAmount
+                        totalCustomerRefundAmount
                 );
             } else if (successCount > 0) {
                 // Partial refund - send custom notification
