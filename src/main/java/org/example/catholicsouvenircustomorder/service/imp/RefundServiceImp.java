@@ -186,6 +186,7 @@ public class RefundServiceImp implements RefundService {
                         // Create a Payment wrapper for StagePayment
                         Payment paymentWrapper = new Payment();
                         paymentWrapper.setPaymentId(stagePayment.getPaymentId());
+                        paymentWrapper.setReferenceId(stagePayment.getReferenceId()); // Include referenceId
                         paymentWrapper.setTransactionId(stagePayment.getTransactionId());
                         paymentWrapper.setAmount(stagePayment.getAmount());
                         paymentWrapper.setStatus(stagePayment.getStatus());
@@ -213,22 +214,30 @@ public class RefundServiceImp implements RefundService {
             BigDecimal amount
     ) throws Exception {
         log.info("Processing regular order refund via VNPay");
-        log.info("Original payment ID: {}, Transaction ID: {}, Paid At: {}",
-                originalPayment.getPaymentId(), originalPayment.getTransactionId(), originalPayment.getPaidAt());
+        log.info("Original payment ID: {}, Reference ID: {}, Transaction ID: {}, Paid At: {}",
+                originalPayment.getPaymentId(), originalPayment.getReferenceId(), 
+                originalPayment.getTransactionId(), originalPayment.getPaidAt());
 
-        // Validate that payment has paidAt date
+        // Validate that payment has required fields
         if (originalPayment.getPaidAt() == null) {
             throw new Exception("Không thể hoàn tiền: Giao dịch gốc không có ngày thanh toán");
+        }
+        if (originalPayment.getReferenceId() == null || originalPayment.getReferenceId().isEmpty()) {
+            throw new Exception("Không thể hoàn tiền: Giao dịch gốc không có mã tham chiếu");
+        }
+        if (originalPayment.getTransactionId() == null || originalPayment.getTransactionId().isEmpty()) {
+            throw new Exception("Không thể hoàn tiền: Giao dịch gốc không có mã giao dịch VNPay");
         }
 
         try {
             // Convert payment date to VNPay format
             String originalTransactionDate = vnPayUtil.formatVNPayDate(originalPayment.getPaidAt());
             
-            // Call VNPay refund API with original transaction date
+            // Call VNPay refund API with correct parameters
             VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
-                    originalPayment.getTransactionId(),
-                    originalTransactionDate,
+                    originalPayment.getReferenceId(),  // vnp_TxnRef: Our reference ID
+                    originalPayment.getTransactionId(), // vnp_TransactionNo: VNPay's transaction number
+                    originalTransactionDate,             // vnp_TransactionDate: Original payment date
                     amount,
                     "Hoàn tiền cho khiếu nại #" + refundTransaction.getComplaint().getComplaintId()
             );
@@ -310,10 +319,26 @@ public class RefundServiceImp implements RefundService {
         // Refund each stage payment proportionally
         for (Payment stagePayment : stagePayments) {
             try {
-                // Validate that payment has paidAt date
+                // Validate that payment has required fields
                 if (stagePayment.getPaidAt() == null) {
                     failCount++;
                     String errorMsg = String.format("Stage %s không có ngày thanh toán",
+                            stagePayment.getPaymentId());
+                    failureReasons.append(errorMsg).append("; ");
+                    log.error("Stage refund failed: {}", errorMsg);
+                    continue;
+                }
+                if (stagePayment.getReferenceId() == null || stagePayment.getReferenceId().isEmpty()) {
+                    failCount++;
+                    String errorMsg = String.format("Stage %s không có mã tham chiếu",
+                            stagePayment.getPaymentId());
+                    failureReasons.append(errorMsg).append("; ");
+                    log.error("Stage refund failed: {}", errorMsg);
+                    continue;
+                }
+                if (stagePayment.getTransactionId() == null || stagePayment.getTransactionId().isEmpty()) {
+                    failCount++;
+                    String errorMsg = String.format("Stage %s không có mã giao dịch VNPay",
                             stagePayment.getPaymentId());
                     failureReasons.append(errorMsg).append("; ");
                     log.error("Stage refund failed: {}", errorMsg);
@@ -335,8 +360,9 @@ public class RefundServiceImp implements RefundService {
 
                 // Call VNPay refund API for this stage
                 VNPayRefundResponse vnpayResponse = vnPayUtil.createRefundRequest(
-                        stagePayment.getTransactionId(),
-                        originalTransactionDate,
+                        stagePayment.getReferenceId(),   // vnp_TxnRef
+                        stagePayment.getTransactionId(), // vnp_TransactionNo
+                        originalTransactionDate,          // vnp_TransactionDate
                         stageRefundAmount,
                         "Hoàn tiền một phần cho khiếu nại #" + refundTransaction.getComplaint().getComplaintId()
                 );
