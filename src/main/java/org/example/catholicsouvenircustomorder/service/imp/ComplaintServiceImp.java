@@ -20,6 +20,7 @@ import org.example.catholicsouvenircustomorder.service.NotificationService;
 import org.example.catholicsouvenircustomorder.service.OfflineRecoveryService;
 import org.example.catholicsouvenircustomorder.service.RefundCalculationService;
 import org.example.catholicsouvenircustomorder.service.RefundService;
+import org.example.catholicsouvenircustomorder.service.SystemConfigService;
 import org.example.catholicsouvenircustomorder.util.VNPayUtil;
 import org.example.catholicsouvenircustomorder.util.VNPayErrorMapper;
 import org.example.catholicsouvenircustomorder.dto.response.VNPayRefundResponse;
@@ -59,6 +60,7 @@ public class ComplaintServiceImp implements ComplaintService {
     private final OfflineRecoveryService offlineRecoveryService;
     private final StagePaymentRepository stagePaymentRepository;
     private final VNPayUtil vnPayUtil;
+    private final SystemConfigService systemConfigService;
     
     /**
      * Create a new complaint for an order
@@ -788,22 +790,33 @@ public class ComplaintServiceImp implements ComplaintService {
     }
     
     /**
-     * Calculate max refund amount (90% of order total)
+     * Calculate max refund amount based on total order amount (including shipping) minus platform commission
+     * Customer paid total amount, so they should get refunded the full amount (minus platform fee)
+     * Artisan bears both product cost and shipping cost when complaint is approved
      * Requirements: 10.5, 10.6
      */
     private BigDecimal calculateMaxRefundAmount(Complaint complaint) {
-        BigDecimal totalPaid;
+        BigDecimal totalAmount;
         
         if (complaint.getOrder() != null) {
-            // For regular order: Get total from order
-            totalPaid = complaint.getOrder().getTotal();
+            // For regular order: Get total amount (including shipping)
+            totalAmount = complaint.getOrder().getTotal();
         } else {
-            // For custom order: Get total from custom order
-            totalPaid = complaint.getCustomOrder().getTotalPrice();
+            // For custom order: Get total price (no shipping fee included)
+            totalAmount = complaint.getCustomOrder().getTotalPrice();
         }
         
-        // Max refund = 90% of total (excluding 10% platform fee)
-        return totalPaid.multiply(new BigDecimal("0.9"));
+        // Get platform commission rate from system config
+        BigDecimal commissionRate = systemConfigService.getCommissionRate();
+        
+        // Calculate max refund = totalAmount * (1 - commissionRate/100)
+        // This is what customer should get back (total paid minus platform fee)
+        BigDecimal commissionMultiplier = BigDecimal.ONE.subtract(
+            commissionRate.divide(new BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP)
+        );
+        
+        return totalAmount.multiply(commissionMultiplier)
+            .setScale(2, java.math.RoundingMode.HALF_UP);
     }
     
     /**
