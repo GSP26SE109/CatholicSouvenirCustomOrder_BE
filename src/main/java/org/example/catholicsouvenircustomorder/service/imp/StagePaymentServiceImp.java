@@ -370,13 +370,6 @@ public class StagePaymentServiceImp implements StagePaymentService {
         return paymentRepository.findByStage_StageIdAndStatus(stageId, PaymentStatus.SUCCESS)
                 .isPresent();
     }
-    
-    @Override
-    public String getReturnUrlByReferenceId(String referenceId) {
-        return paymentRepository.findByReferenceId(referenceId)
-                .map(StagePayment::getReturnUrl)
-                .orElse(null);
-    }
 
     private PaymentType determinePaymentType(CustomOrderStage stage) {
         if (stage.getStageOrder() == 1) {
@@ -462,7 +455,6 @@ public class StagePaymentServiceImp implements StagePaymentService {
                 .stageOrder(payment.getStage() != null ? payment.getStage().getStageOrder() : null)
                 .build();
     }
-}
 
     /**
      * Get return URL from payment by reference ID
@@ -481,3 +473,4 @@ public class StagePaymentServiceImp implements StagePaymentService {
         
         return returnUrl;
     }
+}
