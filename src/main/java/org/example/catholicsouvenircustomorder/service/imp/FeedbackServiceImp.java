@@ -44,8 +44,8 @@ public class FeedbackServiceImp implements FeedbackService {
                  customerId, request.getOrderId(), request.getCustomOrderId(), request.getOrderDetailId());
         
         // 1. Validate that either orderId or customOrderId is provided
-        if (request.getOrderId() == null && request.getCustomOrderId() == null) {
-            throw new IllegalArgumentException("Phải cung cấp orderId hoặc customOrderId");
+        if (request.getOrderId() == null && request.getCustomOrderId() == null && request.getOrderDetailId() == null) {
+            throw new IllegalArgumentException("Phải cung cấp orderId hoặc customOrderId hoặc orderdetailId ");
         }
         
         Order order = null;
