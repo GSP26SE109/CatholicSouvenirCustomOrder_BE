@@ -285,7 +285,7 @@ public class CheckoutServiceImp implements CheckoutService {
             UUID artisanId = entry.getKey();
             List<CartItem> items = entry.getValue();
             
-            BigDecimal total = BigDecimal.ZERO;
+            BigDecimal productTotal = BigDecimal.ZERO;
             List<OrderTemplateDetail> templateDetails = new ArrayList<>();
             
             for (CartItem item : items) {
@@ -313,17 +313,40 @@ public class CheckoutServiceImp implements CheckoutService {
                 detail.setSubtotal(item.getSubtotal());
                 
                 templateDetails.add(detail);
-                total = total.add(item.getSubtotal());
+                productTotal = productTotal.add(item.getSubtotal());
             }
+            
+            // Calculate shipping fee (same logic as product orders)
+            Integer weight = request.getWeight() != null ? request.getWeight() : items.size() * 500;
+            CreateShipmentRequest shipmentRequest = CreateShipmentRequest.builder()
+                    .toDistrictId(request.getToDistrictId())
+                    .toWardCode(request.getToWardCode())
+                    .weight(weight)
+                    .length(request.getLength() != null ? request.getLength() : 20)
+                    .width(request.getWidth() != null ? request.getWidth() : 20)
+                    .height(request.getHeight() != null ? request.getHeight() : 10)
+                    .orderValue(productTotal)
+                    .build();
+            
+            BigDecimal shippingFee;
+            try {
+                shippingFee = shippingService.calculateShippingFee(shipmentRequest);
+            } catch (Exception e) {
+                log.error("GHN API error for artisan {}, using default fee: {}", artisanId, e.getMessage());
+                shippingFee = BigDecimal.valueOf(30000);
+            }
+            
+            BigDecimal total = productTotal.add(shippingFee);
             
             // Create order for this artisan
             Order order = new Order();
             order.setCustomer(cart.getCustomer());
             order.setOrderGroup(orderGroup); // Link to order group
             order.setOrderDate(LocalDateTime.now());
-            order.setTotal(total);
+            order.setTotal(total); // Now includes shipping fee
             order.setStatus("PENDING");
             order.setPaymentMethod(request.getPaymentMethod());
+            order.setShippingFee(shippingFee); // Store shipping fee
             order.setCreateAt(LocalDateTime.now());
             order.setUpdateAt(LocalDateTime.now());
             
@@ -336,8 +359,8 @@ public class CheckoutServiceImp implements CheckoutService {
             order.setTemplateDetails(templateDetails);
             orderTemplateDetailRepository.saveAll(templateDetails);
             
-            log.info("Created template order {} for artisan {} with {} items", 
-                    order.getOrderId(), artisanId, items.size());
+            log.info("Created template order {} for artisan {} with {} items, shipping fee: {}", 
+                    order.getOrderId(), artisanId, items.size(), shippingFee);
             
             orders.add(mapToOrderResponse(order));
         }
