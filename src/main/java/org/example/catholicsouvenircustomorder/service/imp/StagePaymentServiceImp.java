@@ -463,3 +463,21 @@ public class StagePaymentServiceImp implements StagePaymentService {
                 .build();
     }
 }
+
+    /**
+     * Get return URL from payment by reference ID
+     * Used by payment callback to redirect user back to correct URL (web or mobile deep link)
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public String getReturnUrlByReferenceId(String referenceId) {
+        log.info("Getting returnUrl for referenceId: {}", referenceId);
+        
+        StagePayment payment = paymentRepository.findByReferenceId(referenceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy payment với referenceId: " + referenceId));
+        
+        String returnUrl = payment.getReturnUrl();
+        log.info("Found returnUrl: {}", returnUrl);
+        
+        return returnUrl;
+    }
