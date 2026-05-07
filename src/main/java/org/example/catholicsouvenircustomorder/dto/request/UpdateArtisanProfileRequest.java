@@ -18,6 +18,8 @@ public class UpdateArtisanProfileRequest {
     
     @Size(max = 2000, message = "Bio không được vượt quá 2000 ký tự")
     private String bio;
+
+    @Size(min = 10, max = 15, message = "Số điện thoại phải từ 10-15 ký tự")private String phoneNumber;
     
     @Min(value = 0, message = "Số năm kinh nghiệm phải lớn hơn hoặc bằng 0")
     private Integer experienceYears;
