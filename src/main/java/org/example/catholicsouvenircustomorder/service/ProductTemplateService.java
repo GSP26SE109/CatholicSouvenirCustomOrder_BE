@@ -38,4 +38,13 @@ public interface ProductTemplateService {
     BigDecimal calculatePrice(UUID templateId, Map<String, String> zoneInputs);
     
     PriceBreakdownResponse calculatePriceWithBreakdown(UUID templateId, Map<String, String> zoneInputs);
+    
+    // Admin operations
+    TemplateResponse approveTemplate(UUID templateId);
+    
+    TemplateResponse rejectTemplate(UUID templateId);
+    
+    Page<TemplateResponse> getPendingTemplates(Pageable pageable);
+    
+    Page<TemplateResponse> getApprovedTemplates(Pageable pageable);
 }

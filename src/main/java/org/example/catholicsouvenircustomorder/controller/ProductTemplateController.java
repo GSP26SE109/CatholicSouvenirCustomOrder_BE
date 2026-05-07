@@ -189,4 +189,56 @@ public class ProductTemplateController {
         var breakdown = templateService.calculatePriceWithBreakdown(id, zoneInputs);
         return ResponseEntity.ok(BaseResponse.success("Tính giá chi tiết thành công", breakdown));
     }
+    
+    // ==================== ADMIN ENDPOINTS ====================
+    
+    /**
+     * Get pending templates (Admin only)
+     * GET /api/templates/admin/pending
+     */
+    @GetMapping("/admin/pending")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<BaseResponse> getPendingTemplates(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<TemplateResponse> response = templateService.getPendingTemplates(pageable);
+        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách template chờ duyệt thành công", response));
+    }
+    
+    /**
+     * Get approved templates (Admin only)
+     * GET /api/templates/admin/approved
+     */
+    @GetMapping("/admin/approved")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<BaseResponse> getApprovedTemplates(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<TemplateResponse> response = templateService.getApprovedTemplates(pageable);
+        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách template đã duyệt thành công", response));
+    }
+    
+    /**
+     * Approve a template (Admin only)
+     * PUT /api/templates/admin/{id}/approve
+     */
+    @PutMapping("/admin/{id}/approve")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<BaseResponse> approveTemplate(@PathVariable UUID id) {
+        TemplateResponse response = templateService.approveTemplate(id);
+        return ResponseEntity.ok(BaseResponse.success("Duyệt template thành công", response));
+    }
+    
+    /**
+     * Reject a template (Admin only)
+     * PUT /api/templates/admin/{id}/reject
+     */
+    @PutMapping("/admin/{id}/reject")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<BaseResponse> rejectTemplate(@PathVariable UUID id) {
+        TemplateResponse response = templateService.rejectTemplate(id);
+        return ResponseEntity.ok(BaseResponse.success("Từ chối template thành công", response));
+    }
 }

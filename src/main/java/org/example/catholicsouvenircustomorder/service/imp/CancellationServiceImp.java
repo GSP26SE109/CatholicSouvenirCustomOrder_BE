@@ -352,7 +352,7 @@ public class CancellationServiceImp implements CancellationService {
                     stagePayment.getTransactionId(),
                     originalTransactionDate,
                     stageRefundAmount,
-                    "Hoàn tiền hủy đơn #" + order.getCustomOrderId()
+                    "Hoàn tiền hủy đơn " + order.getCustomOrderId()
                 );
                 
                 // Check VNPay response
