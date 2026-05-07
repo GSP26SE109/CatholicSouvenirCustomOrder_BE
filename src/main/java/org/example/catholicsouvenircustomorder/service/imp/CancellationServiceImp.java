@@ -47,6 +47,7 @@ public class CancellationServiceImp implements CancellationService {
     private final StagePaymentRepository stagePaymentRepository;
     private final VNPayUtil vnPayUtil;
     private final NotificationService notificationService;
+    private final org.example.catholicsouvenircustomorder.service.OfflineRecoveryService offlineRecoveryService;
     
     private static final int MIN_REASON_LENGTH = 20;
     private static final int MAX_RETRY_ATTEMPTS = 3;
@@ -103,8 +104,26 @@ public class CancellationServiceImp implements CancellationService {
         if (availableBalance.compareTo(netRefundAmount) < 0) {
             log.error("Insufficient balance: available={}, required={}", 
                 availableBalance, netRefundAmount);
+            
+            // Create offline recovery task for admin
+            String recoveryReason = String.format(
+                "Cancel order - Insufficient balance. Available: %s VND, Required: %s VND",
+                availableBalance, netRefundAmount
+            );
+            
+            try {
+                // Inject OfflineRecoveryService if not already injected
+                if (offlineRecoveryService != null) {
+                    offlineRecoveryService.createRecoveryTask(order, netRefundAmount, recoveryReason);
+                    log.info("Created offline recovery task for order {}", customOrderId);
+                }
+            } catch (Exception e) {
+                log.error("Failed to create recovery task: {}", e.getMessage());
+            }
+            
             throw new InsufficientBalanceException(
-                String.format("Artisan không đủ số dư để hoàn tiền. Cần: %s VND, Có: %s VND",
+                String.format("Artisan không đủ số dư để hoàn tiền. Cần: %s VND, Có: %s VND. " +
+                    "Đã tạo task offline recovery cho admin.",
                     netRefundAmount, availableBalance)
             );
         }

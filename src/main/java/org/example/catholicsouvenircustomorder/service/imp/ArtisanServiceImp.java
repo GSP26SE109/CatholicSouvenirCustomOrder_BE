@@ -49,6 +49,11 @@ public class ArtisanServiceImp implements ArtisanService {
         if (request.getArtisanName() != null && !request.getArtisanName().trim().isEmpty()) {
             artisan.setArtisanName(request.getArtisanName());
         }
+        
+        // Update phone number in Account
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().trim().isEmpty()) {
+            artisan.getAccount().setPhone(request.getPhoneNumber());
+        }
 
         if (request.getBio() != null) {
             artisan.setBio(request.getBio());
@@ -74,6 +79,7 @@ public class ArtisanServiceImp implements ArtisanService {
         return ArtisanResponseDTO.builder()
                 .artisanId(artisan.getArtisanUuid())
                 .artisanName(artisan.getArtisanName())
+                .phoneNumber(artisan.getAccount().getPhone())  // ← PHONE NUMBER HERE
                 .profileImageUrl(artisan.getAccount().getAvt_url())
                 .bio(artisan.getBio())
                 .specialization(artisan.getSpecialization())
@@ -81,7 +87,7 @@ public class ArtisanServiceImp implements ArtisanService {
                 .portfolioUrl(artisan.getPortfolioUrl())
                 .build();
     }
-    
+
     @Override
     @Transactional
     public void blacklistArtisan(UUID artisanId) {
@@ -90,7 +96,7 @@ public class ArtisanServiceImp implements ArtisanService {
         artisan.setBlacklisted(true);
         artisanRepository.save(artisan);
     }
-    
+
     @Override
     @Transactional
     public void unblacklistArtisan(UUID artisanId) {
@@ -99,11 +105,13 @@ public class ArtisanServiceImp implements ArtisanService {
         artisan.setBlacklisted(false);
         artisanRepository.save(artisan);
     }
-    
+
     @Override
     public boolean isArtisanBlacklisted(UUID artisanId) {
         Artisan artisan = artisanRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thợ thủ công với ID: " + artisanId));
         return artisan.isBlacklisted();
     }
+    
+
 }
