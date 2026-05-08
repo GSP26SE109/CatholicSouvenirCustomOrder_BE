@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -134,7 +136,75 @@ public class ProductTemplateServiceImp implements ProductTemplateService {
         }
         
         ProductTemplate savedTemplate = templateRepository.save(template);
+        
+        // Update custom zones if provided
+        if (request.getCustomZones() != null) {
+            updateTemplateCustomZones(savedTemplate, request.getCustomZones());
+        }
+        
+        // Reload template with updated zones
+        savedTemplate = templateRepository.findById(templateId).orElseThrow();
         return mapToTemplateResponse(savedTemplate);
+    }
+    
+    /**
+     * Update custom zones for a template
+     * - If zoneId is provided and exists, update that zone
+     * - If zoneId is null, create new zone
+     * - Delete zones that are not in the request list
+     */
+    private void updateTemplateCustomZones(ProductTemplate template, List<UpdateCustomZoneInTemplateRequest> zoneRequests) {
+        // Get existing zones
+        List<TemplateCustomZone> existingZones = zoneRepository.findByTemplate_TemplateIdOrderBySortOrder(template.getTemplateId());
+        Set<UUID> requestedZoneIds = zoneRequests.stream()
+                .map(UpdateCustomZoneInTemplateRequest::getZoneId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        
+        // Delete zones not in request
+        List<TemplateCustomZone> zonesToDelete = existingZones.stream()
+                .filter(zone -> !requestedZoneIds.contains(zone.getZoneId()))
+                .collect(Collectors.toList());
+        
+        if (!zonesToDelete.isEmpty()) {
+            zoneRepository.deleteAll(zonesToDelete);
+        }
+        
+        // Update or create zones
+        for (UpdateCustomZoneInTemplateRequest zoneReq : zoneRequests) {
+            if (zoneReq.getZoneId() != null) {
+                // Update existing zone
+                TemplateCustomZone zone = zoneRepository.findById(zoneReq.getZoneId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Zone not found: " + zoneReq.getZoneId()));
+                
+                if (!zone.getTemplate().getTemplateId().equals(template.getTemplateId())) {
+                    throw new IllegalArgumentException("Zone does not belong to this template");
+                }
+                
+                zone.setZoneName(zoneReq.getZoneName());
+                zone.setZoneDescription(zoneReq.getZoneDescription());
+                zone.setInputType(zoneReq.getInputType());
+                zone.setInputConstraints(zoneReq.getInputConstraints());
+                zone.setExtraPrice(zoneReq.getExtraPrice() != null ? zoneReq.getExtraPrice() : BigDecimal.ZERO);
+                zone.setIsRequired(zoneReq.getIsRequired());
+                zone.setSortOrder(zoneReq.getSortOrder());
+                
+                zoneRepository.save(zone);
+            } else {
+                // Create new zone
+                TemplateCustomZone newZone = new TemplateCustomZone();
+                newZone.setTemplate(template);
+                newZone.setZoneName(zoneReq.getZoneName());
+                newZone.setZoneDescription(zoneReq.getZoneDescription());
+                newZone.setInputType(zoneReq.getInputType());
+                newZone.setInputConstraints(zoneReq.getInputConstraints());
+                newZone.setExtraPrice(zoneReq.getExtraPrice() != null ? zoneReq.getExtraPrice() : BigDecimal.ZERO);
+                newZone.setIsRequired(zoneReq.getIsRequired());
+                newZone.setSortOrder(zoneReq.getSortOrder());
+                
+                zoneRepository.save(newZone);
+            }
+        }
     }
 
     @Override

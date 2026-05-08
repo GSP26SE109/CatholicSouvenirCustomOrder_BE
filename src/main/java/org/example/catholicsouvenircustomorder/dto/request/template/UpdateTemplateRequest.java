@@ -32,4 +32,8 @@ public class UpdateTemplateRequest {
     private List<String> baseImages;
     
     private Boolean isActive;
+    
+    // List of custom zones to update/replace
+    // If provided, will replace all existing zones with these new ones
+    private List<UpdateCustomZoneInTemplateRequest> customZones;
 }
