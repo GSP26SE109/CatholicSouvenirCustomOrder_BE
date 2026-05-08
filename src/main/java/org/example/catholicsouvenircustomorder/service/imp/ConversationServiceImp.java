@@ -142,7 +142,7 @@ public class ConversationServiceImp implements ConversationService {
         ConversationResponse response = new ConversationResponse();
         response.setConversationId(conversation.getConversationId());
         response.setRequestId(conversation.getRequest().getRequestId());
-        response.setRequestTitle(conversation.getRequest().getDescription());
+        response.setRequestTitle(conversation.getRequest().getTitle());
         response.setCustomerId(conversation.getCustomer().getAccountId());
         response.setCustomerName(conversation.getCustomer().getFullName());
         response.setArtisanId(conversation.getArtisan().getArtisanUuid());

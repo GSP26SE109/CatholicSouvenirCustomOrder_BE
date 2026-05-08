@@ -105,4 +105,46 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
            "WHERE wr.artisan.artisanUuid = :artisanId " +
            "AND wr.status = 'PENDING'")
     BigDecimal getPendingWithdrawalAmount(@Param("artisanId") UUID artisanId);
+    
+    // ==================== Dashboard Statistics Methods ====================
+    
+    /**
+     * Count total withdrawal requests after a specific date
+     */
+    @Query("SELECT COUNT(wr) FROM WithdrawalRequest wr WHERE wr.createdAt >= :startDate")
+    Long countByCreatedAtAfter(@Param("startDate") LocalDateTime startDate);
+    
+    /**
+     * Count pending withdrawal requests
+     */
+    @Query("SELECT COUNT(wr) FROM WithdrawalRequest wr WHERE wr.status = 'PENDING'")
+    Long countPendingRequests();
+    
+    /**
+     * Count approved withdrawal requests after a specific date
+     */
+    @Query("SELECT COUNT(wr) FROM WithdrawalRequest wr " +
+           "WHERE wr.status = 'APPROVED' AND wr.createdAt >= :startDate")
+    Long countApprovedByCreatedAtAfter(@Param("startDate") LocalDateTime startDate);
+    
+    /**
+     * Count rejected withdrawal requests after a specific date
+     */
+    @Query("SELECT COUNT(wr) FROM WithdrawalRequest wr " +
+           "WHERE wr.status = 'REJECTED' AND wr.createdAt >= :startDate")
+    Long countRejectedByCreatedAtAfter(@Param("startDate") LocalDateTime startDate);
+    
+    /**
+     * Sum approved withdrawal amounts after a specific date
+     */
+    @Query("SELECT COALESCE(SUM(wr.amount), 0) FROM WithdrawalRequest wr " +
+           "WHERE wr.status = 'APPROVED' AND wr.createdAt >= :startDate")
+    BigDecimal sumApprovedAmountByCreatedAtAfter(@Param("startDate") LocalDateTime startDate);
+    
+    /**
+     * Sum pending withdrawal amounts
+     */
+    @Query("SELECT COALESCE(SUM(wr.amount), 0) FROM WithdrawalRequest wr " +
+           "WHERE wr.status = 'PENDING'")
+    BigDecimal sumPendingAmount();
 }

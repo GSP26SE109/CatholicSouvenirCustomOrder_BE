@@ -26,7 +26,7 @@ public interface DashboardService {
     List<TopProductDTO> getAdminMostSoldProducts();
     DashboardResponse getAdminDashboardInDays(UUID adminId, int days);
     
-    // New statistics methods for admin dashboard
+    // Existing statistics methods for admin dashboard
     CustomerStatistics getCustomerStatistics(LocalDateTime startDate);
     List<TopCustomerDTO> getTopCustomers();
     ArtisanStatistics getArtisanStatistics();
@@ -36,7 +36,12 @@ public interface DashboardService {
     RevenueBreakdown getRevenueBreakdown(LocalDateTime startDate);
     ProductAnalytics getProductAnalytics();
     
-    // New statistics methods for artisan dashboard
+    // NEW: Admin financial metrics
+    RefundStatistics getRefundStatistics(LocalDateTime startDate);
+    WithdrawalStatistics getWithdrawalStatistics(LocalDateTime startDate);
+    PlatformFinancials getPlatformFinancials(LocalDateTime startDate);
+    
+    // Existing statistics methods for artisan dashboard
     ArtisanFinancialDetails getArtisanFinancialDetails(UUID artisanId, LocalDateTime startDate);
     List<WalletBalanceTrend> getWalletBalanceTrend(UUID artisanId, LocalDateTime startDate);
     ArtisanCustomOrderStats getArtisanCustomOrderStats(UUID artisanId, LocalDateTime startDate);
@@ -45,4 +50,7 @@ public interface DashboardService {
     List<TopCustomerDTO> getArtisanTopCustomers(UUID artisanId, LocalDateTime startDate);
     ArtisanTemplatePerformance getArtisanTemplatePerformance(UUID artisanId, LocalDateTime startDate);
     List<TopTemplateDTO> getArtisanTopTemplates(UUID artisanId, LocalDateTime startDate);
+    
+    // NEW: Artisan refund impact
+    ArtisanRefundImpact getArtisanRefundImpact(UUID artisanId, LocalDateTime startDate);
 }

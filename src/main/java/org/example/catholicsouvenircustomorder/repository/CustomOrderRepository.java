@@ -142,4 +142,46 @@ public interface CustomOrderRepository extends JpaRepository<CustomOrder, UUID> 
            nativeQuery = true)
     Double getAvgCompletionTimeDays(@Param("artisanId") UUID artisanId,
                                     @Param("startDate") LocalDateTime startDate);
+    
+    // ==================== Dashboard Statistics Methods ====================
+    
+    /**
+     * Count cancelled orders after a specific date
+     */
+    @Query("SELECT COUNT(co) FROM CustomOrder co " +
+           "WHERE co.status IN ('CANCELLED_BY_CUSTOMER', 'CANCELLED_BY_ARTISAN') " +
+           "AND co.createdAt >= :startDate")
+    Long countCancellationsByCreatedAtAfter(@Param("startDate") LocalDateTime startDate);
+    
+    /**
+     * Sum cancelled order amounts after a specific date
+     */
+    @Query("SELECT COALESCE(SUM(s.amount), 0) FROM CustomOrder co " +
+           "JOIN co.stages s " +
+           "WHERE co.status IN ('CANCELLED_BY_CUSTOMER', 'CANCELLED_BY_ARTISAN') " +
+           "AND co.createdAt >= :startDate " +
+           "AND s.isPaid = true")
+    BigDecimal sumCancellationAmountByCreatedAtAfter(@Param("startDate") LocalDateTime startDate);
+    
+    /**
+     * Count cancelled orders by artisan after a specific date
+     */
+    @Query("SELECT COUNT(co) FROM CustomOrder co " +
+           "WHERE co.artisan.artisanUuid = :artisanId " +
+           "AND co.status IN ('CANCELLED_BY_CUSTOMER', 'CANCELLED_BY_ARTISAN') " +
+           "AND co.createdAt >= :startDate")
+    Long countCancellationsByArtisanAndCreatedAtAfter(@Param("artisanId") UUID artisanId, 
+                                                       @Param("startDate") LocalDateTime startDate);
+    
+    /**
+     * Sum cancelled order amounts by artisan after a specific date
+     */
+    @Query("SELECT COALESCE(SUM(s.amount), 0) FROM CustomOrder co " +
+           "JOIN co.stages s " +
+           "WHERE co.artisan.artisanUuid = :artisanId " +
+           "AND co.status IN ('CANCELLED_BY_CUSTOMER', 'CANCELLED_BY_ARTISAN') " +
+           "AND co.createdAt >= :startDate " +
+           "AND s.isPaid = true")
+    BigDecimal sumCancellationAmountByArtisanAndCreatedAtAfter(@Param("artisanId") UUID artisanId, 
+                                                                @Param("startDate") LocalDateTime startDate);
 }

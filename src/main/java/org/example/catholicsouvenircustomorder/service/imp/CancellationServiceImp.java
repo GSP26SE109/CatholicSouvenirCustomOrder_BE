@@ -310,14 +310,16 @@ public class CancellationServiceImp implements CancellationService {
             );
         }
         
-        // Validate at least one paid stage exists (Requirement 2.1)
-        boolean hasPaidStage = order.getStages().stream()
-            .anyMatch(CustomOrderStage::getIsPaid);
+        // Validate at least one paid stage exists that can be refunded (Requirement 2.1)
+        // A stage can be refunded if it's PAID but not COMPLETED
+        boolean hasRefundableStage = order.getStages().stream()
+            .filter(CustomOrderStage::getIsPaid)
+            .anyMatch(stage -> stage.getStatus() != StageStatus.COMPLETED);
         
-        if (!hasPaidStage) {
+        if (!hasRefundableStage) {
             throw new CancellationException(
-                "Không có stage nào đã thanh toán để hoàn tiền",
-                CancellationException.NO_PAID_STAGES
+                "Không thể hủy đơn hàng. Tất cả các công đoạn đã thanh toán đều đã hoàn thành, không có gì để hoàn tiền.",
+                CancellationException.NO_REFUNDABLE_STAGES
             );
         }
         

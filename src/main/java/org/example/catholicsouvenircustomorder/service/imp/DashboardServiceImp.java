@@ -40,6 +40,8 @@ public class DashboardServiceImp implements DashboardService {
     private final ConversationRepository conversationRepository;
     private final ProductTemplateRepository productTemplateRepository;
     private final FeedbackRepository feedbackRepository;
+    private final RefundTransactionRepository refundTransactionRepository;
+    private final WalletRepository walletRepository;
 
     // ===== artisan dashboard====//
     @Override
@@ -93,6 +95,7 @@ public class DashboardServiceImp implements DashboardService {
                 .templatePerformance(getArtisanTemplatePerformance(artisanId, start))
                 .artisanTopCustomers(getArtisanTopCustomers(artisanId, start))
                 .topTemplates(getArtisanTopTemplates(artisanId, start))
+                .refundImpact(getArtisanRefundImpact(artisanId, start))
                 .build();
     }
 
@@ -143,6 +146,9 @@ public class DashboardServiceImp implements DashboardService {
                 .productAnalytics(getProductAnalytics())
                 .topCustomers(getTopCustomers())
                 .topArtisans(getTopArtisans())
+                .refundStats(getRefundStatistics(start))
+                .withdrawalStats(getWithdrawalStatistics(start))
+                .platformFinancials(getPlatformFinancials(start))
                 .build();
     }
 
@@ -582,6 +588,282 @@ public class DashboardServiceImp implements DashboardService {
         @Override
         public Double getTemplateConversionRate() {
             return templateConversionRate;
+        }
+    }
+    
+    // ==================== NEW: Admin Financial Metrics ====================
+    
+    @Override
+    public RefundStatistics getRefundStatistics(LocalDateTime startDate) {
+        // Get refund stats from RefundTransactionRepository
+        Long totalRefunds = refundTransactionRepository.countByCreatedAtAfter(startDate);
+        BigDecimal totalRefundAmount = refundTransactionRepository.sumAmountByCreatedAtAfter(startDate);
+        
+        // Get cancellation stats from CustomOrderRepository
+        Long totalCancellations = customOrderRepository.countCancellationsByCreatedAtAfter(startDate);
+        BigDecimal totalCancellationAmount = customOrderRepository.sumCancellationAmountByCreatedAtAfter(startDate);
+        
+        // Calculate refund rate
+        Long totalOrders = orderRepository.countByCreatedAtAfter(startDate);
+        Double refundRate = null;
+        if (totalOrders != null && totalOrders > 0) {
+            refundRate = (totalRefunds.doubleValue() / totalOrders.doubleValue()) * 100;
+        }
+        
+        return new RefundStatisticsImpl(
+            totalRefunds,
+            totalRefundAmount != null ? totalRefundAmount : BigDecimal.ZERO,
+            totalCancellations,
+            totalCancellationAmount != null ? totalCancellationAmount : BigDecimal.ZERO,
+            refundRate
+        );
+    }
+    
+    @Override
+    public WithdrawalStatistics getWithdrawalStatistics(LocalDateTime startDate) {
+        // Get withdrawal stats from WithdrawalRequestRepository
+        Long totalRequests = withdrawalRequestRepository.countByCreatedAtAfter(startDate);
+        Long pendingRequests = withdrawalRequestRepository.countPendingRequests();
+        Long approvedRequests = withdrawalRequestRepository.countApprovedByCreatedAtAfter(startDate);
+        Long rejectedRequests = withdrawalRequestRepository.countRejectedByCreatedAtAfter(startDate);
+        BigDecimal totalWithdrawnAmount = withdrawalRequestRepository.sumApprovedAmountByCreatedAtAfter(startDate);
+        BigDecimal pendingWithdrawalAmount = withdrawalRequestRepository.sumPendingAmount();
+        
+        return new WithdrawalStatisticsImpl(
+            totalRequests != null ? totalRequests : 0L,
+            pendingRequests != null ? pendingRequests : 0L,
+            approvedRequests != null ? approvedRequests : 0L,
+            rejectedRequests != null ? rejectedRequests : 0L,
+            totalWithdrawnAmount != null ? totalWithdrawnAmount : BigDecimal.ZERO,
+            pendingWithdrawalAmount != null ? pendingWithdrawalAmount : BigDecimal.ZERO
+        );
+    }
+    
+    @Override
+    public PlatformFinancials getPlatformFinancials(LocalDateTime startDate) {
+        // Get total commission earned
+        BigDecimal totalCommissionEarned = walletTransactionRepository.sumPlatformCommission(startDate);
+        
+        // Get total locked and available balances across all artisans
+        BigDecimal totalLockedBalance = walletRepository.sumAllLockedBalances();
+        BigDecimal totalAvailableBalance = walletRepository.sumAllAvailableBalances();
+        
+        // Calculate platform revenue (commission - refunds)
+        BigDecimal totalRefundAmount = refundTransactionRepository.sumAmountByCreatedAtAfter(startDate);
+        BigDecimal totalPlatformRevenue = (totalCommissionEarned != null ? totalCommissionEarned : BigDecimal.ZERO)
+            .subtract(totalRefundAmount != null ? totalRefundAmount : BigDecimal.ZERO);
+        
+        return new PlatformFinancialsImpl(
+            totalCommissionEarned != null ? totalCommissionEarned : BigDecimal.ZERO,
+            totalLockedBalance != null ? totalLockedBalance : BigDecimal.ZERO,
+            totalAvailableBalance != null ? totalAvailableBalance : BigDecimal.ZERO,
+            totalPlatformRevenue
+        );
+    }
+    
+    // ==================== NEW: Artisan Refund Impact ====================
+    
+    @Override
+    public ArtisanRefundImpact getArtisanRefundImpact(UUID artisanId, LocalDateTime startDate) {
+        // Get refund stats for this artisan
+        Long totalRefunds = refundTransactionRepository.countByArtisanAndCreatedAtAfter(artisanId, startDate);
+        BigDecimal totalRefundAmount = refundTransactionRepository.sumAmountByArtisanAndCreatedAtAfter(artisanId, startDate);
+        
+        // Get cancellation stats for this artisan
+        Long totalCancellations = customOrderRepository.countCancellationsByArtisanAndCreatedAtAfter(artisanId, startDate);
+        BigDecimal totalCancellationAmount = customOrderRepository.sumCancellationAmountByArtisanAndCreatedAtAfter(artisanId, startDate);
+        
+        // Get current locked and available balance
+        BigDecimal lockedBalance = walletRepository.getLockedBalanceByArtisanId(artisanId);
+        BigDecimal availableBalance = walletRepository.getAvailableBalanceByArtisanId(artisanId);
+        
+        return new ArtisanRefundImpactImpl(
+            totalRefunds != null ? totalRefunds : 0L,
+            totalRefundAmount != null ? totalRefundAmount : BigDecimal.ZERO,
+            totalCancellations != null ? totalCancellations : 0L,
+            totalCancellationAmount != null ? totalCancellationAmount : BigDecimal.ZERO,
+            lockedBalance != null ? lockedBalance : BigDecimal.ZERO,
+            availableBalance != null ? availableBalance : BigDecimal.ZERO
+        );
+    }
+    
+    // ==================== NEW: Implementation Classes ====================
+    
+    private static class RefundStatisticsImpl implements RefundStatistics {
+        private final Long totalRefunds;
+        private final BigDecimal totalRefundAmount;
+        private final Long totalCancellations;
+        private final BigDecimal totalCancellationAmount;
+        private final Double refundRate;
+        
+        public RefundStatisticsImpl(Long totalRefunds, BigDecimal totalRefundAmount,
+                                   Long totalCancellations, BigDecimal totalCancellationAmount,
+                                   Double refundRate) {
+            this.totalRefunds = totalRefunds != null ? totalRefunds : 0L;
+            this.totalRefundAmount = totalRefundAmount;
+            this.totalCancellations = totalCancellations != null ? totalCancellations : 0L;
+            this.totalCancellationAmount = totalCancellationAmount;
+            this.refundRate = refundRate;
+        }
+        
+        @Override
+        public Long getTotalRefunds() {
+            return totalRefunds;
+        }
+        
+        @Override
+        public BigDecimal getTotalRefundAmount() {
+            return totalRefundAmount;
+        }
+        
+        @Override
+        public Long getTotalCancellations() {
+            return totalCancellations;
+        }
+        
+        @Override
+        public BigDecimal getTotalCancellationAmount() {
+            return totalCancellationAmount;
+        }
+        
+        @Override
+        public Double getRefundRate() {
+            return refundRate;
+        }
+    }
+    
+    private static class WithdrawalStatisticsImpl implements WithdrawalStatistics {
+        private final Long totalRequests;
+        private final Long pendingRequests;
+        private final Long approvedRequests;
+        private final Long rejectedRequests;
+        private final BigDecimal totalWithdrawnAmount;
+        private final BigDecimal pendingWithdrawalAmount;
+        
+        public WithdrawalStatisticsImpl(Long totalRequests, Long pendingRequests,
+                                       Long approvedRequests, Long rejectedRequests,
+                                       BigDecimal totalWithdrawnAmount, BigDecimal pendingWithdrawalAmount) {
+            this.totalRequests = totalRequests;
+            this.pendingRequests = pendingRequests;
+            this.approvedRequests = approvedRequests;
+            this.rejectedRequests = rejectedRequests;
+            this.totalWithdrawnAmount = totalWithdrawnAmount;
+            this.pendingWithdrawalAmount = pendingWithdrawalAmount;
+        }
+        
+        @Override
+        public Long getTotalRequests() {
+            return totalRequests;
+        }
+        
+        @Override
+        public Long getPendingRequests() {
+            return pendingRequests;
+        }
+        
+        @Override
+        public Long getApprovedRequests() {
+            return approvedRequests;
+        }
+        
+        @Override
+        public Long getRejectedRequests() {
+            return rejectedRequests;
+        }
+        
+        @Override
+        public BigDecimal getTotalWithdrawnAmount() {
+            return totalWithdrawnAmount;
+        }
+        
+        @Override
+        public BigDecimal getPendingWithdrawalAmount() {
+            return pendingWithdrawalAmount;
+        }
+    }
+    
+    private static class PlatformFinancialsImpl implements PlatformFinancials {
+        private final BigDecimal totalCommissionEarned;
+        private final BigDecimal totalLockedBalance;
+        private final BigDecimal totalAvailableBalance;
+        private final BigDecimal totalPlatformRevenue;
+        
+        public PlatformFinancialsImpl(BigDecimal totalCommissionEarned, BigDecimal totalLockedBalance,
+                                     BigDecimal totalAvailableBalance, BigDecimal totalPlatformRevenue) {
+            this.totalCommissionEarned = totalCommissionEarned;
+            this.totalLockedBalance = totalLockedBalance;
+            this.totalAvailableBalance = totalAvailableBalance;
+            this.totalPlatformRevenue = totalPlatformRevenue;
+        }
+        
+        @Override
+        public BigDecimal getTotalCommissionEarned() {
+            return totalCommissionEarned;
+        }
+        
+        @Override
+        public BigDecimal getTotalLockedBalance() {
+            return totalLockedBalance;
+        }
+        
+        @Override
+        public BigDecimal getTotalAvailableBalance() {
+            return totalAvailableBalance;
+        }
+        
+        @Override
+        public BigDecimal getTotalPlatformRevenue() {
+            return totalPlatformRevenue;
+        }
+    }
+    
+    private static class ArtisanRefundImpactImpl implements ArtisanRefundImpact {
+        private final Long totalRefunds;
+        private final BigDecimal totalRefundAmount;
+        private final Long totalCancellations;
+        private final BigDecimal totalCancellationAmount;
+        private final BigDecimal lockedBalance;
+        private final BigDecimal availableBalance;
+        
+        public ArtisanRefundImpactImpl(Long totalRefunds, BigDecimal totalRefundAmount,
+                                      Long totalCancellations, BigDecimal totalCancellationAmount,
+                                      BigDecimal lockedBalance, BigDecimal availableBalance) {
+            this.totalRefunds = totalRefunds;
+            this.totalRefundAmount = totalRefundAmount;
+            this.totalCancellations = totalCancellations;
+            this.totalCancellationAmount = totalCancellationAmount;
+            this.lockedBalance = lockedBalance;
+            this.availableBalance = availableBalance;
+        }
+        
+        @Override
+        public Long getTotalRefunds() {
+            return totalRefunds;
+        }
+        
+        @Override
+        public BigDecimal getTotalRefundAmount() {
+            return totalRefundAmount;
+        }
+        
+        @Override
+        public Long getTotalCancellations() {
+            return totalCancellations;
+        }
+        
+        @Override
+        public BigDecimal getTotalCancellationAmount() {
+            return totalCancellationAmount;
+        }
+        
+        @Override
+        public BigDecimal getLockedBalance() {
+            return lockedBalance;
+        }
+        
+        @Override
+        public BigDecimal getAvailableBalance() {
+            return availableBalance;
         }
     }
 }
