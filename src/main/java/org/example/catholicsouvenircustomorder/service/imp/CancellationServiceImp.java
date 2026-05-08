@@ -97,18 +97,42 @@ public class CancellationServiceImp implements CancellationService {
         log.info("Refund calculation: gross={}, commission={}, net={}", 
             grossRefundAmount, platformCommission, netRefundAmount);
         
-        // 4. Check Artisan balance (subtask 4.3)
+        // 4. Check Artisan balance and unlock if needed (subtask 4.3)
         Wallet artisanWallet = order.getArtisan().getWallet();
+        BigDecimal currentBalance = artisanWallet.getBalance();
+        BigDecimal lockedBalance = artisanWallet.getLockedBalance() != null ? artisanWallet.getLockedBalance() : BigDecimal.ZERO;
         BigDecimal availableBalance = artisanWallet.getAvailableBalance();
         
-        if (availableBalance.compareTo(netRefundAmount) < 0) {
-            log.error("Insufficient balance: available={}, required={}", 
-                availableBalance, netRefundAmount);
+        log.info("Artisan wallet status: balance={}, locked={}, available={}, refundNeeded={}", 
+            currentBalance, lockedBalance, availableBalance, netRefundAmount);
+        
+        // If available balance is insufficient but total balance is sufficient, unlock the needed amount
+        if (availableBalance.compareTo(netRefundAmount) < 0 && currentBalance.compareTo(netRefundAmount) >= 0) {
+            BigDecimal amountToUnlock = netRefundAmount.subtract(availableBalance);
+            
+            // Make sure we don't unlock more than what's locked
+            if (amountToUnlock.compareTo(lockedBalance) > 0) {
+                amountToUnlock = lockedBalance;
+            }
+            
+            log.info("🔓 Unlocking {} VND from locked balance to process refund", amountToUnlock);
+            artisanWallet.setLockedBalance(lockedBalance.subtract(amountToUnlock));
+            walletRepository.save(artisanWallet);
+            
+            // Recalculate available balance after unlock
+            availableBalance = artisanWallet.getAvailableBalance();
+            log.info("After unlock: locked={}, available={}", artisanWallet.getLockedBalance(), availableBalance);
+        }
+        
+        // Check if balance is still insufficient after unlock attempt
+        if (currentBalance.compareTo(netRefundAmount) < 0) {
+            log.error("Insufficient total balance even after unlock: total={}, required={}", 
+                currentBalance, netRefundAmount);
             
             // Create offline recovery task for admin BEFORE throwing exception
             String recoveryReason = String.format(
-                "Cancel order - Insufficient balance. Available: %s VND, Required: %s VND",
-                availableBalance, netRefundAmount
+                "Cancel order - Insufficient balance. Total: %s VND, Required: %s VND",
+                currentBalance, netRefundAmount
             );
             
             try {
@@ -127,7 +151,7 @@ public class CancellationServiceImp implements CancellationService {
             throw new InsufficientBalanceException(
                 String.format("Artisan không đủ số dư để hoàn tiền. Cần: %s VND, Có: %s VND. " +
                     "Đã tạo task offline recovery cho admin.",
-                    netRefundAmount, availableBalance)
+                    netRefundAmount, currentBalance)
             );
         }
         
