@@ -641,23 +641,11 @@ public class DashboardServiceImp implements DashboardService {
     
     @Override
     public PlatformFinancials getPlatformFinancials(LocalDateTime startDate) {
-        // Get total commission earned
-        BigDecimal totalCommissionEarned = walletTransactionRepository.sumPlatformCommission(startDate);
-        
-        // Get total locked and available balances across all artisans
-        BigDecimal totalLockedBalance = walletRepository.sumAllLockedBalances();
-        BigDecimal totalAvailableBalance = walletRepository.sumAllAvailableBalances();
-        
-        // Calculate platform revenue (commission - refunds)
-        BigDecimal totalRefundAmount = refundTransactionRepository.sumAmountByCreatedAtAfter(startDate);
-        BigDecimal totalPlatformRevenue = (totalCommissionEarned != null ? totalCommissionEarned : BigDecimal.ZERO)
-            .subtract(totalRefundAmount != null ? totalRefundAmount : BigDecimal.ZERO);
+        // Get admin wallet balance (total platform revenue accumulated)
+        BigDecimal adminWalletBalance = walletRepository.getAdminWalletBalance();
         
         return new PlatformFinancialsImpl(
-            totalCommissionEarned != null ? totalCommissionEarned : BigDecimal.ZERO,
-            totalLockedBalance != null ? totalLockedBalance : BigDecimal.ZERO,
-            totalAvailableBalance != null ? totalAvailableBalance : BigDecimal.ZERO,
-            totalPlatformRevenue
+            adminWalletBalance != null ? adminWalletBalance : BigDecimal.ZERO
         );
     }
     
@@ -783,32 +771,10 @@ public class DashboardServiceImp implements DashboardService {
     }
     
     private static class PlatformFinancialsImpl implements PlatformFinancials {
-        private final BigDecimal totalCommissionEarned;
-        private final BigDecimal totalLockedBalance;
-        private final BigDecimal totalAvailableBalance;
         private final BigDecimal totalPlatformRevenue;
         
-        public PlatformFinancialsImpl(BigDecimal totalCommissionEarned, BigDecimal totalLockedBalance,
-                                     BigDecimal totalAvailableBalance, BigDecimal totalPlatformRevenue) {
-            this.totalCommissionEarned = totalCommissionEarned;
-            this.totalLockedBalance = totalLockedBalance;
-            this.totalAvailableBalance = totalAvailableBalance;
+        public PlatformFinancialsImpl(BigDecimal totalPlatformRevenue) {
             this.totalPlatformRevenue = totalPlatformRevenue;
-        }
-        
-        @Override
-        public BigDecimal getTotalCommissionEarned() {
-            return totalCommissionEarned;
-        }
-        
-        @Override
-        public BigDecimal getTotalLockedBalance() {
-            return totalLockedBalance;
-        }
-        
-        @Override
-        public BigDecimal getTotalAvailableBalance() {
-            return totalAvailableBalance;
         }
         
         @Override
