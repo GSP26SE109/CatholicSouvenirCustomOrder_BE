@@ -707,7 +707,8 @@ public class RefundServiceImp implements RefundService {
     private RefundTransactionResponse mapToResponse(RefundTransaction transaction) {
         return RefundTransactionResponse.builder()
                 .refundTransactionId(transaction.getRefundTransactionId())
-                .complaintId(transaction.getComplaint().getComplaintId())
+                .complaintId(transaction.getComplaint() != null ? 
+                        transaction.getComplaint().getComplaintId() : null)
                 .amount(transaction.getAmount())
                 .fromWalletId(transaction.getFromWallet().getWalletId())
                 .fromWalletOwnerName(transaction.getFromWallet().getAccount().getFullName())
