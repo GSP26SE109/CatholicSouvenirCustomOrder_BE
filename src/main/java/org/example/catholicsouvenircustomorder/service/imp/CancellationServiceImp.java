@@ -15,8 +15,10 @@ import org.example.catholicsouvenircustomorder.repository.CustomOrderRepository;
 import org.example.catholicsouvenircustomorder.repository.RefundTransactionRepository;
 import org.example.catholicsouvenircustomorder.repository.StagePaymentRepository;
 import org.example.catholicsouvenircustomorder.repository.WalletRepository;
+import org.example.catholicsouvenircustomorder.repository.WalletTransactionRepository;
 import org.example.catholicsouvenircustomorder.service.CancellationService;
 import org.example.catholicsouvenircustomorder.service.NotificationService;
+import org.example.catholicsouvenircustomorder.service.OfflineRecoveryService;
 import org.example.catholicsouvenircustomorder.service.RefundCalculationService;
 import org.example.catholicsouvenircustomorder.util.VNPayErrorMapper;
 import org.example.catholicsouvenircustomorder.util.VNPayUtil;
@@ -44,12 +46,13 @@ public class CancellationServiceImp implements CancellationService {
     private final RefundCalculationService refundCalculationService;
     private final RefundTransactionRepository refundTransactionRepository;
     private final WalletRepository walletRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
     private final StagePaymentRepository stagePaymentRepository;
     private final VNPayUtil vnPayUtil;
     private final NotificationService notificationService;
-    private final org.example.catholicsouvenircustomorder.service.OfflineRecoveryService offlineRecoveryService;
+    private final OfflineRecoveryService offlineRecoveryService;
     
-    private static final int MIN_REASON_LENGTH = 20;
+    private static final int MIN_REASON_LENGTH = 10;
     private static final int MAX_RETRY_ATTEMPTS = 3;
     
     @Override
@@ -155,11 +158,27 @@ public class CancellationServiceImp implements CancellationService {
             );
         }
         
-        // 5. Deduct from Artisan wallet
-        artisanWallet.setBalance(artisanWallet.getBalance().subtract(netRefundAmount));
+        // 5. Deduct from Artisan wallet and create transaction record
+        BigDecimal balanceBefore = artisanWallet.getBalance();
+        BigDecimal balanceAfter = balanceBefore.subtract(netRefundAmount);
+        artisanWallet.setBalance(balanceAfter);
         walletRepository.save(artisanWallet);
         
-        log.info("Deducted {} VND from artisan wallet", netRefundAmount);
+        // Create wallet transaction for artisan to track the deduction
+        WalletTransaction debitTransaction = new WalletTransaction();
+        debitTransaction.setWallet(artisanWallet);
+        debitTransaction.setType(WalletTransactionType.REFUND_DEBIT);
+        debitTransaction.setAmount(netRefundAmount.negate()); // Negative amount for debit
+        debitTransaction.setBalanceBefore(balanceBefore);
+        debitTransaction.setBalanceAfter(balanceAfter);
+        debitTransaction.setDescription(String.format(
+            "Trừ tiền hoàn lại cho khách hàng - Đơn hàng #%s (Gross: %s VND, Commission: %s VND)",
+            order.getCustomOrderId(), grossRefundAmount, platformCommission
+        ));
+        walletTransactionRepository.save(debitTransaction);
+        
+        log.info("Deducted {} VND from artisan wallet (balance: {} -> {})", 
+            netRefundAmount, balanceBefore, balanceAfter);
         
         // 6. Update CustomOrder with cancellation details
         order.setCancellationReason(reason);
