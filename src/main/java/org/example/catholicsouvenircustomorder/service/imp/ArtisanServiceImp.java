@@ -94,7 +94,7 @@ public class ArtisanServiceImp implements ArtisanService {
     public void blacklistArtisan(UUID artisanId) {
         Artisan artisan = artisanRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thợ thủ công với ID: " + artisanId));
-        artisan.setIsBlacklisted(true);
+        artisan.setBlacklisted(true);
         artisanRepository.save(artisan);
     }
 
@@ -103,7 +103,7 @@ public class ArtisanServiceImp implements ArtisanService {
     public void unblacklistArtisan(UUID artisanId) {
         Artisan artisan = artisanRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thợ thủ công với ID: " + artisanId));
-        artisan.setIsBlacklisted(false);
+        artisan.setBlacklisted(false);
         artisanRepository.save(artisan);
     }
 
