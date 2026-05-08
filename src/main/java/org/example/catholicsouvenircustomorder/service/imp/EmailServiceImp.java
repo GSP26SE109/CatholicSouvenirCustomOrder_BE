@@ -54,7 +54,7 @@ public class EmailServiceImp implements EmailService {
     
     @Override
     public void sendPasswordResetEmail(String toEmail, String resetToken) {
-        String resetUrl = baseUrl + "/reset-password?token=" + resetToken;
+        String resetUrl = baseUrl + "/api/authen/reset-password?token=" + resetToken;
         
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();

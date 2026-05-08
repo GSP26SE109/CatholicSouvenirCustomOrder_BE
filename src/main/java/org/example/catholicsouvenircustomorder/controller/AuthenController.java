@@ -52,13 +52,13 @@ public class AuthenController {
         try {
             authenService.verifyEmail(token);
             // Redirect về trang login của FE với status success
-            String redirectUrl = "https://catholic-souvenir.vercel.app/login?verified=success";
+            String redirectUrl = "https://catholic-souvenir-xi.vercel.app//login?verified=success";
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header("Location", redirectUrl)
                     .build();
         } catch (Exception e) {
             // Redirect về trang login với status error
-            String redirectUrl = "https://catholic-souvenir.vercel.app/login?verified=error&message=" + e.getMessage();
+            String redirectUrl = "https://catholic-souvenir-xi.vercel.app//login?verified=error&message=" + e.getMessage();
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header("Location", redirectUrl)
                     .build();
