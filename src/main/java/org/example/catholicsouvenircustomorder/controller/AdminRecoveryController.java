@@ -224,7 +224,7 @@ public class AdminRecoveryController {
         Account artisanAccount = artisan.getAccount();
         
         // 1. Blacklist artisan and revoke verification
-        artisan.setIsBlacklisted(true);
+        artisan.setBlacklisted(true);
         artisanAccount.setVerified(false); // Revoke account verification
         artisanRepository.save(artisan);
         accountRepository.save(artisanAccount);
@@ -307,7 +307,7 @@ public class AdminRecoveryController {
         Artisan artisan = artisanRepository.findById(artisanId)
             .orElseThrow(() -> new ResourceNotFoundException("Artisan not found"));
         
-        artisan.setIsBlacklisted(false);
+        artisan.setBlacklisted(false);
         artisanRepository.save(artisan);
         
         log.info("Artisan {} has been removed from blacklist", artisanId);
