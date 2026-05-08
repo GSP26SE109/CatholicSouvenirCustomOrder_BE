@@ -162,4 +162,33 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
            "WHERE (od.product.artisan.artisanUuid = :artisanId OR otd.template.artisan.artisanUuid = :artisanId) " +
            "AND o.status = 'DELIVERED'")
     Double getOnTimeDeliveryRate(@Param("artisanId") UUID artisanId);
+    /**
+     * Find orders by artisan with unlock date in the future
+     * Used for calculating days until locked balance is released
+     */
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN o.orderDetails od
+        LEFT JOIN od.product p
+        LEFT JOIN o.templateDetails otd
+        LEFT JOIN otd.template t
+        WHERE (p.artisan.artisanUuid = :artisanId OR t.artisan.artisanUuid = :artisanId)
+        AND o.unlockDate > :now
+        AND o.status = 'PAID'
+    """)
+    List<Order> findByArtisanIdAndUnlockDateAfter(@Param("artisanId") UUID artisanId, @Param("now") LocalDateTime now);
+
+    /**
+     * Find orders eligible for balance release (unlock date passed and status is PAID)
+     * Used by scheduler to release locked balance after 7 days
+     */
+    @Query("""
+        SELECT o
+        FROM Order o
+        WHERE o.unlockDate IS NOT NULL
+        AND o.unlockDate <= :now
+        AND o.status = 'PAID'
+    """)
+    List<Order> findEligibleOrdersForBalanceRelease(@Param("now") LocalDateTime now);
 }

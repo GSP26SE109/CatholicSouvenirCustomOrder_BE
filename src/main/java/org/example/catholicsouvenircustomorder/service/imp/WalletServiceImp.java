@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,9 +31,6 @@ public class WalletServiceImp implements WalletService {
     private final org.example.catholicsouvenircustomorder.repository.PaymentRepository paymentRepository;
     private final org.example.catholicsouvenircustomorder.repository.StagePaymentRepository stagePaymentRepository;
     private final org.example.catholicsouvenircustomorder.service.NotificationService notificationService;
-    
-    // Platform fee rate: 10%
-    private static final BigDecimal PLATFORM_FEE_RATE = new BigDecimal("0.10");
     
     @Override
     @Transactional
@@ -215,17 +213,11 @@ public class WalletServiceImp implements WalletService {
         
         BigDecimal totalAmount = stagePayment.getAmount();
         
-        // Calculate platform fee (10%)
-        BigDecimal platformFee = totalAmount.multiply(PLATFORM_FEE_RATE)
-                .setScale(2, RoundingMode.HALF_UP);
+        // NOTE: This method is deprecated - should use processStagePaymentDistributionWithCommission instead
+        // For backward compatibility, we assume 0% commission
+        log.warn("Using deprecated processStagePaymentDistribution without commission. Consider using processStagePaymentDistributionWithCommission");
         
-        // Calculate artisan amount (90%)
-        BigDecimal artisanAmount = totalAmount.subtract(platformFee);
-        
-        log.info("Distributing stage payment {}: Total={}, PlatformFee={}, ArtisanAmount={}", 
-                stagePayment.getPaymentId(), totalAmount, platformFee, artisanAmount);
-        
-        // Get stage ID safely without navigating through lazy-loaded relationships
+        // Get stage ID safely
         UUID stageId = null;
         try {
             if (stagePayment.getStage() != null) {
@@ -237,15 +229,11 @@ public class WalletServiceImp implements WalletService {
         
         String stageIdStr = stageId != null ? stageId.toString() : "unknown";
         
-        // 1. Deposit to artisan wallet (90%)
-        depositToWallet(artisan.getAccount(), artisanAmount, WalletTransactionType.DEPOSIT, null, stagePayment,
+        // Deposit full amount to artisan wallet (no commission)
+        depositToWallet(artisan.getAccount(), totalAmount, WalletTransactionType.DEPOSIT, null, stagePayment,
                 "Nạp tiền từ custom order stage #" + stageIdStr, BigDecimal.ZERO, null);
         
-        // 2. Collect platform fee to admin wallet (10%)
-        depositToWallet(platformAdmin, platformFee, WalletTransactionType.PLATFORM_FEE, null, stagePayment,
-                "Phí sàn 10% từ custom order stage #" + stageIdStr, BigDecimal.ZERO, null);
-        
-        log.info("Stage payment distribution completed for stage: {}", stageIdStr);
+        log.info("Stage payment distribution completed for stage: {} (no commission)", stageIdStr);
     }
     
     @Override
@@ -264,23 +252,16 @@ public class WalletServiceImp implements WalletService {
         
         BigDecimal totalAmount = stagePayment.getAmount();
         
-        // Calculate platform fee (10%)
-        BigDecimal platformFee = totalAmount.multiply(PLATFORM_FEE_RATE)
-                .setScale(2, RoundingMode.HALF_UP);
+        // Calculate artisan net amount (total - commission)
+        BigDecimal artisanNetAmount = totalAmount.subtract(commissionFee);
         
-        // Calculate artisan amount before commission (90%)
-        BigDecimal artisanAmountBeforeCommission = totalAmount.subtract(platformFee);
-        
-        // Calculate artisan net amount (after commission deduction)
-        BigDecimal artisanNetAmount = artisanAmountBeforeCommission.subtract(commissionFee);
-        
-        // Calculate 70/30 split for partial withdrawal
+        // Calculate 70/30 split for partial withdrawal protection
         BigDecimal lockedPercentage = new BigDecimal("0.30");
         BigDecimal lockedAmount = artisanNetAmount.multiply(lockedPercentage)
                 .setScale(2, RoundingMode.HALF_UP);
         
-        log.info("Distributing stage payment {} with commission and 70/30 split: Total={}, PlatformFee={}, Commission={}, ArtisanNet={}, Locked30%={}", 
-                stagePayment.getPaymentId(), totalAmount, platformFee, commissionFee, artisanNetAmount, lockedAmount);
+        log.info("Distributing stage payment {} with commission and 70/30 split: Total={}, Commission={} ({}%), ArtisanNet={}, Locked30%={}", 
+                stagePayment.getPaymentId(), totalAmount, commissionFee, commissionRate, artisanNetAmount, lockedAmount);
         
         // Get stage ID safely
         UUID stageId = null;
@@ -294,15 +275,16 @@ public class WalletServiceImp implements WalletService {
         
         String stageIdStr = stageId != null ? stageId.toString() : "unknown";
         
-        // 1. Deposit NET AMOUNT to artisan wallet (90% - commission) and lock 30%
+        // 1. Deposit NET AMOUNT to artisan wallet and lock 30%
         WalletTransaction artisanTransaction = depositToWalletWithLock(artisan.getAccount(), artisanNetAmount, lockedAmount, 
                 WalletTransactionType.DEPOSIT, null, stagePayment,
-                "Nạp tiền từ custom order stage #" + stageIdStr + " (70% available, 30% locked)", 
+                String.format("Nạp tiền từ custom order stage #%s (70%% available, 30%% locked)", stageIdStr),
                 commissionFee, commissionRate);
         
-        // 2. Collect platform fee to admin wallet (10%)
-        depositToWallet(platformAdmin, platformFee, WalletTransactionType.PLATFORM_FEE, null, stagePayment,
-                "Phí sàn 10% từ custom order stage #" + stageIdStr, BigDecimal.ZERO, null);
+        // 2. Collect commission to admin wallet
+        depositToWallet(platformAdmin, commissionFee, WalletTransactionType.PLATFORM_FEE, null, stagePayment,
+                String.format("Phí nền tảng %.0f%% từ custom order stage #%s", commissionRate, stageIdStr), 
+                BigDecimal.ZERO, null);
         
         log.info("Stage payment distribution with commission and 70/30 split completed for stage: {}", stageIdStr);
         
@@ -311,6 +293,8 @@ public class WalletServiceImp implements WalletService {
     
     /**
      * Internal method to deposit money to wallet
+     * For product/template orders: Lock 100% for 7 days (complaint protection)
+     * For custom orders: No lock (handled separately with 70/30 split)
      */
     private WalletTransaction depositToWallet(Account account, BigDecimal amount, WalletTransactionType type,
                                   Payment payment, StagePayment stagePayment, String description,
@@ -319,10 +303,34 @@ public class WalletServiceImp implements WalletService {
         
         BigDecimal balanceBefore = wallet.getBalance();
         BigDecimal balanceAfter = balanceBefore.add(amount);
+        BigDecimal lockedBalanceBefore = wallet.getLockedBalance() != null ? wallet.getLockedBalance() : BigDecimal.ZERO;
+        BigDecimal lockedBalanceAfter = lockedBalanceBefore;
+        
+        // LOCK LOGIC: For product/template orders, lock 100% for 7 days
+        boolean shouldLock = false;
+        if (payment != null && type == WalletTransactionType.DEPOSIT) {
+            // This is a product/template order payment (not custom order stage)
+            shouldLock = true;
+            lockedBalanceAfter = lockedBalanceBefore.add(amount);
+            log.info("🔒 Locking {} VND for 7 days (complaint protection period)", amount);
+        }
         
         // Update wallet balance
         wallet.setBalance(balanceAfter);
+        if (shouldLock) {
+            wallet.setLockedBalance(lockedBalanceAfter);
+        }
         walletRepository.save(wallet);
+        
+        // Set unlockDate for all orders in the payment's order group
+        if (shouldLock && payment != null && payment.getOrderGroup() != null) {
+            LocalDateTime unlockDate = LocalDateTime.now().plusDays(7);
+            for (Order order : payment.getOrderGroup().getOrders()) {
+                order.setUnlockDate(unlockDate);
+                orderRepository.save(order);
+                log.info("📅 Order {} unlock date set to: {}", order.getOrderId(), unlockDate);
+            }
+        }
         
         // Create transaction record
         WalletTransaction transaction = new WalletTransaction();
@@ -344,8 +352,14 @@ public class WalletServiceImp implements WalletService {
         
         transaction = walletTransactionRepository.save(transaction);
         
-        log.info("Deposited {} to wallet {}: {} -> {}", amount, wallet.getWalletId(), 
-                balanceBefore, balanceAfter);
+        if (shouldLock) {
+            log.info("Deposited {} to wallet {} WITH LOCK: balance {} -> {}, lockedBalance {} -> {}", 
+                    amount, wallet.getWalletId(), balanceBefore, balanceAfter, 
+                    lockedBalanceBefore, lockedBalanceAfter);
+        } else {
+            log.info("Deposited {} to wallet {}: {} -> {}", amount, wallet.getWalletId(), 
+                    balanceBefore, balanceAfter);
+        }
         
         return transaction;
     }

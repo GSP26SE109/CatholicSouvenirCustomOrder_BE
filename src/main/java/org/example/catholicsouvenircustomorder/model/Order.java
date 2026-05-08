@@ -24,6 +24,12 @@ public class Order {
     private String paymentMethod;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
+    
+    /**
+     * Date when locked balance will be released to artisan (7 days after payment)
+     * Used for complaint protection period
+     */
+    private LocalDateTime unlockDate;
 
     @ManyToOne
     @JoinColumn(name = "customer_id")

@@ -40,6 +40,7 @@ public class WithdrawalServiceImp implements WithdrawalService {
     private final NotificationService notificationService;
     private final BankAccountUtil bankAccountUtil;
     private final ComplaintRepository complaintRepository;
+    private final org.example.catholicsouvenircustomorder.repository.OrderRepository orderRepository;
 
     private static final Logger auditLogger = LoggerFactory.getLogger("AUDIT");
 
@@ -86,12 +87,24 @@ public class WithdrawalServiceImp implements WithdrawalService {
 
         // Calculate available balance (total - locked)
         BigDecimal availableBalance = wallet.getAvailableBalance();
+        
+        // Calculate days until unlock (for better UX message)
+        int daysUntilUnlock = calculateDaysUntilUnlock(artisanId);
 
         if (availableBalance.compareTo(amount) < 0) {
-            throw new InsufficientBalanceException(
-                    String.format("Số dư khả dụng không đủ. Số dư khả dụng: %s VND, Số dư bị khóa: %s VND, Số tiền yêu cầu: %s VND",
-                            availableBalance, wallet.getLockedBalance(), amount)
+            String message = String.format(
+                "Số dư khả dụng không đủ.\n\n" +
+                "• Số dư khả dụng: %,d VND\n" +
+                "• Số dư bị khóa: %,d VND%s\n" +
+                "• Số tiền yêu cầu: %,d VND\n\n" +
+                "💡 Số dư bị khóa là tiền từ đơn hàng trong thời gian bảo vệ khiếu nại (7 ngày). " +
+                "Sau khi hết thời gian bảo vệ, số dư sẽ tự động mở khóa và bạn có thể rút.",
+                availableBalance.longValue(),
+                wallet.getLockedBalance().longValue(),
+                daysUntilUnlock > 0 ? String.format(" (mở khóa sau ~%d ngày)", daysUntilUnlock) : "",
+                amount.longValue()
             );
+            throw new InsufficientBalanceException(message);
         }
 
         // 4. Check no pending withdrawal exists
@@ -465,5 +478,38 @@ public class WithdrawalServiceImp implements WithdrawalService {
                 .artisanName(withdrawal.getArtisan().getAccount().getFullName())
                 .artisanEmail(withdrawal.getArtisan().getAccount().getEmail())
                 .build();
+    }
+    
+    /**
+     * Calculate average days until locked balance is unlocked
+     * Used for better UX message in withdrawal error
+     */
+    private int calculateDaysUntilUnlock(UUID artisanId) {
+        try {
+            // Find orders with unlock date in the future
+            List<Order> ordersWithLock = orderRepository.findByArtisanIdAndUnlockDateAfter(
+                artisanId, LocalDateTime.now()
+            );
+            
+            if (ordersWithLock.isEmpty()) {
+                return 0;
+            }
+            
+            // Calculate average days until unlock
+            long totalDays = ordersWithLock.stream()
+                .mapToLong(order -> {
+                    long days = java.time.Duration.between(
+                        LocalDateTime.now(), 
+                        order.getUnlockDate()
+                    ).toDays();
+                    return Math.max(0, days);
+                })
+                .sum();
+            
+            return (int) Math.ceil((double) totalDays / ordersWithLock.size());
+        } catch (Exception e) {
+            log.warn("Could not calculate days until unlock: {}", e.getMessage());
+            return 7; // Default to 7 days if calculation fails
+        }
     }
 }
