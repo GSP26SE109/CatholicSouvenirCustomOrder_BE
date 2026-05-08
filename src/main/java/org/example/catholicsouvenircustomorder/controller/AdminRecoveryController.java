@@ -1,17 +1,22 @@
 package org.example.catholicsouvenircustomorder.controller;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.catholicsouvenircustomorder.dto.BaseResponse;
 import org.example.catholicsouvenircustomorder.dto.response.RecoveryTaskResponse;
 import org.example.catholicsouvenircustomorder.exception.ResourceNotFoundException;
-import org.example.catholicsouvenircustomorder.model.Artisan;
-import org.example.catholicsouvenircustomorder.model.Notification;
-import org.example.catholicsouvenircustomorder.model.NotificationAction;
+import org.example.catholicsouvenircustomorder.model.*;
+import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.ArtisanRepository;
 import org.example.catholicsouvenircustomorder.repository.NotificationRepository;
+import org.example.catholicsouvenircustomorder.repository.WalletRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -32,6 +37,8 @@ public class AdminRecoveryController {
     
     private final NotificationRepository notificationRepository;
     private final ArtisanRepository artisanRepository;
+    private final AccountRepository accountRepository;
+    private final WalletRepository walletRepository;
     
     /**
      * Get all offline recovery tasks
@@ -64,7 +71,13 @@ public class AdminRecoveryController {
                 String artisanName = null;
                 String artisanEmail = null;
                 String artisanPhone = null;
+                UUID customerId = null;
+                String customerName = null;
+                String customerEmail = null;
+                String customerPhone = null;
                 BigDecimal refundAmount = null;
+                BigDecimal availableBalance = null;
+                BigDecimal lockedBalance = null;
                 UUID orderId = null;
                 String reason = null;
                 
@@ -87,8 +100,26 @@ public class AdminRecoveryController {
                             case "artisanPhone":
                                 artisanPhone = value;
                                 break;
+                            case "customerId":
+                                customerId = UUID.fromString(value);
+                                break;
+                            case "customerName":
+                                customerName = value;
+                                break;
+                            case "customerEmail":
+                                customerEmail = value;
+                                break;
+                            case "customerPhone":
+                                customerPhone = value;
+                                break;
                             case "refundAmount":
                                 refundAmount = new BigDecimal(value);
+                                break;
+                            case "availableBalance":
+                                availableBalance = new BigDecimal(value);
+                                break;
+                            case "lockedBalance":
+                                lockedBalance = new BigDecimal(value);
                                 break;
                             case "orderId":
                                 orderId = UUID.fromString(value);
@@ -112,7 +143,13 @@ public class AdminRecoveryController {
                     .artisanName(artisanName)
                     .email(artisanEmail)
                     .phone(artisanPhone)
+                    .customerId(customerId)
+                    .customerName(customerName)
+                    .customerEmail(customerEmail)
+                    .customerPhone(customerPhone)
                     .refundAmount(refundAmount)
+                    .artisanAvailableBalance(availableBalance)
+                    .artisanLockedBalance(lockedBalance)
                     .orderId(orderId)
                     .reason(reason)
                     .createdAt(notification.getCreatedAt())
@@ -163,23 +200,98 @@ public class AdminRecoveryController {
     }
     
     /**
-     * Blacklist an artisan
+     * Blacklist an artisan and seize locked balance
      * POST /api/admin/artisans/{artisanId}/blacklist
      * Requirements: 5.4, 9.4
+     * 
+     * This will:
+     * 1. Blacklist the artisan
+     * 2. Seize all locked balance from artisan wallet
+     * 3. Transfer locked balance to platform admin wallet
+     * 4. Create wallet transaction records
      */
     @PostMapping("/artisans/{artisanId}/blacklist")
     @PreAuthorize("hasAuthority('ADMIN')")
-    public ResponseEntity<BaseResponse> blacklistArtisan(@PathVariable UUID artisanId) {
+    @Transactional
+    public ResponseEntity<BaseResponse<BlacklistResponse>> blacklistArtisan(@PathVariable UUID artisanId) {
         log.info("Admin blacklisting artisan {}", artisanId);
         
         Artisan artisan = artisanRepository.findById(artisanId)
             .orElseThrow(() -> new ResourceNotFoundException("Artisan not found"));
         
-        artisan.setBlacklisted(true);
-        artisanRepository.save(artisan);
+        Wallet artisanWallet = artisan.getWallet();
+        BigDecimal lockedBalance = artisanWallet.getLockedBalance() != null ? artisanWallet.getLockedBalance() : BigDecimal.ZERO;
+        Account artisanAccount = artisan.getAccount();
         
-        log.info("Artisan {} has been blacklisted", artisanId);
-        return ResponseEntity.ok(BaseResponse.success("Artisan đã bị blacklist", null));
+        // 1. Blacklist artisan and revoke verification
+        artisan.setBlacklisted(true);
+        artisanAccount.setVerified(false); // Revoke account verification
+        artisanRepository.save(artisan);
+        accountRepository.save(artisanAccount);
+        
+        log.info("Blacklisted artisan {} and revoked account verification", artisanId);
+        
+        // 2. Seize locked balance if any
+        BigDecimal seizedAmount = BigDecimal.ZERO;
+        if (lockedBalance.compareTo(BigDecimal.ZERO) > 0) {
+            // Deduct locked balance from artisan wallet
+            artisanWallet.setBalance(artisanWallet.getBalance().subtract(lockedBalance));
+            artisanWallet.setLockedBalance(BigDecimal.ZERO);
+            walletRepository.save(artisanWallet);
+            
+            // Transfer to platform admin wallet
+            Account platformAdmin = accountRepository.findByRole_Name("ADMIN").stream()
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException("Platform admin not found"));
+            
+            Wallet adminWallet = walletRepository.findByAccount(platformAdmin)
+                    .orElseGet(() -> {
+                        Wallet newWallet = new Wallet();
+                        newWallet.setAccount(platformAdmin);
+                        newWallet.setBalance(BigDecimal.ZERO);
+                        newWallet.setLockedBalance(BigDecimal.ZERO);
+                        return walletRepository.save(newWallet);
+                    });
+            
+            adminWallet.setBalance(adminWallet.getBalance().add(lockedBalance));
+            walletRepository.save(adminWallet);
+            
+            seizedAmount = lockedBalance;
+            
+            log.info("Seized {} VND locked balance from blacklisted artisan {} and transferred to admin wallet", 
+                    lockedBalance, artisanId);
+        }
+        
+        BlacklistResponse response = BlacklistResponse.builder()
+                .artisanId(artisanId)
+                .artisanName(artisan.getAccount().getFullName())
+                .blacklisted(true)
+                .accountVerified(false)
+                .seizedLockedBalance(seizedAmount)
+                .message(seizedAmount.compareTo(BigDecimal.ZERO) > 0 
+                        ? String.format("Artisan đã bị blacklist, thu hồi verification và thu hồi %s VND locked balance", seizedAmount)
+                        : "Artisan đã bị blacklist và thu hồi verification (không có locked balance)")
+                .build();
+        
+        log.info("Artisan {} has been blacklisted, verification revoked, seized amount: {}", artisanId, seizedAmount);
+        return ResponseEntity.ok(BaseResponse.<BlacklistResponse>builder()
+                .code(200)
+                .message("Blacklist artisan thành công")
+                .data(response)
+                .build());
+    }
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class BlacklistResponse {
+        private UUID artisanId;
+        private String artisanName;
+        private Boolean blacklisted;
+        private Boolean accountVerified;
+        private BigDecimal seizedLockedBalance;
+        private String message;
     }
     
     /**
