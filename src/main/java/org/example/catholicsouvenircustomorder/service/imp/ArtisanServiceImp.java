@@ -23,7 +23,7 @@ public class ArtisanServiceImp implements ArtisanService {
     @Override
     public Page<ArtisanResponseDTO> getAllArtisans(Pageable pageable) {
         // Only return non-blacklisted artisans
-        Page<Artisan> artisans = artisanRepository.findByBlacklistedFalse(pageable);
+        Page<Artisan> artisans = artisanRepository.findByIsBlacklistedFalse(pageable);
         return artisans.map(this::mapToDTO);
     }
 
@@ -94,7 +94,7 @@ public class ArtisanServiceImp implements ArtisanService {
     public void blacklistArtisan(UUID artisanId) {
         Artisan artisan = artisanRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thợ thủ công với ID: " + artisanId));
-        artisan.setBlacklisted(true);
+        artisan.setIsBlacklisted(true);
         artisanRepository.save(artisan);
     }
 
@@ -103,7 +103,7 @@ public class ArtisanServiceImp implements ArtisanService {
     public void unblacklistArtisan(UUID artisanId) {
         Artisan artisan = artisanRepository.findById(artisanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thợ thủ công với ID: " + artisanId));
-        artisan.setBlacklisted(false);
+        artisan.setIsBlacklisted(false);
         artisanRepository.save(artisan);
     }
 

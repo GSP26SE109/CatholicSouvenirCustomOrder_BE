@@ -20,7 +20,7 @@ public interface ArtisanRepository extends JpaRepository<Artisan, UUID> {
     boolean existsByAccount(Account account);
     
     // Find non-blacklisted artisans
-    Page<Artisan> findByBlacklistedFalse(Pageable pageable);
+    Page<Artisan> findByIsBlacklistedFalse(Pageable pageable);
     
     @Query("SELECT a FROM Artisan a JOIN a.customOrders co WHERE co.customOrderId = :customOrderId")
     Optional<Artisan> findByCustomOrderId(@Param("customOrderId") UUID customOrderId);
