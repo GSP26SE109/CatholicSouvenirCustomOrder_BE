@@ -112,10 +112,18 @@ public class RefundCalculationServiceImp implements RefundCalculationService {
         boolean canCancel = !stageBreakdown.isEmpty() && 
             !order.getStatus().name().startsWith("CANCELLED");
         
-        // Check if artisan has sufficient balance
+        // Check if artisan has sufficient balance (check total balance, not just available)
+        // Because locked balance can be unlocked for refund if needed
         Wallet artisanWallet = order.getArtisan().getWallet();
+        BigDecimal totalBalance = artisanWallet.getBalance();
         BigDecimal availableBalance = artisanWallet.getAvailableBalance();
-        boolean artisanHasSufficientBalance = availableBalance.compareTo(netRefundAmount) >= 0;
+        boolean artisanHasSufficientBalance = totalBalance.compareTo(netRefundAmount) >= 0;
+        
+        // Log for debugging
+        if (!artisanHasSufficientBalance && availableBalance.compareTo(netRefundAmount) < 0) {
+            log.info("Artisan has insufficient available balance ({}) but may have locked balance. Total balance: {}, Required: {}", 
+                availableBalance, totalBalance, netRefundAmount);
+        }
         
         log.info("Refund estimate for order {}: gross={}, commission={}, net={}, canCancel={}, sufficientBalance={}",
             orderId, grossRefundAmount, platformCommission, netRefundAmount, canCancel, artisanHasSufficientBalance);
