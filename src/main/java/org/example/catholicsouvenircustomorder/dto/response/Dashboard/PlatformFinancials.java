@@ -4,11 +4,8 @@ import java.math.BigDecimal;
 
 /**
  * Platform financial metrics (Admin only)
+ * Simplified to show only total platform revenue from admin wallet
  */
 public interface PlatformFinancials {
-    BigDecimal getTotalCommissionEarned();
-    BigDecimal getTotalLockedBalance(); // Sum of all locked balances across artisans
-    BigDecimal getTotalAvailableBalance(); // Sum of all available balances
-    BigDecimal getTotalPlatformRevenue(); // Commission - Refunds
-    BigDecimal getAdminWalletBalance(); // Total balance in admin wallet (platform revenue)
+    BigDecimal getTotalPlatformRevenue(); // Total balance in admin wallet (accumulated platform revenue)
 }
