@@ -4,6 +4,7 @@ import org.example.catholicsouvenircustomorder.dto.response.Dashboard.ArtisanSta
 import org.example.catholicsouvenircustomorder.dto.response.Dashboard.TopArtisanDTO;
 import org.example.catholicsouvenircustomorder.model.Account;
 import org.example.catholicsouvenircustomorder.model.Artisan;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -17,6 +18,9 @@ import java.util.UUID;
 @Repository
 public interface ArtisanRepository extends JpaRepository<Artisan, UUID> {
     boolean existsByAccount(Account account);
+    
+    // Find non-blacklisted artisans
+    Page<Artisan> findByBlacklistedFalse(Pageable pageable);
     
     @Query("SELECT a FROM Artisan a JOIN a.customOrders co WHERE co.customOrderId = :customOrderId")
     Optional<Artisan> findByCustomOrderId(@Param("customOrderId") UUID customOrderId);

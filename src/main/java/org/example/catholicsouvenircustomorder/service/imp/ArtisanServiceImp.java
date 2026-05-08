@@ -22,7 +22,8 @@ public class ArtisanServiceImp implements ArtisanService {
 
     @Override
     public Page<ArtisanResponseDTO> getAllArtisans(Pageable pageable) {
-        Page<Artisan> artisans = artisanRepository.findAll(pageable);
+        // Only return non-blacklisted artisans
+        Page<Artisan> artisans = artisanRepository.findByBlacklistedFalse(pageable);
         return artisans.map(this::mapToDTO);
     }
 

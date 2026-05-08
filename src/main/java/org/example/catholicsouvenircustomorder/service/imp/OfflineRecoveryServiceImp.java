@@ -26,11 +26,22 @@ public class OfflineRecoveryServiceImp implements OfflineRecoveryService {
     public void createRecoveryTask(CustomOrder customOrder, BigDecimal refundAmount, String reason) {
         Artisan artisan = customOrder.getArtisan();
         Account artisanAccount = artisan.getAccount();
+        Account customerAccount = customOrder.getRequest().getCustomer(); // Get customer from request
+        Wallet artisanWallet = artisan.getWallet();
         
         // Extract Artisan info
         String artisanName = artisanAccount.getFullName();
         String artisanEmail = artisanAccount.getEmail();
         String artisanPhone = artisanAccount.getPhone();
+        
+        // Extract Customer info
+        String customerName = customerAccount.getFullName();
+        String customerEmail = customerAccount.getEmail();
+        String customerPhone = customerAccount.getPhone();
+        
+        // Get wallet balances
+        BigDecimal availableBalance = artisanWallet.getAvailableBalance();
+        BigDecimal lockedBalance = artisanWallet.getLockedBalance() != null ? artisanWallet.getLockedBalance() : BigDecimal.ZERO;
         
         // Get all admin accounts
         List<Account> admins = accountRepository.findByRole_Name("ADMIN");
@@ -42,12 +53,16 @@ public class OfflineRecoveryServiceImp implements OfflineRecoveryService {
             notification.setType(NotificationType.OFFLINE_RECOVERY_REQUIRED);
             notification.setTitle("Offline Recovery Required");
             notification.setMessage(String.format(
-                "Artisan %s cannot refund %s VND for order %s. Contact: %s, Phone: %s. Reason: %s",
+                "Artisan %s cannot refund %s VND for order %s. Customer: %s (%s). Contact Artisan: %s, Phone: %s. Available: %s VND, Locked: %s VND. Reason: %s",
                 artisanName,
                 refundAmount,
                 customOrder.getCustomOrderId(),
+                customerName,
+                customerEmail,
                 artisanEmail,
                 artisanPhone,
+                availableBalance,
+                lockedBalance,
                 reason
             ));
             notification.setRelatedEntityId(customOrder.getCustomOrderId());
@@ -57,14 +72,20 @@ public class OfflineRecoveryServiceImp implements OfflineRecoveryService {
             notification.setActionCompleted(false);
             notification.setPriority(NotificationPriority.HIGH);
             
-            // Store metadata as JSON-like string
+            // Store metadata with both artisan and customer info
             String metadata = String.format(
-                "artisanId=%s;artisanName=%s;artisanEmail=%s;artisanPhone=%s;refundAmount=%s;orderId=%s;reason=%s",
+                "artisanId=%s;artisanName=%s;artisanEmail=%s;artisanPhone=%s;customerId=%s;customerName=%s;customerEmail=%s;customerPhone=%s;refundAmount=%s;availableBalance=%s;lockedBalance=%s;orderId=%s;reason=%s",
                 artisan.getArtisanUuid(),
                 artisanName,
                 artisanEmail,
                 artisanPhone,
+                customerAccount.getAccountId(),
+                customerName,
+                customerEmail,
+                customerPhone,
                 refundAmount,
+                availableBalance,
+                lockedBalance,
                 customOrder.getCustomOrderId(),
                 reason
             );
@@ -74,11 +95,15 @@ public class OfflineRecoveryServiceImp implements OfflineRecoveryService {
         }
         
         // Log recovery task with all details
-        log.error("Offline recovery required: artisan={}, email={}, phone={}, amount={}, orderId={}, reason={}",
+        log.error("Offline recovery required: artisan={}, email={}, phone={}, customer={}, customerEmail={}, amount={}, available={}, locked={}, orderId={}, reason={}",
             artisanName,
             artisanEmail,
             artisanPhone,
+            customerName,
+            customerEmail,
             refundAmount,
+            availableBalance,
+            lockedBalance,
             customOrder.getCustomOrderId(),
             reason);
     }
