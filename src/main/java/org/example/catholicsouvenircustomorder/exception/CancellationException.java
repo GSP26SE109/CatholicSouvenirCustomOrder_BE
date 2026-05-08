@@ -16,6 +16,7 @@ public class CancellationException extends RuntimeException {
     public static final String NO_PAID_STAGES = "CANCEL_007";
     public static final String INVALID_ORDER_STATUS = "CANCEL_008";
     public static final String INVALID_INITIATOR = "CANCEL_009";
+    public static final String NO_REFUNDABLE_STAGES = "CANCEL_010";
     
     private final String errorCode;
     
