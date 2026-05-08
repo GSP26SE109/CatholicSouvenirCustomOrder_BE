@@ -40,7 +40,7 @@ public class AdminRecoveryController {
      */
     @GetMapping("/recovery-tasks")
     @PreAuthorize("hasAuthority('ADMIN')")
-    public ResponseEntity<BaseResponse> getRecoveryTasks() {
+    public ResponseEntity<BaseResponse<List<RecoveryTaskResponse>>> getRecoveryTasks() {
         log.info("Admin fetching recovery tasks");
         
         // Find all notifications with REVIEW_RECOVERY action type
@@ -100,9 +100,10 @@ public class AdminRecoveryController {
                     }
                 }
                 
-                // If artisanId not in metadata, try to get from relatedEntityId
+                // If artisanId not in metadata, log warning
                 if (artisanId == null) {
-                    artisanId = notification.getRelatedEntityId();
+                    log.warn("Notification {} missing artisanId in metadata", notification.getNotificationId());
+                    continue; // Skip this notification
                 }
                 
                 RecoveryTaskResponse task = RecoveryTaskResponse.builder()
@@ -128,7 +129,11 @@ public class AdminRecoveryController {
         }
         
         log.info("Found {} recovery tasks", tasks.size());
-        return ResponseEntity.ok(BaseResponse.success("Lấy danh sách recovery tasks thành công", tasks));
+        return ResponseEntity.ok(BaseResponse.<List<RecoveryTaskResponse>>builder()
+                .code(200)
+                .message("Lấy danh sách recovery tasks thành công")
+                .data(tasks)
+                .build());
     }
     
     /**
