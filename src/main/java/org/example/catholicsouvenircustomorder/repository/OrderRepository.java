@@ -191,4 +191,12 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
         AND o.status = 'PAID'
     """)
     List<Order> findEligibleOrdersForBalanceRelease(@Param("now") LocalDateTime now);
+    
+    // ==================== Dashboard Statistics Methods ====================
+    
+    /**
+     * Count total orders after a specific date
+     */
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.createAt >= :startDate")
+    Long countByCreatedAtAfter(@Param("startDate") LocalDateTime startDate);
 }

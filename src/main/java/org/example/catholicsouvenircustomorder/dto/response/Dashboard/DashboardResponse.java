@@ -23,7 +23,7 @@ public class DashboardResponse {
 
     private List<ShortStockProduct> lowStockProducts;
 
-    // New statistics fields
+    // Admin statistics fields
     private CustomerStatistics customerStats;
 
     private ArtisanStatistics artisanStats;
@@ -39,6 +39,13 @@ public class DashboardResponse {
     private List<TopCustomerDTO> topCustomers;
 
     private List<TopArtisanDTO> topArtisans;
+    
+    // NEW: Admin financial metrics
+    private RefundStatistics refundStats;
+    
+    private WithdrawalStatistics withdrawalStats;
+    
+    private PlatformFinancials platformFinancials;
 
     // Artisan-specific fields
     private ArtisanFinancialDetails financialDetails;
@@ -54,4 +61,7 @@ public class DashboardResponse {
     private List<TopCustomerDTO> artisanTopCustomers;
 
     private List<TopTemplateDTO> topTemplates;
+    
+    // NEW: Artisan refund impact
+    private ArtisanRefundImpact refundImpact;
 }

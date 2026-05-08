@@ -87,4 +87,13 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
         BigDecimal getGrossEarnings();
         BigDecimal getTotalCommission();
     }
+    
+    // ==================== Dashboard Statistics Methods ====================
+    
+    /**
+     * Sum total platform commission earned after a specific date
+     */
+    @Query("SELECT COALESCE(SUM(wt.commissionFee), 0) FROM WalletTransaction wt " +
+           "WHERE wt.type = 'PLATFORM_FEE' AND wt.createdAt >= :startDate")
+    BigDecimal sumPlatformCommission(@Param("startDate") LocalDateTime startDate);
 }
