@@ -10,4 +10,5 @@ public interface PlatformFinancials {
     BigDecimal getTotalLockedBalance(); // Sum of all locked balances across artisans
     BigDecimal getTotalAvailableBalance(); // Sum of all available balances
     BigDecimal getTotalPlatformRevenue(); // Commission - Refunds
+    BigDecimal getAdminWalletBalance(); // Total balance in admin wallet (platform revenue)
 }

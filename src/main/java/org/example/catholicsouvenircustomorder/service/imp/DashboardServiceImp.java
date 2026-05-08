@@ -653,11 +653,15 @@ public class DashboardServiceImp implements DashboardService {
         BigDecimal totalPlatformRevenue = (totalCommissionEarned != null ? totalCommissionEarned : BigDecimal.ZERO)
             .subtract(totalRefundAmount != null ? totalRefundAmount : BigDecimal.ZERO);
         
+        // Get admin wallet balance (total platform revenue accumulated)
+        BigDecimal adminWalletBalance = walletRepository.getAdminWalletBalance();
+        
         return new PlatformFinancialsImpl(
             totalCommissionEarned != null ? totalCommissionEarned : BigDecimal.ZERO,
             totalLockedBalance != null ? totalLockedBalance : BigDecimal.ZERO,
             totalAvailableBalance != null ? totalAvailableBalance : BigDecimal.ZERO,
-            totalPlatformRevenue
+            totalPlatformRevenue,
+            adminWalletBalance != null ? adminWalletBalance : BigDecimal.ZERO
         );
     }
     
@@ -787,13 +791,16 @@ public class DashboardServiceImp implements DashboardService {
         private final BigDecimal totalLockedBalance;
         private final BigDecimal totalAvailableBalance;
         private final BigDecimal totalPlatformRevenue;
+        private final BigDecimal adminWalletBalance;
         
         public PlatformFinancialsImpl(BigDecimal totalCommissionEarned, BigDecimal totalLockedBalance,
-                                     BigDecimal totalAvailableBalance, BigDecimal totalPlatformRevenue) {
+                                     BigDecimal totalAvailableBalance, BigDecimal totalPlatformRevenue,
+                                     BigDecimal adminWalletBalance) {
             this.totalCommissionEarned = totalCommissionEarned;
             this.totalLockedBalance = totalLockedBalance;
             this.totalAvailableBalance = totalAvailableBalance;
             this.totalPlatformRevenue = totalPlatformRevenue;
+            this.adminWalletBalance = adminWalletBalance;
         }
         
         @Override
@@ -814,6 +821,11 @@ public class DashboardServiceImp implements DashboardService {
         @Override
         public BigDecimal getTotalPlatformRevenue() {
             return totalPlatformRevenue;
+        }
+        
+        @Override
+        public BigDecimal getAdminWalletBalance() {
+            return adminWalletBalance;
         }
     }
     

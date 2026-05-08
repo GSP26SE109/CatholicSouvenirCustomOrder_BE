@@ -30,4 +30,8 @@ public interface WalletRepository extends JpaRepository<Wallet, UUID> {
     
     @Query("SELECT COALESCE(w.balance - w.lockedBalance, 0) FROM Wallet w WHERE w.account.accountId = :artisanId")
     BigDecimal getAvailableBalanceByArtisanId(@Param("artisanId") UUID artisanId);
+    
+    // Get admin wallet balance (total balance including locked)
+    @Query("SELECT COALESCE(w.balance, 0) FROM Wallet w WHERE w.account.role.name = 'ADMIN'")
+    BigDecimal getAdminWalletBalance();
 }
