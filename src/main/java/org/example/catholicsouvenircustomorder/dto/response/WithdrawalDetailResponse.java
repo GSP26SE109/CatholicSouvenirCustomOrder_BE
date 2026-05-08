@@ -6,7 +6,9 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -23,4 +25,6 @@ public class WithdrawalDetailResponse extends WithdrawalResponse {
     private LocalDateTime cancelledAt;
     
     private UUID processedById;
+    
+
 }

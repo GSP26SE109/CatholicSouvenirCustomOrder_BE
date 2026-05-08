@@ -7,6 +7,7 @@ import org.example.catholicsouvenircustomorder.repository.AccountRepository;
 import org.example.catholicsouvenircustomorder.repository.NotificationRepository;
 import org.example.catholicsouvenircustomorder.service.OfflineRecoveryService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -21,7 +22,7 @@ public class OfflineRecoveryServiceImp implements OfflineRecoveryService {
     private final AccountRepository accountRepository;
     
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void createRecoveryTask(CustomOrder customOrder, BigDecimal refundAmount, String reason) {
         Artisan artisan = customOrder.getArtisan();
         Account artisanAccount = artisan.getAccount();

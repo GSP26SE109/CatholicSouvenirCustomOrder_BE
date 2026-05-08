@@ -105,20 +105,23 @@ public class CancellationServiceImp implements CancellationService {
             log.error("Insufficient balance: available={}, required={}", 
                 availableBalance, netRefundAmount);
             
-            // Create offline recovery task for admin
+            // Create offline recovery task for admin BEFORE throwing exception
             String recoveryReason = String.format(
                 "Cancel order - Insufficient balance. Available: %s VND, Required: %s VND",
                 availableBalance, netRefundAmount
             );
             
             try {
-                // Inject OfflineRecoveryService if not already injected
                 if (offlineRecoveryService != null) {
+                    // Use REQUIRES_NEW to ensure recovery task is saved even if parent transaction rolls back
                     offlineRecoveryService.createRecoveryTask(order, netRefundAmount, recoveryReason);
                     log.info("Created offline recovery task for order {}", customOrderId);
+                } else {
+                    log.error("OfflineRecoveryService is null, cannot create recovery task");
                 }
             } catch (Exception e) {
-                log.error("Failed to create recovery task: {}", e.getMessage());
+                log.error("Failed to create recovery task: {}", e.getMessage(), e);
+                // Don't throw here, we still want to throw InsufficientBalanceException below
             }
             
             throw new InsufficientBalanceException(
